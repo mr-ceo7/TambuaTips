@@ -1,10 +1,9 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
 @import "tailwindcss";
 
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Orbitron", sans-serif;
-  --font-mono: "Share Tech Mono", monospace;
+  --font-display: "Outfit", "Inter", sans-serif;
+  --font-mono: "Share Tech Mono", ui-monospace, monospace;
   
   --color-pitch-dark: #061f10;
   --color-pitch-light: #0a2e18;
@@ -13,11 +12,21 @@
   --color-gold-400: #facc15;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   background-color: #09090b; /* zinc-950 */
   color: #fafafa; /* zinc-50 */
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background-color: rgba(16, 185, 129, 0.3);
+  color: #fafafa;
 }
 
 /* Stadium Pitch Background */
@@ -51,4 +60,19 @@ body {
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+/* Custom scrollbar for main content */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
 }

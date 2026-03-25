@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { NavLink, Link } from 'react-router-dom';
-import { Trophy, Bell, BellRing, Menu, User, X, Home, Calendar, Newspaper, BarChart3, Lightbulb } from 'lucide-react';
+import { Trophy, Bell, BellRing, Menu, User, X, Home, Calendar, Newspaper, BarChart3, Lightbulb, LogOut } from 'lucide-react';
 import { UserProfile } from './UserProfile';
+import { useUser } from '../context/UserContext';
 
 const navItems = [
   { to: '/', label: 'Home', icon: Home },
@@ -12,6 +13,7 @@ const navItems = [
 ];
 
 export function Header() {
+  const { user, isLoggedIn, logout, setShowAuthModal } = useUser();
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -71,12 +73,28 @@ export function Header() {
             </button>
 
             <button
-              onClick={() => setIsProfileOpen(true)}
+              onClick={() => isLoggedIn ? setIsProfileOpen(true) : setShowAuthModal(true)}
               className="p-2 text-zinc-400 hover:text-white transition-all rounded-full hover:bg-zinc-800 hover:scale-110 active:scale-95"
-              title="My Profile"
+              title={isLoggedIn ? user?.username || 'Profile' : 'Sign In'}
             >
-              <User className="w-4 h-4 sm:w-5 sm:h-5" />
+              {isLoggedIn ? (
+                <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-emerald-500 text-zinc-950 flex items-center justify-center text-[10px] sm:text-xs font-bold">
+                  {user?.username?.charAt(0).toUpperCase()}
+                </div>
+              ) : (
+                <User className="w-4 h-4 sm:w-5 sm:h-5" />
+              )}
             </button>
+
+            {isLoggedIn && (
+              <button
+                onClick={logout}
+                className="hidden sm:block p-2 text-zinc-400 hover:text-red-400 transition-all rounded-full hover:bg-zinc-800 hover:scale-110 active:scale-95"
+                title="Sign Out"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            )}
 
             <Link
               to="/tips"

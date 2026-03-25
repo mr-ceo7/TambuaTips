@@ -1,8 +1,10 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { Loader2, Search, ExternalLink, X, ChevronRight, ArrowLeft, Facebook, Twitter, MessageCircle } from 'lucide-react';
 import { fetchNews, FALLBACK_IMAGE, type NewsItem } from '../services/newsService';
+import { usePageTitle } from '../hooks/usePageTitle';
 
 export function NewsPage() {
+  usePageTitle('Football News');
   const [articles, setArticles] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);

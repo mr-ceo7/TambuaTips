@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Loader2, Calendar as CalendarIcon, Filter, Trophy } from 'lucide-react';
 import { fetchFixturesByDate, LEAGUES } from '../services/sportsApiService';
 import { FixtureData } from '../types';
+import { usePageTitle } from '../hooks/usePageTitle';
 
 function getDateStr(offset: number): string {
   const d = new Date();
@@ -22,6 +23,7 @@ function formatDateLabel(dateStr: string): string {
 }
 
 export function FixturesPage() {
+  usePageTitle('Fixtures');
   const [fixtures, setFixtures] = useState<FixtureData[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(getDateStr(0));

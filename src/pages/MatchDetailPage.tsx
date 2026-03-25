@@ -4,8 +4,10 @@ import { Loader2, ArrowLeft, Clock, MapPin, Trophy, TrendingUp, Lock, Zap, Star 
 import { fetchFixtureById } from '../services/sportsApiService';
 import { getTipByFixtureId, type Tip } from '../services/tipsService';
 import { FixtureData } from '../types';
+import { usePageTitle } from '../hooks/usePageTitle';
 
 export function MatchDetailPage() {
+  usePageTitle('Match Detail');
   const { id } = useParams<{ id: string }>();
   const [fixture, setFixture] = useState<FixtureData | null>(null);
   const [tip, setTip] = useState<Tip | undefined>(undefined);

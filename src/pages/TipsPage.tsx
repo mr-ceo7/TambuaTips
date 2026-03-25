@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Zap, Lock, Star, Trophy, ChevronRight, ArrowRight } from 'lucide-react';
 import { getFreeTips, getPremiumTips, getTipStats, type Tip } from '../services/tipsService';
+import { usePageTitle } from '../hooks/usePageTitle';
 
 function TipCard({ tip, locked = false }: { tip: Tip; locked?: boolean; key?: string }) {
   return (
@@ -71,6 +72,7 @@ function TipCard({ tip, locked = false }: { tip: Tip; locked?: boolean; key?: st
 }
 
 export function TipsPage() {
+  usePageTitle('Expert Tips');
   const freeTips = getFreeTips();
   const premiumTips = getPremiumTips();
   const stats = getTipStats();

@@ -3,8 +3,10 @@ import { useSearchParams } from 'react-router-dom';
 import { Loader2, Trophy } from 'lucide-react';
 import { fetchStandings, LEAGUES } from '../services/sportsApiService';
 import { TeamStanding } from '../types';
+import { usePageTitle } from '../hooks/usePageTitle';
 
 export function StandingsPage() {
+  usePageTitle('Standings');
   const [searchParams, setSearchParams] = useSearchParams();
   const initialLeague = parseInt(searchParams.get('league') || '39');
   const [selectedLeague, setSelectedLeague] = useState(initialLeague);

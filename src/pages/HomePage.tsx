@@ -2,11 +2,12 @@ import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { Loader2, ChevronRight, ChevronLeft, Trophy, TrendingUp, Target, Flame, Zap, ArrowRight, ExternalLink } from 'lucide-react';
-import { fetchTodayFixtures } from '../services/sportsApiService';
+import { fetchTodayFixtures, LEAGUES } from '../services/sportsApiService';
 import { fetchNews, mixPromoSlides, FALLBACK_IMAGE, type NewsItem } from '../services/newsService';
 import { getTipStats, getFreeTips } from '../services/tipsService';
-import { LEAGUES } from '../services/sportsApiService';
 import { FixtureData } from '../types';
+import { usePageTitle } from '../hooks/usePageTitle';
+import { PageTransition } from '../components/PageTransition';
 
 function LiveScoreboard({ fixtures }: { fixtures: FixtureData[] }) {
   const liveFixtures = fixtures.filter(f => f.status === 'live');
@@ -183,6 +184,7 @@ function LeagueShortcuts() {
 }
 
 export function HomePage() {
+  usePageTitle('Home');
   const [fixtures, setFixtures] = useState<FixtureData[]>([]);
   const [newsArticles, setNewsArticles] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);

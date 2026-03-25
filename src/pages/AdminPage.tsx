@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { Shield, Plus, Trash2, Edit, Check, X, Bot, Loader2, Star, TrendingUp } from 'lucide-react';
 import { getAllTips, addTip, updateTip, deleteTip, getTipStats, type Tip } from '../services/tipsService';
 import { toast } from 'sonner';
+import { usePageTitle } from '../hooks/usePageTitle';
 
 const ADMIN_PASSWORD = 'tambuatips2026';
 
 export function AdminPage() {
+  usePageTitle('Admin Panel');
   const [isAuth, setIsAuth] = useState(false);
   const [password, setPassword] = useState('');
   const [tips, setTips] = useState<Tip[]>([]);
