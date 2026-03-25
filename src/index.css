@@ -1,0 +1,54 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Orbitron", sans-serif;
+  --font-mono: "Share Tech Mono", monospace;
+  
+  --color-pitch-dark: #061f10;
+  --color-pitch-light: #0a2e18;
+  --color-emerald-500: #10b981;
+  --color-gold-500: #eab308;
+  --color-gold-400: #facc15;
+}
+
+body {
+  background-color: #09090b; /* zinc-950 */
+  color: #fafafa; /* zinc-50 */
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Stadium Pitch Background */
+.bg-pitch {
+  background-color: var(--color-pitch-dark);
+  background-image: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 40px,
+    rgba(255, 255, 255, 0.02) 40px,
+    rgba(255, 255, 255, 0.02) 80px
+  ),
+  radial-gradient(circle at 50% 0%, rgba(16, 185, 129, 0.15) 0%, transparent 70%);
+}
+
+/* Scoreboard LED effect */
+.text-led {
+  font-family: var(--font-mono);
+  text-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
+}
+
+.text-led-gold {
+  font-family: var(--font-mono);
+  text-shadow: 0 0 8px rgba(234, 179, 8, 0.6);
+}
+
+/* Hide scrollbar for ticker */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
