@@ -1,11 +1,11 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { Loader2, ChevronRight, ChevronLeft, Trophy, TrendingUp, Target, Flame, Zap, ArrowRight, ExternalLink } from 'lucide-react';
-import { fetchTodayFixtures, LEAGUES } from '../services/sportsApiService';
-import { fetchNews, mixPromoSlides, FALLBACK_IMAGE, type NewsItem } from '../services/newsService';
+import { Loader2, ChevronRight, ChevronLeft, Trophy, Zap, ArrowRight, ExternalLink, MessageCircle, Twitter, Star, Target } from 'lucide-react';
+import { fetchTodayFixtures, fetchStandings, fetchFixturesByLeague, LEAGUES, ALL_LEAGUE_IDS } from '../services/sportsApiService';
+import { fetchNews, mixPromoSlides, FALLBACK_IMAGE, NewsItem } from '../services/newsService';
 import { getTipStats, getFreeTips } from '../services/tipsService';
-import { FixtureData } from '../types';
+import { FixtureData, TeamStanding } from '../types';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { PageTransition } from '../components/PageTransition';
 
@@ -344,22 +344,26 @@ export function HomePage() {
   usePageTitle('Home');
   const [fixtures, setFixtures] = useState<FixtureData[]>([]);
   const [newsArticles, setNewsArticles] = useState<NewsItem[]>([]);
-  const [loading, setLoading] = useState(true);
   const [selectedLeague, setSelectedLeague] = useState('all');
+  const [standings, setStandings] = useState<TeamStanding[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const stats = getTipStats();
-  const freeTips = getFreeTips();
+  // Use a reliable league for default data if 'all' is selected
+  const activeLeagueId = selectedLeague === 'all' ? LEAGUES.PREMIER_LEAGUE.id : 
+    Object.values(LEAGUES).find(l => l.name === selectedLeague)?.id || LEAGUES.PREMIER_LEAGUE.id;
 
   useEffect(() => {
     const load = async () => {
       setLoading(true);
       try {
-        const [fixturesData, newsData] = await Promise.all([
+        const [fixturesData, newsData, standingsData] = await Promise.all([
           fetchTodayFixtures(),
           fetchNews(1),
+          fetchStandings(activeLeagueId)
         ]);
         setFixtures(fixturesData);
         setNewsArticles(mixPromoSlides(newsData.articles));
+        setStandings(standingsData || []);
       } catch (err) {
         console.error('Failed to load home data:', err);
       } finally {
@@ -367,7 +371,7 @@ export function HomePage() {
       }
     };
     load();
-  }, []);
+  }, [activeLeagueId]);
 
   if (loading) {
     return (
@@ -419,75 +423,84 @@ export function HomePage() {
 
         {/* Right Sidebar */}
         <div className="space-y-6">
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-1 gap-3">
-            <div className="rounded-2xl bg-zinc-900/80 border border-zinc-800 p-4 sm:p-5 flex items-center gap-4 backdrop-blur-sm hover:-translate-y-1 hover:shadow-lg hover:shadow-emerald-500/10 transition-all">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-500">
-                <Target className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-xs text-zinc-400">Win Rate</p>
-                <p className="text-2xl font-display font-bold text-white">{stats.winRate}%</p>
-              </div>
-            </div>
-            <div className="rounded-2xl bg-zinc-900/80 border border-zinc-800 p-4 sm:p-5 flex items-center gap-4 backdrop-blur-sm hover:-translate-y-1 hover:shadow-lg hover:shadow-orange-500/10 transition-all">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-orange-500/10 text-orange-500">
-                <Flame className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-xs text-zinc-400">Tips Record</p>
-                <p className="text-2xl font-display font-bold text-white">{stats.won}W - {stats.lost}L</p>
-              </div>
-            </div>
-            <div className="rounded-2xl bg-zinc-900/80 border border-zinc-800 p-4 sm:p-5 flex items-center gap-4 backdrop-blur-sm hover:-translate-y-1 hover:shadow-lg hover:shadow-blue-500/10 transition-all">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-blue-500/10 text-blue-500">
-                <TrendingUp className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-xs text-zinc-400">Total Tips</p>
-                <p className="text-2xl font-display font-bold text-white">{stats.total}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Free Tips Preview */}
+          {/* Trending MatchesSnippet */}
           <div className="rounded-2xl bg-zinc-900/80 border border-zinc-800 p-5 backdrop-blur-sm">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-bold text-zinc-300 uppercase tracking-wider flex items-center gap-2">
-                <Zap className="w-4 h-4 text-emerald-500" /> Today's Free Tips
+                <Target className="w-4 h-4 text-orange-500" /> Hot Matches
               </h3>
-              <Link to="/tips" className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors">View All</Link>
             </div>
-            {freeTips.length > 0 ? (
-              <div className="space-y-3">
-                {freeTips.slice(0, 3).map(tip => (
-                  <div key={tip.id} className="bg-zinc-950/50 border border-zinc-800 rounded-xl p-3">
-                    <div className="text-xs text-zinc-500 mb-1">{tip.league}</div>
-                    <div className="text-sm font-medium text-zinc-200 mb-1">{tip.homeTeam} vs {tip.awayTeam}</div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-emerald-400">{tip.prediction}</span>
-                      <span className="text-xs text-zinc-500">@ {tip.odds}</span>
+            <div className="space-y-3">
+              {(fixtures.filter(f => f.leagueId && ALL_LEAGUE_IDS.includes(f.leagueId)).length > 0 
+                ? fixtures.filter(f => f.leagueId && ALL_LEAGUE_IDS.includes(f.leagueId)) 
+                : fixtures).slice(0, 3).map(f => (
+                <Link key={f.id} to={`/match/${f.id}`} className="block bg-zinc-950/50 border border-zinc-800 rounded-xl p-3 hover:border-orange-500/30 transition-all">
+                  <div className="text-xs text-zinc-500 mb-1">{f.league}</div>
+                  <div className="flex justify-between items-center text-sm font-medium text-zinc-200">
+                    <span>{f.homeTeam} vs {f.awayTeam}</span>
+                    <span className="text-xs text-zinc-500">
+                      {f.status === 'live' ? <span className="text-emerald-400 animate-pulse">{f.score || 'LIVE'}</span> : new Date(f.matchDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+            <Link to="/fixtures" className="mt-4 w-full py-2.5 bg-zinc-800 text-zinc-300 font-bold rounded-xl hover:bg-zinc-700 transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 text-sm">
+              See All Fixtures <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
+
+          {/* Standings Snippet */}
+          <div className="rounded-2xl bg-zinc-900/80 border border-zinc-800 p-5 backdrop-blur-sm">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-bold text-zinc-300 uppercase tracking-wider flex items-center gap-2">
+                <Trophy className="w-4 h-4 text-yellow-500" /> Top Teams
+              </h3>
+              <Link to="/standings" className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors">Full Table</Link>
+            </div>
+            {standings.length > 0 ? (
+              <div className="space-y-1">
+                {standings.slice(0, 5).map(team => (
+                  <div key={team.team.id} className="flex items-center justify-between p-2 rounded hover:bg-zinc-800/50 transition-colors text-sm">
+                    <div className="flex items-center gap-3">
+                      <span className={`w-5 text-center font-mono text-xs ${team.rank <= 4 ? 'text-emerald-400' : 'text-zinc-500'}`}>{team.rank}</span>
+                      <img src={team.team.logo} alt="" className="w-5 h-5 object-contain" />
+                      <span className="font-medium text-zinc-200 truncate max-w-[120px]">{team.team.name}</span>
                     </div>
+                    <span className="font-bold text-white">{team.points} pts</span>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-zinc-500 text-center py-4">No free tips yet today. Check back soon!</p>
+              <p className="text-sm text-zinc-500 text-center py-4">No standings available.</p>
             )}
-            <Link to="/tips" className="mt-4 w-full py-2.5 bg-emerald-500 text-zinc-950 font-bold rounded-xl hover:bg-emerald-400 transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 text-sm">
-              Get Expert Tips <ArrowRight className="w-4 h-4" />
+            <Link to={`/standings?league=${activeLeagueId}`} className="mt-4 w-full py-2.5 bg-emerald-500 text-zinc-950 font-bold rounded-xl hover:bg-emerald-400 transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 text-sm">
+              View Full Standings <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
 
-          {/* Referral CTA */}
-          <div className="rounded-2xl bg-gradient-to-br from-emerald-500/20 to-blue-500/20 border border-emerald-500/20 p-5 backdrop-blur-sm">
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-2">🎁 Invite & Earn</h3>
-            <p className="text-xs text-zinc-300 leading-relaxed mb-4">
-              Share TambuaTips with friends and unlock free daily premium tips. The more you invite, the more you win!
+          {/* Social Proof */}
+          <div className="rounded-2xl bg-gradient-to-br from-[#061f10] to-zinc-900 border border-emerald-500/20 p-5 backdrop-blur-sm relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-4 opacity-10">
+              <Star className="w-24 h-24 text-emerald-500" />
+            </div>
+            <h3 className="text-sm font-bold text-zinc-300 uppercase tracking-wider mb-4 flex items-center gap-2 relative z-10">
+              <Zap className="w-4 h-4 text-emerald-500" /> Join Our Community
+            </h3>
+            <p className="text-xs text-zinc-400 mb-5 relative z-10 leading-relaxed">
+              Join over <strong className="text-emerald-400">15,000+</strong> members getting daily premium predictions, live alerts, and expert analysis.
             </p>
-            <button className="w-full py-2.5 bg-emerald-500 text-zinc-950 font-bold rounded-xl hover:bg-emerald-400 transition-all hover:scale-[1.02] active:scale-[0.98] text-sm">
-              Share Invite Link
-            </button>
+            <div className="space-y-3 relative z-10">
+              <a href="#" className="w-full py-2.5 bg-[#2AABEE]/10 text-[#2AABEE] border border-[#2AABEE]/20 font-bold rounded-xl hover:bg-[#2AABEE] hover:text-white transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 text-sm group">
+                <MessageCircle className="w-4 h-4 group-hover:-rotate-12 transition-transform" /> Join Telegram
+              </a>
+              <a href="#" className="w-full py-2.5 bg-[#25D366]/10 text-[#25D366] border border-[#25D366]/20 font-bold rounded-xl hover:bg-[#25D366] hover:text-white transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 text-sm group">
+                <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current group-hover:scale-110 transition-transform"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.878-.788-1.47-1.761-1.643-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/></svg> WhatsApp Channel
+              </a>
+              <a href="#" className="w-full py-2.5 bg-zinc-800 text-zinc-300 border border-zinc-700 font-bold rounded-xl hover:bg-zinc-700 hover:text-white transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 text-sm group">
+                <Twitter className="w-4 h-4 group-hover:-translate-y-0.5 transition-transform" /> Follow on X
+              </a>
+            </div>
           </div>
         </div>
       </div>
