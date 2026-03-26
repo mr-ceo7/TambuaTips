@@ -244,12 +244,13 @@ function QuickFixtures({ fixtures, selectedLeague }: { fixtures: FixtureData[]; 
       map.set(f.league, list);
     });
     return Array.from(map.entries());
-  }, [fixtures]);
+  }, [fixtures, selectedLeague]);
 
   return (
     <div className="space-y-4">
-      {grouped.map(([league, matches]) => (
-        <div key={league} className="bg-zinc-900/60 border border-zinc-800 rounded-xl overflow-hidden">
+      {/* Show only first league on mobile if 'all' is selected, show all on desktop */}
+      {grouped.map(([league, matches], index) => (
+        <div key={league} className={`bg-zinc-900/60 border border-zinc-800 rounded-xl overflow-hidden ${selectedLeague === 'all' && index > 0 ? 'hidden sm:block' : ''}`}>
           <div className="px-4 py-2.5 border-b border-zinc-800 bg-zinc-900/80">
             <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">{league}</h4>
           </div>
@@ -284,6 +285,15 @@ function QuickFixtures({ fixtures, selectedLeague }: { fixtures: FixtureData[]; 
           </div>
         </div>
       ))}
+      
+      {/* Mobile View More Button */}
+      {selectedLeague === 'all' && grouped.length > 1 && (
+        <div className="sm:hidden pt-2">
+          <Link to="/fixtures" className="w-full py-3 bg-zinc-800/50 text-emerald-400 font-bold rounded-xl flex items-center justify-center gap-2 text-sm border border-zinc-700/50 hover:bg-zinc-800 transition-colors">
+            View All Matches <ArrowRight className="w-4 h-4" />
+          </Link>
+        </div>
+      )}
     </div>
   );
 }
@@ -406,35 +416,51 @@ export function HomePage() {
       {/* Live Scoreboard */}
       <LiveScoreboard fixtures={fixtures} selectedLeague={selectedLeague} />
 
-      {/* Main Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
-        {/* Left Column: News + Fixtures */}
-        <div className="lg:col-span-2 space-y-6 sm:space-y-8">
-          {/* News Carousel */}
-          <section>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl sm:text-2xl font-display font-bold uppercase">Latest News</h2>
-              <Link to="/news" className="text-sm text-emerald-400 hover:text-emerald-300 flex items-center gap-1 transition-colors">
-                View All <ChevronRight className="w-4 h-4" />
-              </Link>
+      {/* Main Grid: Flex on Mobile (Vertical Order), Grid on Desktop */}
+      <div className="flex flex-col lg:grid lg:grid-cols-3 lg:gap-8 gap-6">
+        
+        {/* 1. HIGH-CONVERTING CTA (Mobile Priority #1, Desktop Top Left) */}
+        <section className="order-1 lg:order-1 lg:col-span-2">
+          <Link to="/tips" className="bg-gradient-to-r from-[#061f10] to-zinc-900 rounded-xl p-4 sm:p-5 flex items-center justify-between gap-4 shadow-lg border border-emerald-500/20 hover:border-emerald-500/40 transition-colors group">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <div className="bg-emerald-500/10 p-2 sm:p-3 rounded-lg backdrop-blur-sm border border-emerald-500/20 group-hover:bg-emerald-500/20 transition-colors">
+                <Zap className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-400" fill="currentColor" />
+              </div>
+              <div>
+                <h3 className="text-white font-bold tracking-wide text-sm sm:text-base">Get Premium Betting Tips</h3>
+                <p className="text-emerald-400/80 text-[10px] sm:text-xs tracking-wide">Unlock expert VIP predictions today</p>
+              </div>
             </div>
-            <NewsCarousel articles={newsArticles} />
-          </section>
-
-          {/* Today's Fixtures */}
-          <section>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-display font-bold uppercase">Today's Matches</h2>
-              <Link to="/fixtures" className="text-sm text-emerald-400 hover:text-emerald-300 flex items-center gap-1 transition-colors">
-                All Fixtures <ChevronRight className="w-4 h-4" />
-              </Link>
+            <div className="flex shrink-0 items-center justify-center bg-emerald-500 text-zinc-950 px-4 sm:px-6 py-2 sm:py-2.5 rounded-lg font-bold text-xs sm:text-sm group-hover:bg-emerald-400 transition-colors">
+              Access Now <ChevronRight className="w-4 h-4 ml-1" />
             </div>
-            <QuickFixtures fixtures={fixtures} selectedLeague={selectedLeague} />
-          </section>
-        </div>
+          </Link>
+        </section>
 
-        {/* Right Sidebar */}
-        <div className="space-y-6">
+        {/* 2. NEWS CAROUSEL (Mobile Priority #2, Desktop Middle Left) */}
+        <section className="order-2 lg:order-2 lg:col-span-2">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl sm:text-2xl font-display font-bold uppercase">Latest News</h2>
+            <Link to="/news" className="text-sm text-emerald-400 hover:text-emerald-300 flex items-center gap-1 transition-colors">
+              View All <ChevronRight className="w-4 h-4" />
+            </Link>
+          </div>
+          <NewsCarousel articles={newsArticles} />
+        </section>
+
+        {/* 3. TODAY'S MATCHES (Mobile Priority #3, Desktop Bottom Left) */}
+        <section className="order-3 lg:order-3 lg:col-span-2">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-display font-bold uppercase">Today's Matches</h2>
+            <Link to="/fixtures" className="text-sm text-emerald-400 hover:text-emerald-300 flex items-center gap-1 transition-colors">
+              All Fixtures <ChevronRight className="w-4 h-4" />
+            </Link>
+          </div>
+          <QuickFixtures fixtures={fixtures} selectedLeague={selectedLeague} />
+        </section>
+
+        {/* 4. RIGHT SIDEBAR (Mobile Priority #4, Desktop Right Sidebar Spanning All Rows) */}
+        <div className="order-4 lg:order-2 lg:col-span-1 lg:row-span-3 space-y-6">
           {/* Trending MatchesSnippet */}
           <div className="rounded-2xl bg-zinc-900/80 border border-zinc-800 p-5 backdrop-blur-sm">
             <div className="flex items-center justify-between mb-4">

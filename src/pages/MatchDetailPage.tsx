@@ -6,6 +6,7 @@ import { getTipByFixtureId, type Tip } from '../services/tipsService';
 import { FixtureData } from '../types';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useBetSlip } from '../context/BetSlipContext';
+import { useUser } from '../context/UserContext';
 
 // MOCK DATA: Since free APIs don't provide deep bookmaker odds or form/H2H, we mock it for the UI/UX simulator demo.
 const MOCK_ODDS = {
@@ -40,6 +41,7 @@ export function MatchDetailPage() {
   const [activeTab, setActiveTab] = useState<'preview' | 'odds' | 'stats' | 'tip'>('preview');
   
   const { addSelection, selections } = useBetSlip();
+  const { user, setShowAuthModal, setShowPricingModal } = useUser();
 
   useEffect(() => {
     const load = async () => {
@@ -118,7 +120,7 @@ export function MatchDetailPage() {
         </div>
 
         <div className="text-center mb-6">
-          <span className="text-xs text-zinc-500 uppercase tracking-widest font-bold tracking-wider">{fixture.league}</span>
+          <span className="text-xs text-zinc-500 uppercase font-bold tracking-wider">{fixture.league}</span>
         </div>
 
         <div className="flex items-center justify-center gap-4 sm:gap-10">
@@ -408,14 +410,17 @@ export function MatchDetailPage() {
                   )}
                 </div>
 
-                {tip.isPremium ? (
+                {tip.isPremium && !user?.isPremium ? (
                   <div className="text-center py-8 relative z-10">
                     <Lock className="w-12 h-12 text-gold-400/50 mx-auto mb-4" />
                     <h4 className="text-xl font-bold text-white mb-2">Premium Tip Locked</h4>
                     <p className="text-sm text-zinc-400 mb-6 max-w-sm mx-auto">Unlock this expert prediction with a Premium TambuaTips subscription to increase your edge.</p>
-                    <Link to="/tips" className="inline-block px-8 py-3 bg-linear-to-r from-gold-600 to-gold-400 text-zinc-950 font-black tracking-wide rounded-xl shadow-lg shadow-gold-500/30 hover:shadow-gold-500/50 transition-all hover:-translate-y-1 text-sm uppercase">
-                      Upgrade to Premium
-                    </Link>
+                    <button 
+                      onClick={() => !user ? setShowAuthModal(true) : setShowPricingModal(true)}
+                      className="inline-block px-8 py-3 bg-linear-to-r from-gold-600 to-gold-400 text-zinc-950 font-black tracking-wide rounded-xl shadow-lg shadow-gold-500/30 hover:shadow-gold-500/50 transition-all hover:-translate-y-1 text-sm uppercase"
+                    >
+                      {user ? 'Upgrade to Premium' : 'Login to Upgrade'}
+                    </button>
                   </div>
                 ) : (
                   <div className="relative z-10">

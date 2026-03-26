@@ -3,8 +3,16 @@ import { Link } from 'react-router-dom';
 import { Zap, Lock, Star, Trophy, ChevronRight, ArrowRight } from 'lucide-react';
 import { getFreeTips, getPremiumTips, getTipStats, type Tip } from '../services/tipsService';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { useUser } from '../context/UserContext';
 
 function TipCard({ tip, locked = false }: { tip: Tip; locked?: boolean; key?: string }) {
+  const { user, setShowAuthModal, setShowPricingModal } = useUser();
+
+  const handleUnlock = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (!user) setShowAuthModal(true);
+    else setShowPricingModal(true);
+  };
   return (
     <div className={`rounded-2xl border p-5 transition-all hover:-translate-y-1 ${
       locked 
@@ -35,10 +43,13 @@ function TipCard({ tip, locked = false }: { tip: Tip; locked?: boolean; key?: st
 
       {/* Prediction */}
       {locked ? (
-        <div className="bg-zinc-950/50 border border-zinc-800 rounded-xl p-4 text-center">
-          <Lock className="w-6 h-6 text-gold-400/40 mx-auto mb-2" />
-          <p className="text-xs text-zinc-500">Unlock with Premium</p>
-        </div>
+        <button 
+          onClick={handleUnlock}
+          className="w-full bg-zinc-950/50 border border-zinc-800 rounded-xl p-4 text-center hover:bg-zinc-900 transition-colors group/btn"
+        >
+          <Lock className="w-6 h-6 text-gold-400/40 mx-auto mb-2 group-hover/btn:text-gold-400 group-hover/btn:-translate-y-1 transition-all" />
+          <p className="text-xs text-zinc-500 font-bold uppercase tracking-wider">Unlock with Premium</p>
+        </button>
       ) : (
         <>
           <div className="bg-zinc-950/50 border border-emerald-500/10 rounded-xl p-4 mb-3">
@@ -73,6 +84,7 @@ function TipCard({ tip, locked = false }: { tip: Tip; locked?: boolean; key?: st
 
 export function TipsPage() {
   usePageTitle('Expert Tips');
+  const { user, setShowAuthModal, setShowPricingModal } = useUser();
   const freeTips = getFreeTips();
   const premiumTips = getPremiumTips();
   const stats = getTipStats();
@@ -134,7 +146,7 @@ export function TipsPage() {
         </div>
         {premiumTips.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {premiumTips.map(tip => <TipCard key={tip.id} tip={tip} locked />)}
+            {premiumTips.map(tip => <TipCard key={tip.id} tip={tip} locked={!user?.isPremium} />)}
           </div>
         ) : (
           <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-8 text-center">
@@ -150,8 +162,11 @@ export function TipsPage() {
         <Trophy className="w-10 h-10 text-emerald-500 mx-auto mb-3" />
         <h3 className="text-xl font-display font-bold text-white mb-2">Unlock Premium Access</h3>
         <p className="text-sm text-zinc-400 mb-4 max-w-md mx-auto">Get all expert predictions, detailed analysis, and priority alerts. Join thousands of winning bettors.</p>
-        <button className="px-8 py-3 bg-emerald-500 text-zinc-950 font-bold rounded-xl hover:bg-emerald-400 transition-all hover:scale-105 text-sm">
-          Go Premium — Starting at $4.99/mo
+        <button 
+          onClick={() => !user ? setShowAuthModal(true) : setShowPricingModal(true)}
+          className="px-8 py-3 bg-emerald-500 text-zinc-950 font-bold rounded-xl hover:bg-emerald-400 transition-all hover:scale-105 text-sm"
+        >
+          Go Premium — Starting at $11.00/mo
         </button>
       </div>
     </div>

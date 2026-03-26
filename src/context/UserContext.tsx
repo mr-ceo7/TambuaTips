@@ -6,12 +6,16 @@ export interface UserData {
   username: string;
   email: string;
   createdAt: string;
+  isPremium?: boolean;
 }
 
 interface UserContextType {
   // Auth
   user: UserData | null;
   isLoggedIn: boolean;
+  upgradeToPremium: () => void;
+  showPricingModal: boolean;
+  setShowPricingModal: (show: boolean) => void;
   login: (email: string, password: string) => { success: boolean; error?: string };
   signup: (username: string, email: string, password: string) => { success: boolean; error?: string };
   logout: () => void;
@@ -37,7 +41,7 @@ const UserContext = createContext<UserContextType | undefined>(undefined);
 const USERS_KEY = 'tambuatips_users';
 const SESSION_KEY = 'tambuatips_session';
 
-function loadUsers(): Record<string, { username: string; email: string; password: string; createdAt: string }> {
+function loadUsers(): Record<string, { username: string; email: string; password: string; createdAt: string; isPremium?: boolean }> {
   try {
     const raw = localStorage.getItem(USERS_KEY);
     return raw ? JSON.parse(raw) : {};
@@ -51,6 +55,7 @@ function saveUsers(users: Record<string, any>) {
 export function UserProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserData | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showPricingModal, setShowPricingModal] = useState(false);
   const [favoriteTeams, setFavoriteTeams] = useState<string[]>([]);
   const [favoriteLeagues, setFavoriteLeagues] = useState<number[]>([]);
   const [notifiedMatches, setNotifiedMatches] = useState<string[]>([]);
@@ -64,7 +69,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       const users = loadUsers();
       const userData = users[sessionId];
       if (userData) {
-        setUser({ id: sessionId, username: userData.username, email: userData.email, createdAt: userData.createdAt });
+        setUser({ id: sessionId, username: userData.username, email: userData.email, createdAt: userData.createdAt, isPremium: userData.isPremium });
       }
     }
 
@@ -96,11 +101,11 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     }
 
     const id = crypto.randomUUID();
-    const newUser = { username: username.trim(), email: normalizedEmail, password, createdAt: new Date().toISOString() };
+    const newUser = { username: username.trim(), email: normalizedEmail, password, createdAt: new Date().toISOString(), isPremium: false };
     users[id] = newUser;
     saveUsers(users);
     localStorage.setItem(SESSION_KEY, id);
-    setUser({ id, username: newUser.username, email: newUser.email, createdAt: newUser.createdAt });
+    setUser({ id, username: newUser.username, email: newUser.email, createdAt: newUser.createdAt, isPremium: false });
     setShowAuthModal(false);
     return { success: true };
   }, []);
@@ -112,7 +117,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     for (const [id, u] of Object.entries(users)) {
       if (u.email === normalizedEmail && u.password === password) {
         localStorage.setItem(SESSION_KEY, id);
-        setUser({ id, username: u.username, email: u.email, createdAt: u.createdAt });
+        setUser({ id, username: u.username, email: u.email, createdAt: u.createdAt, isPremium: u.isPremium });
         setShowAuthModal(false);
         return { success: true };
       }
@@ -120,6 +125,17 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
     return { success: false, error: 'Invalid email or password' };
   }, []);
+
+  const upgradeToPremium = useCallback(() => {
+    if (user) {
+      const users = loadUsers();
+      if (users[user.id]) {
+        users[user.id].isPremium = true;
+        saveUsers(users);
+        setUser(prev => prev ? { ...prev, isPremium: true } : prev);
+      }
+    }
+  }, [user]);
 
   const logout = useCallback(() => {
     localStorage.removeItem(SESSION_KEY);
@@ -168,7 +184,9 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <UserContext.Provider value={{
-      user, isLoggedIn: !!user, login, signup, logout, showAuthModal, setShowAuthModal,
+      user, isLoggedIn: !!user, login, signup, logout, upgradeToPremium, 
+      showAuthModal, setShowAuthModal,
+      showPricingModal, setShowPricingModal,
       favoriteTeams, toggleFavoriteTeam, favoriteLeagues, toggleFavoriteLeague,
       notifiedMatches, toggleMatchNotification, notifiedLeagues, toggleLeagueNotification,
       bettingHistory, addBet,
