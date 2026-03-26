@@ -119,17 +119,23 @@ export async function apiFetch(endpoint: string): Promise<any> {
       
       incrementKeyUsage(key);
       
-      if (response.status === 429) {
-        // Rate limited, try next key
-        console.warn(`API key ...${key.slice(-4)} rate limited, rotating...`);
-        continue;
+      const data = await response.json();
+      
+      // API-Football returns 200 OK but includes an 'errors' object for suspensions/rate limits
+      if (data.errors && Object.keys(data.errors).length > 0) {
+        const errStr = JSON.stringify(data.errors).toLowerCase();
+        if (errStr.includes('rate') || errStr.includes('suspended') || errStr.includes('forbidden')) {
+          console.warn(`API key ...${key.slice(-4)} rate limited or suspended, rotating...`);
+          // Mark this key as exhausted for today so we don't try it again
+          const usage = loadUsage();
+          usage[key] = { count: DAILY_LIMIT_PER_KEY, date: getTodayStr() };
+          saveUsage(usage);
+          continue;
+        }
+        throw new Error(`API Error: ${JSON.stringify(data.errors)}`);
       }
       
-      if (!response.ok) {
-        throw new Error(`API request failed: ${response.status} ${response.statusText}`);
-      }
-      
-      return await response.json();
+      return data;
     } catch (err: any) {
       if (err.message?.includes('rate') || err.message?.includes('429')) {
         console.warn(`API key ...${key.slice(-4)} failed, trying next...`);

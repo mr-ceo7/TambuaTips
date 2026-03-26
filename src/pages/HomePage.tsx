@@ -63,8 +63,14 @@ function LiveScoreboard({ fixtures, selectedLeague }: { fixtures: FixtureData[];
               <div className="text-[10px] text-zinc-500 mb-2 truncate">{f.league}</div>
               <div className="flex items-center justify-between gap-3">
                 <div className="flex-1">
-                  <div className="text-xs font-medium text-zinc-200 truncate">{f.homeTeam}</div>
-                  <div className="text-xs font-medium text-zinc-200 truncate">{f.awayTeam}</div>
+                  <div className="flex items-center gap-2 mb-1">
+                    {f.homeLogo && <img src={f.homeLogo} alt="" className="w-3.5 h-3.5 object-contain" />}
+                    <div className="text-xs font-medium text-zinc-200 truncate">{f.homeTeam}</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {f.awayLogo && <img src={f.awayLogo} alt="" className="w-3.5 h-3.5 object-contain" />}
+                    <div className="text-xs font-medium text-zinc-200 truncate">{f.awayTeam}</div>
+                  </div>
                 </div>
                 <div className="text-right">
                   <div className="text-sm font-display font-bold text-led text-emerald-400">{f.score || '0 - 0'}</div>
@@ -251,8 +257,14 @@ function QuickFixtures({ fixtures, selectedLeague }: { fixtures: FixtureData[]; 
             {matches.slice(0, 5).map(f => (
               <Link key={f.id} to={`/match/${f.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-zinc-800/30 transition-colors">
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm text-zinc-200 truncate">{f.homeTeam}</div>
-                  <div className="text-sm text-zinc-200 truncate">{f.awayTeam}</div>
+                  <div className="flex items-center gap-2 mb-0.5">
+                    {f.homeLogo && <img src={f.homeLogo} alt="" className="w-4 h-4 object-contain" />}
+                    <div className="text-sm text-zinc-200 truncate">{f.homeTeam}</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {f.awayLogo && <img src={f.awayLogo} alt="" className="w-4 h-4 object-contain" />}
+                    <div className="text-sm text-zinc-200 truncate">{f.awayTeam}</div>
+                  </div>
                 </div>
                 <div className="text-right flex-shrink-0">
                   {f.status === 'live' ? (
@@ -454,7 +466,10 @@ export function HomePage() {
           <div className="rounded-2xl bg-zinc-900/80 border border-zinc-800 p-5 backdrop-blur-sm">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-bold text-zinc-300 uppercase tracking-wider flex items-center gap-2">
-                <Trophy className="w-4 h-4 text-yellow-500" /> Top Teams
+                <Trophy className="w-4 h-4 text-yellow-500" /> Top Teams 
+                <span className="text-zinc-500 font-normal truncate max-w-[120px]">
+                  • {Object.values(LEAGUES).find(l => l.id === activeLeagueId)?.name || 'Premier League'}
+                </span>
               </h3>
               <Link to="/standings" className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors">Full Table</Link>
             </div>
