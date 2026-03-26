@@ -47,17 +47,89 @@ function LiveScoreboard({ fixtures }: { fixtures: FixtureData[] }) {
   );
 }
 
+function AnimatedPremiumAd() {
+  return (
+    <div className="absolute inset-0 w-full h-full bg-zinc-950 overflow-hidden">
+      {/* Video Background with Invert Trick to make white bg into dark theme context */}
+      <video 
+        autoPlay 
+        loop 
+        muted 
+        playsInline 
+        className="absolute inset-0 w-full h-full object-cover mix-blend-screen border-none invert hue-rotate-180 brightness-110 opacity-70"
+      >
+        <source src="/tambua-brand.mp4" type="video/mp4" />
+      </video>
+
+      {/* Dark gradient overlay for text readability */}
+      <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/80 to-transparent" />
+      
+      {/* Animated Content */}
+      <div className="absolute inset-0 p-5 sm:p-8 flex flex-col justify-end pointer-events-none">
+        <motion.div 
+           initial={{ y: 20, opacity: 0 }}
+           animate={{ y: 0, opacity: 1 }}
+           transition={{ delay: 0.2 }}
+        >
+          <span className="inline-block px-3 py-1 bg-gold-500 text-zinc-950 text-[10px] font-bold uppercase tracking-wider rounded mb-3 shadow-[0_0_15px_rgba(234,179,8,0.4)]">
+            Premium Access
+          </span>
+          <h3 className="text-xl sm:text-3xl font-display font-bold text-white leading-tight mb-4 drop-shadow-md">
+            Unlock Expert Tips with 75%+ Win Rate
+          </h3>
+          
+          {/* Steps Animation */}
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mb-5 pointer-events-auto">
+            {[
+              { step: 1, text: "Click Get Premium" },
+              { step: 2, text: "Unlock Daily Tips" },
+              { step: 3, text: "Start Winning" }
+            ].map((s, i) => (
+              <motion.div 
+                key={s.step}
+                initial={{ x: -10, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                transition={{ delay: 0.4 + (i * 0.15) }}
+                className="flex items-center gap-2 bg-zinc-900/60 backdrop-blur-sm border border-gold-500/20 px-3 py-1.5 sm:py-2 rounded-lg"
+              >
+                <span className="flex items-center justify-center w-5 h-5 rounded-full bg-gold-500/20 text-gold-400 text-xs font-bold">
+                  {s.step}
+                </span>
+                <span className="text-[10px] sm:text-xs font-medium text-zinc-200">{s.text}</span>
+              </motion.div>
+            ))}
+          </div>
+
+          <motion.div
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ delay: 0.8, type: 'spring', stiffness: 200 }}
+            className="pointer-events-auto"
+          >
+            <Link to="/tips" className="inline-flex items-center gap-2 px-6 py-2.5 bg-gold-500 text-zinc-950 font-bold rounded-xl hover:bg-gold-400 transition-all hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(234,179,8,0.3)] text-sm">
+              Go Premium Now <ArrowRight className="w-4 h-4" />
+            </Link>
+          </motion.div>
+        </motion.div>
+      </div>
+    </div>
+  );
+}
+
 function NewsCarousel({ articles }: { articles: NewsItem[] }) {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     if (articles.length === 0) return;
-    timerRef.current = setInterval(() => {
+    const isPremiumAd = articles[currentIndex]?.id === 'promo-premium';
+    const delay = isPremiumAd ? 12000 : 5000; // 12s for video ad, 5s for others
+    
+    const timer = setTimeout(() => {
       setCurrentIndex(prev => (prev + 1) % articles.length);
-    }, 5000);
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [articles.length]);
+    }, delay);
+    
+    return () => clearTimeout(timer);
+  }, [articles, currentIndex]);
 
   if (articles.length === 0) return null;
   const item = articles[currentIndex];
@@ -74,26 +146,32 @@ function NewsCarousel({ articles }: { articles: NewsItem[] }) {
           transition={{ duration: 0.4 }}
           className="absolute inset-0"
         >
-          <img src={item.image} alt={item.title} className="w-full h-full object-cover" loading="lazy" onError={(e) => { e.currentTarget.src = FALLBACK_IMAGE; }} />
-          <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/60 to-transparent" />
-          <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-8">
-            <span className={`inline-block px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded mb-3 ${isPromo ? 'bg-gold-500 text-zinc-950' : 'bg-emerald-500/90 text-zinc-950'}`}>
-              {item.category}
-            </span>
-            <h3 className="text-lg sm:text-2xl font-display font-bold text-white leading-tight mb-2">{item.title}</h3>
-            {!isPromo && (
-              <div className="flex items-center gap-3 text-xs text-zinc-300">
-                <span className="font-medium text-emerald-400">{item.source}</span>
-                <span className="w-1 h-1 rounded-full bg-zinc-600" />
-                <span>{item.time}</span>
+          {item.id === 'promo-premium' ? (
+            <AnimatedPremiumAd />
+          ) : (
+            <>
+              <img src={item.image} alt={item.title} className="w-full h-full object-cover" loading="lazy" onError={(e) => { e.currentTarget.src = FALLBACK_IMAGE; }} />
+              <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/60 to-transparent" />
+              <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-8">
+                <span className={`inline-block px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded mb-3 ${isPromo ? 'bg-gold-500 text-zinc-950' : 'bg-emerald-500/90 text-zinc-950'}`}>
+                  {item.category}
+                </span>
+                <h3 className="text-lg sm:text-2xl font-display font-bold text-white leading-tight mb-2">{item.title}</h3>
+                {!isPromo && (
+                  <div className="flex items-center gap-3 text-xs text-zinc-300">
+                    <span className="font-medium text-emerald-400">{item.source}</span>
+                    <span className="w-1 h-1 rounded-full bg-zinc-600" />
+                    <span>{item.time}</span>
+                  </div>
+                )}
+                {isPromo && (
+                  <Link to={item.link} className="inline-flex items-center gap-2 mt-2 text-sm font-bold text-emerald-400 hover:text-emerald-300 transition-colors">
+                    Learn More <ArrowRight className="w-4 h-4" />
+                  </Link>
+                )}
               </div>
-            )}
-            {isPromo && (
-              <Link to={item.link} className="inline-flex items-center gap-2 mt-2 text-sm font-bold text-emerald-400 hover:text-emerald-300 transition-colors">
-                Learn More <ArrowRight className="w-4 h-4" />
-              </Link>
-            )}
-          </div>
+            </>
+          )}
         </motion.div>
       </AnimatePresence>
 

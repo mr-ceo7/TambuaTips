@@ -32,13 +32,37 @@ export function Header() {
       <header className="sticky top-0 z-50 w-full border-b border-zinc-800 bg-zinc-950/80 backdrop-blur-md">
         <div className="container mx-auto flex h-14 sm:h-16 items-center justify-between px-4 max-w-7xl">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2 hover:scale-105 transition-transform duration-300">
-            <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-lg bg-emerald-500 text-zinc-950">
-              <Trophy className="h-4 w-4 sm:h-5 sm:w-5" />
+          <Link to="/" className="flex items-center gap-4 group transition-all duration-500 hover:scale-[1.02]">
+            {/* Logo Image Container with Ambient Glow */}
+            <div className="relative flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 shrink-0">
+              {/* Subtle ambient animated glow behind the ball */}
+              <div className="absolute inset-0 rounded-full bg-emerald-500/20 blur-md opacity-40 group-hover:opacity-100 group-hover:bg-emerald-400/30 transition-all duration-700 animate-pulse" />
+              
+              <img 
+                src="/tambua-logo.jpg" 
+                alt="TambuaTips Logo" 
+                className="absolute w-[180%] h-[180%] max-w-none object-cover mix-blend-screen invert hue-rotate-180 contrast-[1.3] brightness-125 z-10 drop-shadow-[0_0_5px_rgba(16,185,129,0.2)] group-hover:drop-shadow-[0_0_15px_rgba(16,185,129,0.5)] transition-all duration-500" 
+                style={{
+                  maskImage: 'radial-gradient(circle at center, black 35%, transparent 60%)',
+                  WebkitMaskImage: 'radial-gradient(circle at center, black 35%, transparent 60%)'
+                }}
+              />
             </div>
-            <span className="text-lg sm:text-xl font-display font-bold tracking-tight text-zinc-50 uppercase">
-              Tambua<span className="text-emerald-500">Tips</span>
-            </span>
+
+            {/* Premium Typography - Stacked Lockup */}
+            <div className="flex flex-col items-start justify-center group-hover:translate-x-1 transition-transform duration-500">
+              <span className="text-base sm:text-lg font-display font-black tracking-tight text-white leading-[0.85] mb-0.5 shadow-zinc-950 drop-shadow-md">
+                TAMBUA
+              </span>
+              <span className="text-base sm:text-lg font-display font-black tracking-tight bg-gradient-to-r from-emerald-400 to-green-500 bg-clip-text text-transparent leading-[0.85] drop-shadow-[0_2px_10px_rgba(16,185,129,0.2)] group-hover:drop-shadow-[0_0_15px_rgba(16,185,129,0.5)] transition-all duration-500">
+                TIPS
+              </span>
+              <div className="flex items-center mt-1 pl-[1px]">
+                <span className="text-[6.5px] sm:text-[7.5px] text-zinc-400 font-bold uppercase tracking-[0.2em]">
+                  Keep Your Tips Up
+                </span>
+              </div>
+            </div>
           </Link>
 
           {/* Desktop Nav */}
