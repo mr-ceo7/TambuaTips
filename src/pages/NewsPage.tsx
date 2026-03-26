@@ -3,6 +3,16 @@ import { Loader2, Search, ExternalLink, X, ChevronRight, ArrowLeft, Facebook, Tw
 import { fetchNews, FALLBACK_IMAGE, type NewsItem } from '../services/newsService';
 import { usePageTitle } from '../hooks/usePageTitle';
 
+const BRAND_AD_ARTICLE: NewsItem = {
+  id: 'promo-tambua-ad',
+  title: "TAMBUA TIPS - KEEP YOUR TIPS UP",
+  source: "TambuaTips",
+  time: "Sponsored",
+  image: "/brand-ad.jpeg",
+  category: "Promo",
+  link: "/tips"
+};
+
 export function NewsPage() {
   usePageTitle('Football News');
   const [articles, setArticles] = useState<NewsItem[]>([]);
@@ -26,9 +36,15 @@ export function NewsPage() {
           combined.forEach(item => { if (!uniqueMap.has(item.id)) uniqueMap.set(item.id, item); });
           return Array.from(uniqueMap.values());
         });
+        if (data.articles.length === 0 && page === 1) {
+          setArticles([BRAND_AD_ARTICLE]);
+        }
         setHasMore(data.hasMore);
       } catch (err) {
         console.error('Failed to load news:', err);
+        if (page === 1) {
+          setArticles([BRAND_AD_ARTICLE]);
+        }
       } finally {
         setLoading(false);
         setLoadingMore(false);
@@ -123,8 +139,20 @@ export function NewsPage() {
 
       {/* Articles Grid */}
       {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 animate-pulse">
+          {[1, 2, 3, 4, 5, 6].map(i => (
+            <div key={i} className="bg-zinc-900/60 border border-zinc-800 rounded-2xl overflow-hidden">
+              <div className="h-44 bg-zinc-800 w-full" />
+              <div className="p-4 space-y-3">
+                <div className="h-4 bg-zinc-800 rounded w-full" />
+                <div className="h-4 bg-zinc-800 rounded w-2/3" />
+                <div className="flex gap-2 pt-2">
+                  <div className="h-3 w-16 bg-zinc-800 rounded" />
+                  <div className="h-3 w-16 bg-zinc-800 rounded" />
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       ) : filteredArticles.length === 0 ? (
         <div className="text-center py-16 bg-zinc-900/50 border border-zinc-800 rounded-2xl">

@@ -3,10 +3,9 @@ import { motion } from 'motion/react';
 
 export function SplashScreen({ onComplete }: { onComplete: () => void }) {
   useEffect(() => {
-    // Hide splash screen after 4 seconds (video duration is ~3.6s)
     const timer = setTimeout(() => {
       onComplete();
-    }, 4000);
+    }, 2500);
     return () => clearTimeout(timer);
   }, [onComplete]);
 
@@ -16,16 +15,18 @@ export function SplashScreen({ onComplete }: { onComplete: () => void }) {
       initial={{ opacity: 1 }}
       exit={{ opacity: 0, transition: { duration: 0.5 } }}
     >
-      <div className="w-full max-w-lg px-6 flex items-center justify-center">
-        <video 
-          autoPlay 
-          muted 
-          playsInline 
-          className="w-full h-auto mix-blend-screen invert hue-rotate-180 brightness-110 object-contain drop-shadow-[0_0_30px_rgba(16,185,129,0.3)]"
-        >
-          <source src="/tambua-brand.mp4" type="video/mp4" />
-        </video>
-      </div>
+      <motion.div
+        className="w-full max-w-md px-6 flex items-center justify-center"
+        initial={{ scale: 0.85, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ duration: 0.6, ease: 'easeOut' }}
+      >
+        <img
+          src="/brand-ad.jpeg"
+          alt="Tambua Tips"
+          className="w-full h-auto object-contain rounded-2xl drop-shadow-[0_0_40px_rgba(16,185,129,0.3)]"
+        />
+      </motion.div>
     </motion.div>
   );
 }

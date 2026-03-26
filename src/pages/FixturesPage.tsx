@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, Loader2, Calendar as CalendarIcon, Filter, T
 import { fetchFixturesByDate, LEAGUES } from '../services/sportsApiService';
 import { FixtureData } from '../types';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { FixtureRowSkeleton } from '../components/skeletons/FixtureRowSkeleton';
 
 function getDateStr(offset: number): string {
   const d = new Date();
@@ -109,15 +110,26 @@ export function FixturesPage() {
               league.id === selectedLeague ? 'bg-emerald-500 text-zinc-950' : 'bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white'
             }`}
           >
-            <span>{league.flag}</span> {league.name}
+            <img src={league.logo} alt={league.name} className="w-4 h-4 object-contain" onError={(e) => { e.currentTarget.replaceWith(Object.assign(document.createElement('span'), { textContent: league.flag, className: 'text-base' })); }} /> {league.name}
           </button>
         ))}
       </div>
 
       {/* Fixtures List */}
       {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
+        <div className="space-y-4">
+          {[1, 2, 3].map(leagueIdx => (
+            <div key={leagueIdx} className="bg-zinc-900/60 border border-zinc-800 rounded-2xl overflow-hidden">
+              <div className="px-5 py-3 border-b border-zinc-800 bg-zinc-900/80">
+                <div className="h-4 w-32 bg-zinc-800 rounded animate-pulse" />
+              </div>
+              <div className="divide-y divide-zinc-800/50">
+                {[1, 2, 3].map(rowIdx => (
+                  <FixtureRowSkeleton key={rowIdx} />
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       ) : grouped.length === 0 ? (
         <div className="text-center py-16 bg-zinc-900/50 border border-zinc-800 rounded-2xl">

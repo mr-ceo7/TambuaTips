@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { FixtureData } from '../types';
 import { format, parseISO } from 'date-fns';
 import { Calendar, Clock, ChevronDown, ChevronUp } from 'lucide-react';
+import { FixtureRowSkeleton } from './skeletons/FixtureRowSkeleton';
 
 interface TodaysFixturesProps {
   fixtures: FixtureData[];
@@ -27,9 +28,10 @@ export function TodaysFixtures({ fixtures, loading }: TodaysFixturesProps) {
 
       <div className={`p-0 overflow-y-auto hide-scrollbar transition-all duration-300 ease-in-out ${showAll ? 'max-h-[600px]' : 'max-h-[300px] sm:max-h-[400px]'}`}>
         {loading ? (
-          <div className="p-8 text-center text-zinc-500">
-            <div className="w-5 h-5 sm:w-6 sm:h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-            <p className="text-[10px] sm:text-xs uppercase tracking-widest">Loading Matches...</p>
+          <div className="divide-y divide-zinc-800/50">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <FixtureRowSkeleton key={i} />
+            ))}
           </div>
         ) : fixtures.length === 0 ? (
           <div className="p-8 text-center text-zinc-500">

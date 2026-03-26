@@ -20,7 +20,18 @@ const PLAYER_IMAGES = [
 
 const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?q=80&w=800&auto=format&fit=crop";
 
+const BRAND_AD_ARTICLE: NewsItem = {
+  id: 'promo-tambua-ad',
+  title: "TAMBUA TIPS - KEEP YOUR TIPS UP",
+  source: "TambuaTips",
+  time: "Sponsored",
+  image: "/brand-ad.jpeg",
+  category: "Promo",
+  link: "/tips"
+};
+
 export const PROMO_SLIDES: NewsItem[] = [
+  BRAND_AD_ARTICLE,
   {
     id: 'promo-referral',
     title: '🎁 Invite Friends & Get Free Daily Tips! Share your referral link and unlock exclusive predictions.',
@@ -84,35 +95,7 @@ export async function fetchNews(page: number = 1): Promise<{ articles: NewsItem[
     console.error('Failed to fetch news:', error);
     // Return fallback news
     return {
-      articles: [
-        {
-          id: 1,
-          title: 'Cristiano Ronaldo Continues Goalscoring Streak in Latest Match',
-          source: 'Global Sports',
-          time: '2 hours ago',
-          image: PLAYER_IMAGES[0],
-          category: 'Football',
-          link: '#',
-        },
-        {
-          id: 2,
-          title: 'Lionel Messi Magic Secures Crucial Victory for Inter Miami',
-          source: 'Football Daily',
-          time: '4 hours ago',
-          image: PLAYER_IMAGES[1],
-          category: 'MLS',
-          link: '#',
-        },
-        {
-          id: 3,
-          title: 'Bukayo Saka Shines as Arsenal Maintain Title Push',
-          source: 'Premier League News',
-          time: '6 hours ago',
-          image: PLAYER_IMAGES[2],
-          category: 'Premier League',
-          link: '#',
-        },
-      ],
+      articles: [BRAND_AD_ARTICLE],
       hasMore: false,
     };
   }

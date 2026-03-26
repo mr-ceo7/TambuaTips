@@ -8,6 +8,7 @@ import { getTipStats, getFreeTips } from '../services/tipsService';
 import { FixtureData, TeamStanding } from '../types';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { PageTransition } from '../components/PageTransition';
+import { HomePageSkeleton } from '../components/skeletons/HomePageSkeleton';
 
 function LiveScoreCard({ f }: { f: FixtureData }) {
   return (
@@ -160,7 +161,8 @@ function NewsCarousel({ articles }: { articles: NewsItem[] }) {
   useEffect(() => {
     if (articles.length === 0) return;
     const isPremiumAd = articles[currentIndex]?.id === 'promo-premium';
-    const delay = isPremiumAd ? 12000 : 5000; // 12s for video ad, 5s for others
+    const isBrandAd = articles[currentIndex]?.id === 'promo-tambua-ad';
+    const delay = isPremiumAd ? 12000 : isBrandAd ? 10000 : 5000; // 12s video ad, 10s brand ad, 5s others
     
     const timer = setTimeout(() => {
       setCurrentIndex(prev => (prev + 1) % articles.length);
@@ -204,7 +206,7 @@ function NewsCarousel({ articles }: { articles: NewsItem[] }) {
                 )}
                 {isPromo && (
                   <Link to={item.link} className="inline-flex items-center gap-2 mt-2 text-sm font-bold text-emerald-400 hover:text-emerald-300 transition-colors">
-                    Learn More <ArrowRight className="w-4 h-4" />
+                    {item.id === 'promo-tambua-ad' ? 'Get Betting Tips' : 'Learn More'} <ArrowRight className="w-4 h-4" />
                   </Link>
                 )}
               </div>
@@ -342,7 +344,7 @@ function LeagueFilter({ selectedLeague, onSelect }: { selectedLeague: string; on
                 : 'bg-zinc-900/60 text-zinc-400 border-zinc-800 hover:border-zinc-600'
             }`}
           >
-            <span className="text-base">{league.flag}</span>
+            <img src={league.logo} alt={league.name} className="w-4 h-4 object-contain" onError={(e) => { e.currentTarget.replaceWith(Object.assign(document.createElement('span'), { textContent: league.flag, className: 'text-base' })); }} />
             <span>{league.name.split(' ')[0]}</span>
           </button>
         ))}
@@ -379,9 +381,9 @@ export function HomePage() {
       setLoading(true);
       try {
         const [fixturesData, newsData, standingsData] = await Promise.all([
-          fetchTodayFixtures(),
-          fetchNews(1),
-          fetchStandings(activeLeagueId)
+          fetchTodayFixtures().catch(() => []),
+          fetchNews(1).catch(() => ({ articles: [], hasMore: false })),
+          fetchStandings(activeLeagueId).catch(() => [])
         ]);
         setFixtures(fixturesData);
         setNewsArticles(mixPromoSlides(newsData.articles));
@@ -396,14 +398,7 @@ export function HomePage() {
   }, [activeLeagueId]);
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-center">
-          <Loader2 className="h-10 w-10 animate-spin text-emerald-500 mx-auto mb-4" />
-          <p className="text-sm text-zinc-400 font-mono uppercase tracking-widest">Loading TambuaTips...</p>
-        </div>
-      </div>
-    );
+    return <HomePageSkeleton />;
   }
 
   return (

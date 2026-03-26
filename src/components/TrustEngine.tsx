@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { TrendingUp, Target, Flame, ChevronLeft, ChevronRight, ExternalLink, Loader2, Search, ArrowLeft, Facebook, Twitter, MessageCircle, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { NewsCardSkeleton } from './skeletons/NewsCardSkeleton';
 
 const PLAYER_IMAGES = [
   "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8c/Cristiano_Ronaldo_2018.jpg/800px-Cristiano_Ronaldo_2018.jpg", // Ronaldo
@@ -21,6 +22,16 @@ interface NewsItem {
   category: string;
   link: string;
 }
+
+const BRAND_AD_ARTICLE: NewsItem = {
+  id: 'promo-tambua-ad',
+  title: "TAMBUA TIPS - KEEP YOUR TIPS UP",
+  source: "TambuaTips",
+  time: "Sponsored",
+  image: "/brand-ad.jpeg",
+  category: "Promo",
+  link: "/tips"
+};
 
 export function TrustEngine() {
   const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
@@ -65,49 +76,15 @@ export function TrustEngine() {
         });
         setHasMore(data.articles.length === 5);
       } else {
+        if (pageNum === 1) {
+          setNewsItems([BRAND_AD_ARTICLE]);
+        }
         setHasMore(false);
       }
     } catch (error) {
       console.error("Failed to fetch news", error);
       if (pageNum === 1) {
-        setNewsItems([
-          {
-            id: 1,
-            title: "Cristiano Ronaldo Continues Goalscoring Streak in Latest Match",
-            source: "Global Sports",
-            time: "2 hours ago",
-            image: PLAYER_IMAGES[0],
-            category: "Saudi Pro League",
-            link: "#"
-          },
-          {
-            id: 2,
-            title: "Lionel Messi Magic Secures Crucial Victory for Inter Miami",
-            source: "Football Daily",
-            time: "4 hours ago",
-            image: PLAYER_IMAGES[1],
-            category: "MLS",
-            link: "#"
-          },
-          {
-            id: 3,
-            title: "Bukayo Saka Shines as Arsenal Maintain Title Push",
-            source: "Premier League News",
-            time: "6 hours ago",
-            image: PLAYER_IMAGES[2],
-            category: "Premier League",
-            link: "#"
-          },
-          {
-            id: 4,
-            title: "Erling Haaland Breaks Another Scoring Record for Manchester City",
-            source: "Sports Update",
-            time: "8 hours ago",
-            image: PLAYER_IMAGES[3],
-            category: "Champions League",
-            link: "#"
-          }
-        ]);
+        setNewsItems([BRAND_AD_ARTICLE]);
       }
       setHasMore(false);
     } finally {
@@ -198,7 +175,11 @@ export function TrustEngine() {
     <div className="grid gap-4 sm:gap-6 md:grid-cols-3 mb-8 sm:mb-12">
       <div className="md:col-span-2 rounded-2xl bg-zinc-900/80 border border-zinc-800 p-4 sm:p-6 backdrop-blur-sm flex flex-col relative overflow-hidden group">
         
-        {selectedArticle ? (
+        {loading && filteredNewsItems.length === 0 ? (
+          <div className="absolute inset-0 z-50 bg-zinc-950 flex flex-col">
+            <NewsCardSkeleton />
+          </div>
+        ) : selectedArticle ? (
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -212,7 +193,7 @@ export function TrustEngine() {
             </button>
             <div className="relative w-full h-48 sm:h-64 rounded-xl overflow-hidden mb-6 shrink-0">
                <img src={selectedArticle.image} alt={selectedArticle.title} className="w-full h-full object-cover" loading="lazy" onError={(e) => { e.currentTarget.src = FALLBACK_IMAGE; }} />
-               <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 to-transparent" />
+               <div className="absolute inset-0 bg-linear-to-t from-zinc-950 to-transparent" />
                <div className="absolute bottom-4 left-4 right-4">
                   <span className="inline-block px-2.5 py-1 bg-emerald-500 text-zinc-950 text-[10px] font-bold uppercase tracking-wider rounded mb-2">{selectedArticle.category}</span>
                   <h3 className="text-xl sm:text-3xl font-display font-bold text-white leading-tight">{selectedArticle.title}</h3>
@@ -309,9 +290,8 @@ export function TrustEngine() {
             </div>
 
             <div className="flex-1 relative w-full min-h-[200px] sm:min-h-[240px] rounded-xl overflow-hidden z-10 bg-zinc-950/50">
-              {loading ? (
+              {loading && filteredNewsItems.length === 0 ? (
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <Loader2 className="h-8 w-8 animate-spin text-emerald-500 mb-2" />
                   <span className="text-xs text-zinc-500 font-mono uppercase tracking-widest">Loading News...</span>
                 </div>
               ) : filteredNewsItems.length > 0 ? (
@@ -333,7 +313,7 @@ export function TrustEngine() {
                       loading="lazy"
                       onError={(e) => { e.currentTarget.src = FALLBACK_IMAGE; }}
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-900/60 to-transparent" />
+                    <div className="absolute inset-0 bg-linear-to-t from-zinc-950 via-zinc-950/40 to-transparent" />
                     
                     <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6">
                       <span className="inline-block px-2.5 py-1 bg-emerald-500/90 text-zinc-950 text-[10px] font-bold uppercase tracking-wider rounded mb-3">

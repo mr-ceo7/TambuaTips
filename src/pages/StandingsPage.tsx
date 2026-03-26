@@ -57,7 +57,7 @@ export function StandingsPage() {
                 : 'bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-700'
             }`}
           >
-            <span>{league.flag}</span> {league.name}
+            <img src={league.logo} alt={league.name} className="w-4 h-4 object-contain" onError={(e) => { e.currentTarget.replaceWith(Object.assign(document.createElement('span'), { textContent: league.flag, className: 'text-base' })); }} /> {league.name}
           </button>
         ))}
       </div>
@@ -65,7 +65,7 @@ export function StandingsPage() {
       {/* Current League Header */}
       {currentLeague && (
         <div className="flex items-center gap-3 mb-4 bg-zinc-900/60 border border-zinc-800 rounded-xl px-5 py-3">
-          <span className="text-2xl">{currentLeague.flag}</span>
+          <img src={currentLeague.logo} alt={currentLeague.name} className="w-8 h-8 object-contain" onError={(e) => { e.currentTarget.replaceWith(Object.assign(document.createElement('span'), { textContent: currentLeague.flag, className: 'text-2xl' })); }} />
           <div>
             <h2 className="text-lg font-display font-bold text-zinc-200">{currentLeague.name}</h2>
             <span className="text-xs text-zinc-500">{currentLeague.country}</span>
@@ -75,8 +75,28 @@ export function StandingsPage() {
 
       {/* Table */}
       {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
+        <div className="bg-zinc-900/60 border border-zinc-800 rounded-2xl overflow-hidden animate-pulse">
+          <div className="p-4 bg-zinc-900/80 border-b border-zinc-800">
+            <div className="h-4 w-48 bg-zinc-800 rounded" />
+          </div>
+          <div className="divide-y divide-zinc-800/50">
+            {[...Array(10)].map((_, i) => (
+              <div key={i} className="flex items-center px-4 py-3 gap-4">
+                <div className="h-4 w-4 bg-zinc-800 rounded" />
+                <div className="flex-1 flex items-center gap-2">
+                  <div className="h-5 w-5 bg-zinc-800 rounded-full shrink-0" />
+                  <div className="h-4 w-32 bg-zinc-800 rounded" />
+                </div>
+                <div className="hidden sm:flex gap-4 opacity-50">
+                  <div className="h-4 w-6 bg-zinc-800 rounded" />
+                  <div className="h-4 w-6 bg-zinc-800 rounded" />
+                  <div className="h-4 w-6 bg-zinc-800 rounded" />
+                </div>
+                <div className="h-4 w-6 bg-zinc-800 rounded" />
+                <div className="h-4 w-8 bg-zinc-800 rounded" />
+              </div>
+            ))}
+          </div>
         </div>
       ) : standings.length === 0 ? (
         <div className="text-center py-16 bg-zinc-900/50 border border-zinc-800 rounded-2xl">

@@ -75,8 +75,19 @@ export function LeagueStandings() {
 
       <div className="p-0">
         {loading ? (
-          <div className="flex justify-center items-center py-12">
-            <Loader2 className="w-6 h-6 animate-spin text-emerald-500" />
+          <div className="animate-pulse divide-y divide-zinc-800/50">
+            {[...Array(10)].map((_, i) => (
+              <div key={i} className="flex items-center px-4 py-2.5 gap-3">
+                <div className="h-3 w-3 bg-zinc-800 rounded" />
+                <div className="flex-1 flex items-center gap-2">
+                  <div className="h-4 w-4 bg-zinc-800 rounded-full shrink-0" />
+                  <div className="h-3 w-24 bg-zinc-800 rounded" />
+                </div>
+                <div className="h-3 w-4 bg-zinc-800 rounded" />
+                <div className="h-3 w-4 bg-zinc-800 rounded" />
+                <div className="h-3 w-6 bg-zinc-800 rounded" />
+              </div>
+            ))}
           </div>
         ) : error ? (
           <div className="p-6 text-center text-red-400">

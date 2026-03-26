@@ -7,6 +7,7 @@ import { FixtureData } from '../types';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useBetSlip } from '../context/BetSlipContext';
 import { useUser } from '../context/UserContext';
+import { MatchDetailSkeleton } from '../components/skeletons/MatchDetailSkeleton';
 
 // MOCK DATA: Since free APIs don't provide deep bookmaker odds or form/H2H, we mock it for the UI/UX simulator demo.
 const MOCK_ODDS = {
@@ -62,11 +63,7 @@ export function MatchDetailPage() {
   }, [id]);
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="h-10 w-10 animate-spin text-emerald-500" />
-      </div>
-    );
+    return <MatchDetailSkeleton />;
   }
 
   if (!fixture) {
