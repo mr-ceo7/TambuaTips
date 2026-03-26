@@ -4,23 +4,38 @@ import { getCached, setCache, CACHE_TTL } from './cache';
 
 // League IDs for API-Football
 export const LEAGUES = {
-  // European (priority)
+  // Top 6 most popular globally
   PREMIER_LEAGUE: { id: 39, name: 'Premier League', country: 'England', flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿' },
+  CHAMPIONS_LEAGUE: { id: 2, name: 'Champions League', country: 'Europe', flag: '🏆' },
   LA_LIGA: { id: 140, name: 'La Liga', country: 'Spain', flag: '🇪🇸' },
   SERIE_A: { id: 135, name: 'Serie A', country: 'Italy', flag: '🇮🇹' },
   BUNDESLIGA: { id: 78, name: 'Bundesliga', country: 'Germany', flag: '🇩🇪' },
   LIGUE_1: { id: 61, name: 'Ligue 1', country: 'France', flag: '🇫🇷' },
-  CHAMPIONS_LEAGUE: { id: 2, name: 'Champions League', country: 'Europe', flag: '🇪🇺' },
+  // Other popular European
   EUROPA_LEAGUE: { id: 3, name: 'Europa League', country: 'Europe', flag: '🇪🇺' },
+  CONFERENCE_LEAGUE: { id: 848, name: 'Conference League', country: 'Europe', flag: '🇪🇺' },
+  CHAMPIONSHIP: { id: 40, name: 'Championship', country: 'England', flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿' },
+  EREDIVISIE: { id: 88, name: 'Eredivisie', country: 'Netherlands', flag: '🇳🇱' },
+  LIGA_PORTUGAL: { id: 94, name: 'Liga Portugal', country: 'Portugal', flag: '🇵🇹' },
+  SCOTTISH_PREM: { id: 179, name: 'Scottish Premiership', country: 'Scotland', flag: '🏴󠁧󠁢󠁳󠁣󠁴󠁿' },
+  // Global hotspots
+  SAUDI_PRO: { id: 307, name: 'Saudi Pro League', country: 'Saudi Arabia', flag: '🇸🇦' },
+  MLS: { id: 253, name: 'MLS', country: 'USA', flag: '🇺🇸' },
+  BRASILEIRAO: { id: 71, name: 'Brasileirão', country: 'Brazil', flag: '🇧🇷' },
+  LIGA_MX: { id: 262, name: 'Liga MX', country: 'Mexico', flag: '🇲🇽' },
   // African
+  EGYPTIAN_PL: { id: 233, name: 'Egyptian Premier', country: 'Egypt', flag: '🇪🇬' },
+  SA_PREMIER: { id: 288, name: 'SA Premier', country: 'South Africa', flag: '🇿🇦' },
+  NIGERIAN_PL: { id: 332, name: 'NPFL', country: 'Nigeria', flag: '🇳🇬' },
   KPL: { id: 276, name: 'Kenya Premier League', country: 'Kenya', flag: '🇰🇪' },
   TANZANIA_PL: { id: 558, name: 'Tanzania Premier League', country: 'Tanzania', flag: '🇹🇿' },
   UGANDA_PL: { id: 566, name: 'Uganda Premier League', country: 'Uganda', flag: '🇺🇬' },
 } as const;
 
-export const EUROPEAN_LEAGUE_IDS = [39, 140, 135, 78, 61, 2, 3];
-export const AFRICAN_LEAGUE_IDS = [276, 558, 566];
-export const ALL_LEAGUE_IDS = [...EUROPEAN_LEAGUE_IDS, ...AFRICAN_LEAGUE_IDS];
+export const EUROPEAN_LEAGUE_IDS = [39, 140, 135, 78, 61, 2, 3, 848, 88, 94, 179, 40];
+export const AFRICAN_LEAGUE_IDS = [276, 558, 566, 288, 233, 332];
+export const OTHER_LEAGUE_IDS = [253, 71, 262, 307];
+export const ALL_LEAGUE_IDS = [...EUROPEAN_LEAGUE_IDS, ...AFRICAN_LEAGUE_IDS, ...OTHER_LEAGUE_IDS];
 
 export function getLeagueInfo(leagueId: number) {
   return Object.values(LEAGUES).find(l => l.id === leagueId);

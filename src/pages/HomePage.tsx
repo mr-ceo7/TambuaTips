@@ -9,9 +9,34 @@ import { FixtureData } from '../types';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { PageTransition } from '../components/PageTransition';
 
-function LiveScoreboard({ fixtures }: { fixtures: FixtureData[] }) {
-  const liveFixtures = fixtures.filter(f => f.status === 'live');
+function LiveScoreCard({ f }: { f: FixtureData }) {
+  return (
+    <Link
+      to={`/match/${f.id}`}
+      className="shrink-0 bg-zinc-900/80 border border-zinc-800 rounded-xl px-4 py-3 min-w-[200px] hover:border-red-500/30 transition-all hover:scale-[1.02] active:scale-[0.98]"
+    >
+      <div className="text-[10px] text-zinc-500 mb-2 truncate">{f.league}</div>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex-1">
+          <div className="text-xs font-medium text-zinc-200 truncate">{f.homeTeam}</div>
+          <div className="text-xs font-medium text-zinc-200 truncate">{f.awayTeam}</div>
+        </div>
+        <div className="text-right">
+          <div className="text-sm font-display font-bold text-led text-emerald-400">{f.score || '0 - 0'}</div>
+          <div className="text-[10px] text-red-400 font-mono">{f.elapsed}'</div>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+function LiveScoreboard({ fixtures, selectedLeague }: { fixtures: FixtureData[]; selectedLeague: string }) {
+  const liveFixtures = fixtures.filter(f => f.status === 'live' && (selectedLeague === 'all' || f.league === selectedLeague));
   if (liveFixtures.length === 0) return null;
+
+  // Duplicate items for seamless infinite scroll
+  const scrollItems = [...liveFixtures, ...liveFixtures];
+  const duration = liveFixtures.length * 4; // ~4s per card
 
   return (
     <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 mb-6">
@@ -22,26 +47,33 @@ function LiveScoreboard({ fixtures }: { fixtures: FixtureData[] }) {
         </span>
         <span className="text-xs font-bold text-red-400 uppercase tracking-wider">Live Now</span>
       </div>
-      <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1">
-        {liveFixtures.map(f => (
-          <Link
-            key={f.id}
-            to={`/match/${f.id}`}
-            className="flex-shrink-0 bg-zinc-900/80 border border-zinc-800 rounded-xl px-4 py-3 min-w-[200px] hover:border-red-500/30 transition-all hover:scale-[1.02] active:scale-[0.98]"
-          >
-            <div className="text-[10px] text-zinc-500 mb-2 truncate">{f.league}</div>
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex-1">
-                <div className="text-xs font-medium text-zinc-200 truncate">{f.homeTeam}</div>
-                <div className="text-xs font-medium text-zinc-200 truncate">{f.awayTeam}</div>
+      <div className="overflow-hidden">
+        <div
+          className="flex gap-3 pb-1 hover:[animation-play-state:paused]"
+          style={{
+            animation: `marquee ${duration}s linear infinite`,
+          }}
+        >
+          {scrollItems.map((f, i) => (
+            <Link
+              key={`${f.id}-${i}`}
+              to={`/match/${f.id}`}
+              className="shrink-0 bg-zinc-900/80 border border-zinc-800 rounded-xl px-4 py-3 min-w-[200px] hover:border-red-500/30 transition-all hover:scale-[1.02] active:scale-[0.98]"
+            >
+              <div className="text-[10px] text-zinc-500 mb-2 truncate">{f.league}</div>
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex-1">
+                  <div className="text-xs font-medium text-zinc-200 truncate">{f.homeTeam}</div>
+                  <div className="text-xs font-medium text-zinc-200 truncate">{f.awayTeam}</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-sm font-display font-bold text-led text-emerald-400">{f.score || '0 - 0'}</div>
+                  <div className="text-[10px] text-red-400 font-mono">{f.elapsed}'</div>
+                </div>
               </div>
-              <div className="text-right">
-                <div className="text-sm font-display font-bold text-led text-emerald-400">{f.score || '0 - 0'}</div>
-                <div className="text-[10px] text-red-400 font-mono">{f.elapsed}'</div>
-              </div>
-            </div>
-          </Link>
-        ))}
+            </Link>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -195,11 +227,12 @@ function NewsCarousel({ articles }: { articles: NewsItem[] }) {
   );
 }
 
-function QuickFixtures({ fixtures }: { fixtures: FixtureData[] }) {
+function QuickFixtures({ fixtures, selectedLeague }: { fixtures: FixtureData[]; selectedLeague: string }) {
   // Group by league
   const grouped = useMemo(() => {
+    const filtered = selectedLeague === 'all' ? fixtures : fixtures.filter(f => f.league === selectedLeague);
     const map = new Map<string, FixtureData[]>();
-    fixtures.slice(0, 20).forEach(f => {
+    filtered.slice(0, 20).forEach(f => {
       const list = map.get(f.league) || [];
       list.push(f);
       map.set(f.league, list);
@@ -243,20 +276,66 @@ function QuickFixtures({ fixtures }: { fixtures: FixtureData[] }) {
   );
 }
 
-function LeagueShortcuts() {
-  const leagues = Object.values(LEAGUES).slice(0, 8);
+function LeagueFilter({ selectedLeague, onSelect }: { selectedLeague: string; onSelect: (league: string) => void }) {
+  const leagues = Object.values(LEAGUES);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const scroll = (dir: 'left' | 'right') => {
+    if (!scrollRef.current) return;
+    scrollRef.current.scrollBy({ left: dir === 'left' ? -200 : 200, behavior: 'smooth' });
+  };
+
   return (
-    <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
-      {leagues.map(league => (
-        <Link
-          key={league.id}
-          to={`/standings?league=${league.id}`}
-          className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-zinc-900/60 border border-zinc-800 hover:border-emerald-500/30 transition-all hover:scale-105 active:scale-95"
+    <div className="relative group/filter">
+      {/* Left scroll arrow */}
+      <button
+        onClick={() => scroll('left')}
+        className="absolute left-0 top-1/2 -translate-y-1/2 z-10 h-8 w-8 flex items-center justify-center rounded-full bg-zinc-900/90 border border-zinc-700 text-zinc-300 hover:text-white hover:border-emerald-500 transition-all opacity-0 group-hover/filter:opacity-100 shadow-lg backdrop-blur-sm"
+      >
+        <ChevronLeft className="w-4 h-4" />
+      </button>
+
+      {/* Left fade */}
+      <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-[#061f10] to-transparent z-[5] pointer-events-none opacity-0 group-hover/filter:opacity-100 transition-opacity" />
+
+      {/* Scrollable pills */}
+      <div ref={scrollRef} className="flex gap-2 overflow-x-auto no-scrollbar pb-1 px-1 scroll-smooth">
+        <button
+          onClick={() => onSelect('all')}
+          className={`shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-bold uppercase tracking-wide transition-all hover:scale-105 active:scale-95 border ${
+            selectedLeague === 'all'
+              ? 'bg-emerald-500 text-zinc-950 border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.3)]'
+              : 'bg-zinc-900/60 text-zinc-400 border-zinc-800 hover:border-zinc-600'
+          }`}
         >
-          <span className="text-2xl">{league.flag}</span>
-          <span className="text-[10px] text-zinc-400 text-center leading-tight truncate w-full">{league.name.split(' ')[0]}</span>
-        </Link>
-      ))}
+          ⚽ All
+        </button>
+        {leagues.map(league => (
+          <button
+            key={league.id}
+            onClick={() => onSelect(selectedLeague === league.name ? 'all' : league.name)}
+            className={`shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-bold tracking-wide transition-all hover:scale-105 active:scale-95 border ${
+              selectedLeague === league.name
+                ? 'bg-emerald-500 text-zinc-950 border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.3)]'
+                : 'bg-zinc-900/60 text-zinc-400 border-zinc-800 hover:border-zinc-600'
+            }`}
+          >
+            <span className="text-base">{league.flag}</span>
+            <span>{league.name.split(' ')[0]}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Right fade */}
+      <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-[#061f10] to-transparent z-[5] pointer-events-none" />
+
+      {/* Right scroll arrow */}
+      <button
+        onClick={() => scroll('right')}
+        className="absolute right-0 top-1/2 -translate-y-1/2 z-10 h-8 w-8 flex items-center justify-center rounded-full bg-zinc-900/90 border border-zinc-700 text-zinc-300 hover:text-white hover:border-emerald-500 transition-all opacity-0 group-hover/filter:opacity-100 shadow-lg backdrop-blur-sm"
+      >
+        <ChevronRight className="w-4 h-4" />
+      </button>
     </div>
   );
 }
@@ -266,6 +345,7 @@ export function HomePage() {
   const [fixtures, setFixtures] = useState<FixtureData[]>([]);
   const [newsArticles, setNewsArticles] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedLeague, setSelectedLeague] = useState('all');
 
   const stats = getTipStats();
   const freeTips = getFreeTips();
@@ -302,8 +382,13 @@ export function HomePage() {
 
   return (
     <div className="container mx-auto px-4 py-4 sm:py-8 max-w-7xl">
+      {/* League Filter */}
+      <section className="mb-6">
+        <LeagueFilter selectedLeague={selectedLeague} onSelect={setSelectedLeague} />
+      </section>
+
       {/* Live Scoreboard */}
-      <LiveScoreboard fixtures={fixtures} />
+      <LiveScoreboard fixtures={fixtures} selectedLeague={selectedLeague} />
 
       {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
@@ -320,12 +405,6 @@ export function HomePage() {
             <NewsCarousel articles={newsArticles} />
           </section>
 
-          {/* League Shortcuts */}
-          <section>
-            <h2 className="text-lg font-display font-bold uppercase mb-4">Popular Leagues</h2>
-            <LeagueShortcuts />
-          </section>
-
           {/* Today's Fixtures */}
           <section>
             <div className="flex items-center justify-between mb-4">
@@ -334,7 +413,7 @@ export function HomePage() {
                 All Fixtures <ChevronRight className="w-4 h-4" />
               </Link>
             </div>
-            <QuickFixtures fixtures={fixtures} />
+            <QuickFixtures fixtures={fixtures} selectedLeague={selectedLeague} />
           </section>
         </div>
 
