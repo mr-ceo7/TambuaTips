@@ -5,6 +5,8 @@ import { Footer } from './Footer';
 import { BottomNav } from './BottomNav';
 import { AuthModal } from '../AuthModal';
 import { Toaster } from 'sonner';
+import { BetSlipDrawer } from '../BetSlipDrawer';
+import { ReloadPrompt } from '../ReloadPrompt';
 
 export function Layout() {
   return (
@@ -17,6 +19,8 @@ export function Layout() {
       <Footer />
       <BottomNav />
       <AuthModal />
+      <BetSlipDrawer />
+      <ReloadPrompt />
     </div>
   );
 }

@@ -1,10 +1,35 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Loader2, ArrowLeft, Clock, MapPin, Trophy, TrendingUp, Lock, Zap, Star } from 'lucide-react';
+import { Loader2, ArrowLeft, Clock, MapPin, Trophy, TrendingUp, Lock, Zap, Star, ExternalLink, Calculator, Target, Activity } from 'lucide-react';
 import { fetchFixtureById } from '../services/sportsApiService';
 import { getTipByFixtureId, type Tip } from '../services/tipsService';
 import { FixtureData } from '../types';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { useBetSlip } from '../context/BetSlipContext';
+
+// MOCK DATA: Since free APIs don't provide deep bookmaker odds or form/H2H, we mock it for the UI/UX simulator demo.
+const MOCK_ODDS = {
+  'Match Winner (1X2)': [
+    { bookmaker: 'Betika', logo: 'B', home: 2.15, draw: 3.40, away: 3.20 },
+    { bookmaker: 'SportPesa', logo: 'S', home: 2.10, draw: 3.50, away: 3.10 },
+    { bookmaker: 'Betway', logo: 'W', home: 2.20, draw: 3.30, away: 3.15 },
+  ],
+  'Total Goals (O/U 2.5)': [
+    { bookmaker: 'Betika', logo: 'B', over: 1.85, under: 1.95 },
+    { bookmaker: 'SportPesa', logo: 'S', over: 1.80, under: 2.00 },
+    { bookmaker: 'Betway', logo: 'W', over: 1.90, under: 1.90 },
+  ]
+};
+
+const MOCK_STATS = {
+  form: { home: ['W', 'D', 'W', 'W', 'L'], away: ['L', 'L', 'D', 'W', 'D'] },
+  h2h: [
+    { date: '2023-11-04', result: 'Home 2-1 Away' },
+    { date: '2023-04-12', result: 'Away 0-0 Home' },
+    { date: '2022-10-22', result: 'Home 3-0 Away' }
+  ],
+  avgGoals: { homeScored: 2.1, homeConceded: 0.8, awayScored: 1.2, awayConceded: 1.6 }
+};
 
 export function MatchDetailPage() {
   usePageTitle('Match Detail');
@@ -12,7 +37,9 @@ export function MatchDetailPage() {
   const [fixture, setFixture] = useState<FixtureData | null>(null);
   const [tip, setTip] = useState<Tip | undefined>(undefined);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'preview' | 'stats' | 'tip'>('preview');
+  const [activeTab, setActiveTab] = useState<'preview' | 'odds' | 'stats' | 'tip'>('preview');
+  
+  const { addSelection, selections } = useBetSlip();
 
   useEffect(() => {
     const load = async () => {
@@ -50,206 +77,384 @@ export function MatchDetailPage() {
   }
 
   const kickoff = new Date(fixture.matchDate);
+  const matchName = `${fixture.homeTeam} vs ${fixture.awayTeam}`;
+
+  const handleAddOdd = (market: string, selection: string, odds: number, bookmaker: string) => {
+    addSelection({
+      id: `${fixture.id}-${market}-${selection}-${bookmaker}`,
+      fixtureId: fixture.id,
+      matchName,
+      market,
+      selection,
+      odds,
+      bookmaker
+    });
+  };
+
+  const isSelected = (market: string, selection: string, bookmaker: string) => {
+    return selections.some(s => s.fixtureId === fixture.id && s.market === market && s.selection === selection && s.bookmaker === bookmaker);
+  };
 
   return (
     <div className="container mx-auto px-4 py-4 sm:py-8 max-w-3xl">
-      {/* Back */}
-      <Link to="/fixtures" className="inline-flex items-center gap-2 text-zinc-400 hover:text-white mb-6 transition-colors text-sm">
+      <Link to="/fixtures" className="inline-flex items-center gap-2 text-zinc-400 hover:text-white mb-6 transition-colors text-sm font-medium">
         <ArrowLeft className="w-4 h-4" /> Back to Fixtures
       </Link>
 
       {/* Match Header Card */}
-      <div className="bg-zinc-900/80 border border-zinc-800 rounded-2xl p-6 sm:p-8 mb-6 relative overflow-hidden">
-        {/* Status Badge */}
+      <div className="bg-zinc-900/80 border border-zinc-800 rounded-2xl p-6 sm:p-8 mb-6 relative overflow-hidden shadow-2xl">
         <div className="flex items-center justify-center mb-4">
           {fixture.status === 'live' ? (
             <span className="px-3 py-1 bg-red-500/20 border border-red-500/30 text-red-400 text-xs font-bold uppercase rounded-full flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" /> Live — {fixture.elapsed}'
             </span>
           ) : fixture.status === 'finished' ? (
-            <span className="px-3 py-1 bg-zinc-800 text-zinc-400 text-xs font-bold uppercase rounded-full">Full Time</span>
+            <span className="px-3 py-1 bg-zinc-800 border border-zinc-700 text-zinc-400 text-xs font-bold uppercase rounded-full">Full Time</span>
           ) : (
-            <span className="px-3 py-1 bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs font-bold uppercase rounded-full flex items-center gap-1.5">
+            <span className="px-3 py-1 bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs font-bold uppercase rounded-full flex items-center gap-1.5 shadow-[0_0_15px_rgba(16,185,129,0.2)]">
               <Clock className="w-3 h-3" /> {kickoff.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </span>
           )}
         </div>
 
-        {/* League */}
         <div className="text-center mb-6">
-          <span className="text-xs text-zinc-500 uppercase tracking-wider">{fixture.league}</span>
+          <span className="text-xs text-zinc-500 uppercase tracking-widest font-bold tracking-wider">{fixture.league}</span>
         </div>
 
-        {/* Teams & Score */}
-        <div className="flex items-center justify-center gap-6 sm:gap-10">
-          {/* Home */}
-          <div className="flex-1 text-center">
-            {fixture.homeLogo && (
-              <img src={fixture.homeLogo} alt={fixture.homeTeam} className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-3 object-contain" />
-            )}
-            <h3 className="text-sm sm:text-base font-bold text-zinc-200">{fixture.homeTeam}</h3>
-            <span className="text-[10px] text-zinc-500 uppercase">Home</span>
+        <div className="flex items-center justify-center gap-4 sm:gap-10">
+          <div className="flex-1 text-center group">
+            <div className="w-16 h-16 sm:w-24 sm:h-24 mx-auto mb-3 bg-zinc-800/50 rounded-full flex items-center justify-center p-3 border border-zinc-700/50 group-hover:border-emerald-500/30 transition-colors">
+              {fixture.homeLogo ? (
+                <img src={fixture.homeLogo} alt={fixture.homeTeam} className="w-full h-full object-contain drop-shadow-lg" />
+              ) : <Target className="w-8 h-8 text-zinc-600" />}
+            </div>
+            <h3 className="text-sm sm:text-lg font-bold text-zinc-200 leading-tight">{fixture.homeTeam}</h3>
+            <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest mt-1 block">Home</span>
           </div>
 
-          {/* Score */}
-          <div className="flex-shrink-0 text-center">
+          <div className="flex-shrink-0 text-center px-2">
             {fixture.score ? (
-              <div className={`text-3xl sm:text-5xl font-display font-bold font-mono ${fixture.status === 'live' ? 'text-emerald-400 text-led' : 'text-white'}`}>
+              <div className={`text-4xl sm:text-5xl font-display font-bold font-mono tracking-tighter ${fixture.status === 'live' ? 'text-emerald-400 filter drop-shadow-[0_0_8px_rgba(52,211,153,0.5)]' : 'text-white'}`}>
                 {fixture.score}
               </div>
             ) : (
-              <div className="text-2xl sm:text-4xl font-display font-bold text-zinc-600">VS</div>
+              <div className="text-2xl sm:text-4xl font-display font-black text-zinc-700">VS</div>
             )}
           </div>
 
-          {/* Away */}
-          <div className="flex-1 text-center">
-            {fixture.awayLogo && (
-              <img src={fixture.awayLogo} alt={fixture.awayTeam} className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-3 object-contain" />
-            )}
-            <h3 className="text-sm sm:text-base font-bold text-zinc-200">{fixture.awayTeam}</h3>
-            <span className="text-[10px] text-zinc-500 uppercase">Away</span>
+          <div className="flex-1 text-center group">
+            <div className="w-16 h-16 sm:w-24 sm:h-24 mx-auto mb-3 bg-zinc-800/50 rounded-full flex items-center justify-center p-3 border border-zinc-700/50 group-hover:border-emerald-500/30 transition-colors">
+              {fixture.awayLogo ? (
+                <img src={fixture.awayLogo} alt={fixture.awayTeam} className="w-full h-full object-contain drop-shadow-lg" />
+              ) : <Target className="w-8 h-8 text-zinc-600" />}
+            </div>
+            <h3 className="text-sm sm:text-lg font-bold text-zinc-200 leading-tight">{fixture.awayTeam}</h3>
+            <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest mt-1 block">Away</span>
           </div>
         </div>
 
-        {/* Venue */}
         {fixture.venue && (
-          <div className="flex items-center justify-center gap-1.5 mt-6 text-xs text-zinc-500">
-            <MapPin className="w-3 h-3" /> {fixture.venue}
+          <div className="flex items-center justify-center gap-1.5 mt-8 text-xs font-medium text-zinc-500 bg-zinc-950/50 py-2 px-4 rounded-full w-max mx-auto border border-zinc-800/50">
+            <MapPin className="w-3 h-3 text-emerald-500" /> {fixture.venue}
           </div>
         )}
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-zinc-900/60 border border-zinc-800 rounded-xl p-1 mb-6">
+      <div className="flex gap-1 overflow-x-auto custom-scrollbar bg-zinc-900/60 border border-zinc-800 rounded-xl p-1.5 mb-6 shadow-lg">
         {[
           { key: 'preview', label: 'Preview' },
-          { key: 'stats', label: 'Stats' },
+          { key: 'odds', label: 'Compare Odds', badge: 'HOT' },
+          { key: 'stats', label: 'H2H & Stats' },
           { key: 'tip', label: 'Expert Tip' },
         ].map(tab => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key as any)}
-            className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all ${
+            className={`flex-1 min-w-[100px] py-2.5 px-3 text-sm font-bold rounded-lg transition-all relative whitespace-nowrap ${
               activeTab === tab.key
-                ? 'bg-emerald-500 text-zinc-950'
-                : 'text-zinc-400 hover:text-white hover:bg-zinc-800/50'
+                ? 'bg-zinc-800 text-white shadow-md border border-zinc-700'
+                : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50 border border-transparent'
             }`}
           >
             {tab.label}
+            {tab.badge && (
+              <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider shadow-lg">
+                {tab.badge}
+              </span>
+            )}
           </button>
         ))}
       </div>
 
       {/* Tab Content */}
-      {activeTab === 'preview' && (
-        <div className="space-y-4">
-          <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-5">
-            <h4 className="text-sm font-bold text-zinc-300 uppercase tracking-wider mb-4 flex items-center gap-2">
-              <Trophy className="w-4 h-4 text-emerald-500" /> Match Preview
-            </h4>
-            <p className="text-sm text-zinc-400 leading-relaxed">
-              {fixture.homeTeam} host {fixture.awayTeam} in the {fixture.league}. 
-              {fixture.status === 'upcoming' && ` Kickoff is at ${kickoff.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} on ${kickoff.toLocaleDateString()}.`}
-              {fixture.status === 'live' && ` The match is currently live!`}
-              {fixture.status === 'finished' && ` The final score was ${fixture.score}.`}
-            </p>
-          </div>
-
-          <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-5">
-            <h4 className="text-sm font-bold text-zinc-300 uppercase tracking-wider mb-4">Match Info</h4>
-            <div className="grid grid-cols-2 gap-4 text-sm">
+      <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
+        
+        {/* PREVIEW TAB */}
+        {activeTab === 'preview' && (
+          <div className="space-y-4">
+            <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-5 shadow-lg">
+              <h4 className="text-sm font-bold text-zinc-300 uppercase tracking-wider mb-4 flex items-center gap-2">
+                <Trophy className="w-4 h-4 text-emerald-500" /> Match Preview
+              </h4>
+              <p className="text-sm text-zinc-400 leading-relaxed">
+                {fixture.homeTeam} host {fixture.awayTeam} in the {fixture.league}. 
+                {fixture.status === 'upcoming' && ` Kickoff is at ${kickoff.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} on ${kickoff.toLocaleDateString()}.`}
+                {fixture.status === 'live' && ` The match is currently live!`}
+                {fixture.status === 'finished' && ` The final score was ${fixture.score}.`}
+              </p>
+            </div>
+            <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-5 flex items-start gap-3">
+              <Calculator className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
               <div>
-                <span className="text-zinc-500 block text-xs">Competition</span>
-                <span className="text-zinc-200">{fixture.league}</span>
+                <h4 className="text-sm font-bold text-emerald-400 mb-1">Odds Simulator Available</h4>
+                <p className="text-xs text-zinc-400 leading-relaxed">Check out the <strong>"Compare Odds"</strong> tab to compare bookmakers and build a simulated accumulator slip to calculate your potential returns before placing real bets.</p>
               </div>
-              <div>
-                <span className="text-zinc-500 block text-xs">Date</span>
-                <span className="text-zinc-200">{kickoff.toLocaleDateString()}</span>
-              </div>
-              <div>
-                <span className="text-zinc-500 block text-xs">Kickoff</span>
-                <span className="text-zinc-200">{kickoff.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-              </div>
-              {fixture.venue && (
-                <div>
-                  <span className="text-zinc-500 block text-xs">Venue</span>
-                  <span className="text-zinc-200">{fixture.venue}</span>
-                </div>
-              )}
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {activeTab === 'stats' && (
-        <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-5 text-center">
-          <TrendingUp className="w-10 h-10 text-zinc-700 mx-auto mb-3" />
-          <h4 className="text-sm font-bold text-zinc-400 mb-2">Match Stats</h4>
-          <p className="text-xs text-zinc-500">Detailed match statistics will be available closer to kickoff and during the match.</p>
-        </div>
-      )}
+        {/* ODDS COMPARISON TAB */}
+        {activeTab === 'odds' && (
+          <div className="space-y-6">
+            <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl overflow-hidden shadow-lg">
+              <div className="p-4 bg-zinc-800/50 border-b border-zinc-800 flex justify-between items-center">
+                <h4 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                  <Calculator className="w-4 h-4 text-emerald-500" /> Match Winner (1X2)
+                </h4>
+              </div>
+              <div className="p-1">
+                <table className="w-full text-sm text-left">
+                  <thead className="text-[10px] text-zinc-500 uppercase tracking-widest bg-zinc-950/30">
+                    <tr>
+                      <th className="px-4 py-3 font-semibold rounded-tl-lg">Bookmaker</th>
+                      <th className="px-2 py-3 text-center font-semibold">1 (Home)</th>
+                      <th className="px-2 py-3 text-center font-semibold">X (Draw)</th>
+                      <th className="px-2 py-3 text-center font-semibold rounded-tr-lg">2 (Away)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-800/50">
+                    {MOCK_ODDS['Match Winner (1X2)'].map((row, i) => (
+                      <tr key={i} className="hover:bg-zinc-800/20 transition-colors">
+                        <td className="px-4 py-3 font-medium text-zinc-300 flex items-center gap-2">
+                          <div className="w-5 h-5 rounded bg-zinc-800 flex items-center justify-center text-[10px] font-black text-zinc-400">{row.logo}</div>
+                          {row.bookmaker}
+                        </td>
+                        <td className="px-2 py-3">
+                          <button 
+                            onClick={() => handleAddOdd('1X2', 'Home', row.home, row.bookmaker)}
+                            className={`w-full py-2 rounded font-mono font-bold text-sm transition-all shadow-sm ${isSelected('1X2', 'Home', row.bookmaker) ? 'bg-emerald-500 text-zinc-950 scale-105' : 'bg-zinc-800 text-emerald-400 hover:bg-zinc-700 hover:text-white border border-zinc-700'}`}
+                          >
+                            {row.home.toFixed(2)}
+                          </button>
+                        </td>
+                        <td className="px-2 py-3">
+                          <button 
+                            onClick={() => handleAddOdd('1X2', 'Draw', row.draw, row.bookmaker)}
+                            className={`w-full py-2 rounded font-mono font-bold text-sm transition-all shadow-sm ${isSelected('1X2', 'Draw', row.bookmaker) ? 'bg-emerald-500 text-zinc-950 scale-105' : 'bg-zinc-800 text-emerald-400 hover:bg-zinc-700 hover:text-white border border-zinc-700'}`}
+                          >
+                            {row.draw.toFixed(2)}
+                          </button>
+                        </td>
+                        <td className="px-2 py-3">
+                          <button 
+                            onClick={() => handleAddOdd('1X2', 'Away', row.away, row.bookmaker)}
+                            className={`w-full py-2 rounded font-mono font-bold text-sm transition-all shadow-sm ${isSelected('1X2', 'Away', row.bookmaker) ? 'bg-emerald-500 text-zinc-950 scale-105' : 'bg-zinc-800 text-emerald-400 hover:bg-zinc-700 hover:text-white border border-zinc-700'}`}
+                          >
+                            {row.away.toFixed(2)}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
 
-      {activeTab === 'tip' && (
-        <div className="space-y-4">
-          {tip ? (
-            <div className={`rounded-xl p-5 border ${tip.isPremium ? 'bg-gold-500/5 border-gold-500/20' : 'bg-emerald-500/5 border-emerald-500/20'}`}>
-              <div className="flex items-center gap-2 mb-4">
+            <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl overflow-hidden shadow-lg">
+              <div className="p-4 bg-zinc-800/50 border-b border-zinc-800 flex justify-between items-center">
+                <h4 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                  <Calculator className="w-4 h-4 text-emerald-500" /> Total Goals (2.5)
+                </h4>
+              </div>
+              <div className="p-1">
+                <table className="w-full text-sm text-left">
+                  <thead className="text-[10px] text-zinc-500 uppercase tracking-widest bg-zinc-950/30">
+                    <tr>
+                      <th className="px-4 py-3 font-semibold rounded-tl-lg">Bookmaker</th>
+                      <th className="px-2 py-3 text-center font-semibold text-emerald-500">Over 2.5</th>
+                      <th className="px-2 py-3 text-center font-semibold text-red-400 rounded-tr-lg">Under 2.5</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-800/50">
+                    {MOCK_ODDS['Total Goals (O/U 2.5)'].map((row, i) => (
+                      <tr key={i} className="hover:bg-zinc-800/20 transition-colors">
+                        <td className="px-4 py-3 font-medium text-zinc-300 flex items-center gap-2">
+                          <div className="w-5 h-5 rounded bg-zinc-800 flex items-center justify-center text-[10px] font-black text-zinc-400">{row.logo}</div>
+                          {row.bookmaker}
+                        </td>
+                        <td className="px-2 py-3">
+                          <button 
+                            onClick={() => handleAddOdd('O/U 2.5', 'Over', row.over, row.bookmaker)}
+                            className={`w-full py-2 rounded font-mono font-bold text-sm transition-all shadow-sm ${isSelected('O/U 2.5', 'Over', row.bookmaker) ? 'bg-emerald-500 text-zinc-950 scale-105' : 'bg-zinc-800 text-emerald-400 hover:bg-zinc-700 hover:text-white border border-zinc-700'}`}
+                          >
+                            {row.over.toFixed(2)}
+                          </button>
+                        </td>
+                        <td className="px-2 py-3">
+                          <button 
+                            onClick={() => handleAddOdd('O/U 2.5', 'Under', row.under, row.bookmaker)}
+                            className={`w-full py-2 rounded font-mono font-bold text-sm transition-all shadow-sm ${isSelected('O/U 2.5', 'Under', row.bookmaker) ? 'bg-emerald-500 text-zinc-950 scale-105' : 'bg-zinc-800 text-red-400 hover:bg-zinc-700 hover:text-white border border-zinc-700'}`}
+                          >
+                            {row.under.toFixed(2)}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            
+            <p className="text-center text-xs text-zinc-600 italic">Tap odds to add them to your bet slip simulator.</p>
+          </div>
+        )}
+
+        {/* STATS & H2H TAB */}
+        {activeTab === 'stats' && (
+          <div className="space-y-4">
+            {/* Form */}
+            <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-5 shadow-lg">
+              <h4 className="text-sm font-bold text-white tracking-wider flex items-center gap-2 mb-4 uppercase">
+                <Activity className="w-4 h-4 text-emerald-500" /> Recent Form (Last 5)
+              </h4>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-bold text-zinc-300">{fixture.homeTeam}</span>
+                  <div className="flex gap-1.5">
+                    {MOCK_STATS.form.home.map((f, i) => (
+                      <span key={i} className={`w-6 h-6 rounded flex items-center justify-center text-[10px] font-black text-white ${f==='W'?'bg-emerald-500':f==='D'?'bg-zinc-600':'bg-red-500'}`}>{f}</span>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-bold text-zinc-300">{fixture.awayTeam}</span>
+                  <div className="flex gap-1.5">
+                    {MOCK_STATS.form.away.map((f, i) => (
+                      <span key={i} className={`w-6 h-6 rounded flex items-center justify-center text-[10px] font-black text-white ${f==='W'?'bg-emerald-500':f==='D'?'bg-zinc-600':'bg-red-500'}`}>{f}</span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Averages */}
+            <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-5 shadow-lg">
+              <h4 className="text-sm font-bold text-white tracking-wider mb-4 uppercase">Avg Goals Per Match</h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-zinc-950 rounded-lg p-3 border border-zinc-800/50 text-center">
+                  <span className="text-xs text-zinc-500 block mb-1">Home Scored</span>
+                  <span className="text-xl font-mono font-bold text-emerald-400">{MOCK_STATS.avgGoals.homeScored}</span>
+                </div>
+                <div className="bg-zinc-950 rounded-lg p-3 border border-zinc-800/50 text-center">
+                  <span className="text-xs text-zinc-500 block mb-1">Away Scored</span>
+                  <span className="text-xl font-mono font-bold text-emerald-400">{MOCK_STATS.avgGoals.awayScored}</span>
+                </div>
+                <div className="bg-zinc-950 rounded-lg p-3 border border-zinc-800/50 text-center">
+                  <span className="text-xs text-zinc-500 block mb-1">Home Conceded</span>
+                  <span className="text-xl font-mono font-bold text-red-400">{MOCK_STATS.avgGoals.homeConceded}</span>
+                </div>
+                <div className="bg-zinc-950 rounded-lg p-3 border border-zinc-800/50 text-center">
+                  <span className="text-xs text-zinc-500 block mb-1">Away Conceded</span>
+                  <span className="text-xl font-mono font-bold text-red-400">{MOCK_STATS.avgGoals.awayConceded}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* H2H */}
+            <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-5 shadow-lg">
+              <h4 className="text-sm font-bold text-white tracking-wider flex items-center gap-2 mb-4 uppercase">
+                <TrendingUp className="w-4 h-4 text-emerald-500" /> Head-to-Head
+              </h4>
+              <div className="space-y-3">
+                {MOCK_STATS.h2h.map((match, i) => (
+                  <div key={i} className="flex justify-between items-center p-3 bg-zinc-800/30 rounded-lg border border-zinc-700/30">
+                    <span className="text-xs text-zinc-500 font-mono">{match.date}</span>
+                    <span className="text-sm font-bold text-zinc-300">{match.result.replace('Home', fixture.homeTeam).replace('Away', fixture.awayTeam)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* EXPERT TIP TAB */}
+        {activeTab === 'tip' && (
+          <div className="space-y-4">
+            {tip ? (
+              <div className={`rounded-xl p-6 border shadow-xl relative overflow-hidden ${tip.isPremium ? 'bg-gold-500/10 border-gold-500/30' : 'bg-emerald-500/10 border-emerald-500/30'}`}>
+                {/* Background glow */}
+                <div className={`absolute -top-20 -right-20 w-40 h-40 blur-3xl opacity-20 rounded-full ${tip.isPremium ? 'bg-gold-500' : 'bg-emerald-500'}`}></div>
+                
+                <div className="flex items-center gap-2 mb-6 relative z-10">
+                  {tip.isPremium ? (
+                    <span className="px-3 py-1.5 bg-gold-500/20 text-gold-400 text-xs font-black uppercase tracking-wider rounded-full flex items-center gap-1.5 border border-gold-500/30">
+                      <Star className="w-3.5 h-3.5" /> Premium Pick
+                    </span>
+                  ) : (
+                    <span className="px-3 py-1.5 bg-emerald-500/20 text-emerald-400 text-xs font-black uppercase tracking-wider rounded-full flex items-center gap-1.5 border border-emerald-500/30">
+                      <Zap className="w-3.5 h-3.5" /> Free Expert Tip
+                    </span>
+                  )}
+                </div>
+
                 {tip.isPremium ? (
-                  <span className="px-2.5 py-1 bg-gold-500/20 text-gold-400 text-[10px] font-bold uppercase rounded-full flex items-center gap-1">
-                    <Star className="w-3 h-3" /> Premium
-                  </span>
+                  <div className="text-center py-8 relative z-10">
+                    <Lock className="w-12 h-12 text-gold-400/50 mx-auto mb-4" />
+                    <h4 className="text-xl font-bold text-white mb-2">Premium Tip Locked</h4>
+                    <p className="text-sm text-zinc-400 mb-6 max-w-sm mx-auto">Unlock this expert prediction with a Premium TambuaTips subscription to increase your edge.</p>
+                    <Link to="/tips" className="inline-block px-8 py-3 bg-linear-to-r from-gold-600 to-gold-400 text-zinc-950 font-black tracking-wide rounded-xl shadow-lg shadow-gold-500/30 hover:shadow-gold-500/50 transition-all hover:-translate-y-1 text-sm uppercase">
+                      Upgrade to Premium
+                    </Link>
+                  </div>
                 ) : (
-                  <span className="px-2.5 py-1 bg-emerald-500/20 text-emerald-400 text-[10px] font-bold uppercase rounded-full flex items-center gap-1">
-                    <Zap className="w-3 h-3" /> Free Tip
-                  </span>
+                  <div className="relative z-10">
+                    <div className="mb-6 bg-zinc-950/50 p-4 rounded-xl border border-zinc-800/50">
+                      <span className="text-[10px] sm:text-xs text-zinc-500 font-bold uppercase tracking-widest block mb-1">Official Prediction</span>
+                      <p className="text-xl sm:text-2xl font-black text-emerald-400 leading-tight">{tip.prediction}</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 mb-6">
+                      <div className="bg-zinc-950/50 p-4 rounded-xl border border-zinc-800/50">
+                        <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest block mb-1">Value Odds</span>
+                        <p className="text-lg font-mono font-bold text-zinc-200">@ {tip.odds}</p>
+                      </div>
+                      <div className="bg-zinc-950/50 p-4 rounded-xl border border-zinc-800/50">
+                        <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest block mb-1">Confidence</span>
+                        <p className="text-lg font-bold text-gold-400 tracking-widest">{'⭐'.repeat(tip.confidence)}</p>
+                      </div>
+                    </div>
+                    {tip.reasoning && (
+                      <div className="border-t border-zinc-800/50 pt-5">
+                        <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest flex items-center gap-2 mb-3">
+                          <Activity className="w-3 h-3" /> Tactical Analysis
+                        </span>
+                        <p className="text-sm text-zinc-300 leading-relaxed max-w-none">{tip.reasoning}</p>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
-
-              {tip.isPremium ? (
-                <div className="text-center py-6">
-                  <Lock className="w-10 h-10 text-gold-400/50 mx-auto mb-3" />
-                  <h4 className="text-lg font-bold text-zinc-300 mb-2">Premium Tip</h4>
-                  <p className="text-sm text-zinc-500 mb-4">Unlock this expert prediction with a Premium subscription</p>
-                  <Link to="/tips" className="inline-block px-6 py-2.5 bg-gold-500 text-zinc-950 font-bold rounded-xl hover:bg-gold-400 transition-all hover:scale-105 text-sm">
-                    Go Premium
-                  </Link>
-                </div>
-              ) : (
-                <>
-                  <div className="mb-3">
-                    <span className="text-xs text-zinc-500 uppercase tracking-wider">Prediction</span>
-                    <p className="text-lg font-bold text-emerald-400">{tip.prediction}</p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3 mb-3">
-                    <div>
-                      <span className="text-xs text-zinc-500">Odds</span>
-                      <p className="text-sm font-bold text-zinc-200">@ {tip.odds}</p>
-                    </div>
-                    <div>
-                      <span className="text-xs text-zinc-500">Confidence</span>
-                      <p className="text-sm font-bold text-zinc-200">{'⭐'.repeat(tip.confidence)}</p>
-                    </div>
-                  </div>
-                  {tip.reasoning && (
-                    <div>
-                      <span className="text-xs text-zinc-500 uppercase tracking-wider">Analysis</span>
-                      <p className="text-sm text-zinc-300 leading-relaxed mt-1">{tip.reasoning}</p>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          ) : (
-            <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-8 text-center">
-              <Zap className="w-10 h-10 text-zinc-700 mx-auto mb-3" />
-              <h4 className="text-sm font-bold text-zinc-400 mb-2">No Tip Available</h4>
-              <p className="text-xs text-zinc-500 mb-4">Our experts haven't published a tip for this match yet.</p>
-              <Link to="/tips" className="text-sm text-emerald-400 hover:text-emerald-300 transition-colors">Browse available tips →</Link>
-            </div>
-          )}
-        </div>
-      )}
+            ) : (
+              <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-10 text-center shadow-lg">
+                <Zap className="w-12 h-12 text-zinc-700 mx-auto mb-4" />
+                <h4 className="text-lg font-bold text-zinc-300 mb-2">No Tip Published Yet</h4>
+                <p className="text-sm text-zinc-500 mb-6 max-w-sm mx-auto">Our analysts are still reviewing the data for this match. Check back closer to kickoff.</p>
+                <Link to="/tips" className="text-sm font-bold text-emerald-400 hover:text-emerald-300 transition-colors border border-emerald-500/30 bg-emerald-500/10 px-6 py-2.5 rounded-xl hover:bg-emerald-500/20">Browse available tips →</Link>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

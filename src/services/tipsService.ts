@@ -26,7 +26,65 @@ export interface Tip {
 function loadTips(): Tip[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
+    if (!raw) {
+      // Generate mock tips for testing payment and premium features
+      const today = new Date().toISOString().split('T')[0];
+      const mockTips: Tip[] = [
+        {
+          id: 'mock-free-1',
+          fixtureId: 1001,
+          homeTeam: 'Arsenal',
+          awayTeam: 'Chelsea',
+          league: 'Premier League',
+          matchDate: `${today}T15:00:00+00:00`,
+          prediction: 'Arsenal to Win',
+          odds: '2.10',
+          bookmaker: 'Betway',
+          confidence: 4,
+          reasoning: 'Arsenal is on a 5-match winning streak at home, while Chelsea is struggling with injuries to key defenders.',
+          isPremium: false,
+          result: 'pending',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        {
+          id: 'mock-prem-1',
+          fixtureId: 1002,
+          homeTeam: 'Real Madrid',
+          awayTeam: 'Barcelona',
+          league: 'La Liga',
+          matchDate: `${today}T20:00:00+00:00`,
+          prediction: 'Over 2.5 Goals & BTTS',
+          odds: '1.85',
+          bookmaker: 'SportPesa',
+          confidence: 5,
+          reasoning: 'El Clasico rarely disappoints. Both teams have scored in 8 of their last 10 meetings, and both boast fully fit attacking trios.',
+          isPremium: true,
+          result: 'pending',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        {
+          id: 'mock-prem-2',
+          fixtureId: 1003,
+          homeTeam: 'Bayern Munich',
+          awayTeam: 'Borussia Dortmund',
+          league: 'Bundesliga',
+          matchDate: `${today}T17:30:00+00:00`,
+          prediction: 'Bayern -1.5 Asian Handicap',
+          odds: '2.30',
+          bookmaker: 'Betika',
+          confidence: 5,
+          reasoning: 'Bayern historically dominates Der Klassiker at the Allianz Arena, averaging 3.5 goals per game against Dortmund in the last 5 years.',
+          isPremium: true,
+          result: 'pending',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        }
+      ];
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(mockTips));
+      return mockTips;
+    }
     return JSON.parse(raw);
   } catch {
     return [];

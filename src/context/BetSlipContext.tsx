@@ -1,14 +1,5 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-
-export interface BetSelection {
-  id: string;
-  matchId: string;
-  homeTeam: string;
-  awayTeam: string;
-  prediction: string;
-  odds: number;
-  bookmaker: string;
-}
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import { BetSelection } from '../types';
 
 interface BetSlipContextType {
   selections: BetSelection[];
@@ -17,25 +8,34 @@ interface BetSlipContextType {
   clearSlip: () => void;
   isSlipOpen: boolean;
   setIsSlipOpen: (isOpen: boolean) => void;
+  stake: number;
+  setStake: (amount: number) => void;
+  totalOdds: number;
+  potentialReturn: number;
 }
 
 const BetSlipContext = createContext<BetSlipContextType | undefined>(undefined);
 
 export function BetSlipProvider({ children }: { children: React.ReactNode }) {
   const [selections, setSelections] = useState<BetSelection[]>(() => {
-    const saved = localStorage.getItem('tumbuatips_betslip');
-    return saved ? JSON.parse(saved) : [];
+    try {
+      const saved = localStorage.getItem('tumbuatips_betslip_v2');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
   });
   const [isSlipOpen, setIsSlipOpen] = useState(false);
+  const [stake, setStake] = useState<number>(1000);
 
   useEffect(() => {
-    localStorage.setItem('tumbuatips_betslip', JSON.stringify(selections));
+    localStorage.setItem('tumbuatips_betslip_v2', JSON.stringify(selections));
   }, [selections]);
 
   const addSelection = (selection: BetSelection) => {
     setSelections(prev => {
-      // If match already exists, replace it
-      const filtered = prev.filter(s => s.matchId !== selection.matchId);
+      // If match already exists, replace it to only allow 1 pick per match
+      const filtered = prev.filter(s => s.fixtureId !== selection.fixtureId);
       return [...filtered, selection];
     });
     setIsSlipOpen(true);
@@ -49,6 +49,16 @@ export function BetSlipProvider({ children }: { children: React.ReactNode }) {
     setSelections([]);
   };
 
+  const totalOdds = useMemo(() => {
+    if (selections.length === 0) return 0;
+    const total = selections.reduce((acc, curr) => acc * curr.odds, 1);
+    return Number(total.toFixed(2));
+  }, [selections]);
+
+  const potentialReturn = useMemo(() => {
+    return Number((totalOdds * stake).toFixed(2));
+  }, [totalOdds, stake]);
+
   return (
     <BetSlipContext.Provider value={{
       selections,
@@ -56,7 +66,11 @@ export function BetSlipProvider({ children }: { children: React.ReactNode }) {
       removeSelection,
       clearSlip,
       isSlipOpen,
-      setIsSlipOpen
+      setIsSlipOpen,
+      stake,
+      setStake,
+      totalOdds,
+      potentialReturn
     }}>
       {children}
     </BetSlipContext.Provider>

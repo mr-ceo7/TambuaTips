@@ -1,6 +1,19 @@
 export interface BookmakerOdd {
   bookmaker: string;
+  bookmakerLogo?: string;
   value: string;
+  market?: string;
+  affiliateLink?: string;
+}
+
+export interface BetSelection {
+  id: string; // Unique ID for the slip item
+  fixtureId: number;
+  matchName: string; // e.g., "Arsenal vs Chelsea"
+  market: string; // e.g., "Home Win", "Over 2.5 Goals"
+  selection: string; // The exact pick, e.g., "1", "Over"
+  odds: number; // The numeric value of the odds selected
+  bookmaker: string; // The bookmaker the odds were picked from
 }
 
 export interface FixtureData {
