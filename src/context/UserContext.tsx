@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { SubscriptionTier } from '../services/pricingService';
-import type { TipCategory } from '../services/tipsService';
+import type { TipCategory, JackpotPrediction } from '../services/tipsService';
 import { hasAccessToCategory } from '../services/pricingService';
 
 // ---- Types ----
@@ -14,8 +14,8 @@ export interface UserData {
   username: string;
   email: string;
   createdAt: string;
-  isPremium?: boolean; // kept for backwards compat
   subscription: UserSubscription;
+  purchasedJackpotIds?: string[];
 }
 
 interface UserContextType {
@@ -31,6 +31,12 @@ interface UserContextType {
   logout: () => void;
   showAuthModal: boolean;
   setShowAuthModal: (show: boolean) => void;
+  purchaseJackpot: (jackpotId: string) => void;
+  hasJackpotAccess: (jackpotId: string) => boolean;
+  showJackpotModal: boolean;
+  setShowJackpotModal: (show: boolean) => void;
+  selectedJackpot: JackpotPrediction | null;
+  setSelectedJackpot: (jackpot: JackpotPrediction | null) => void;
 
   // Legacy compat
   upgradeToPremium: () => void;
@@ -56,7 +62,7 @@ const SESSION_KEY = 'tambuatips_session';
 
 const DEFAULT_SUB: UserSubscription = { tier: 'free', expiresAt: '' };
 
-function loadUsers(): Record<string, { username: string; email: string; password: string; createdAt: string; isPremium?: boolean; subscription?: UserSubscription }> {
+function loadUsers(): Record<string, { username: string; email: string; password: string; createdAt: string; isPremium?: boolean; subscription?: UserSubscription; purchasedJackpotIds?: string[] }> {
   try {
     const raw = localStorage.getItem(USERS_KEY);
     return raw ? JSON.parse(raw) : {};
@@ -78,6 +84,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserData | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showPricingModal, setShowPricingModal] = useState(false);
+  const [showJackpotModal, setShowJackpotModal] = useState(false);
+  const [selectedJackpot, setSelectedJackpot] = useState<JackpotPrediction | null>(null);
   const [favoriteTeams, setFavoriteTeams] = useState<string[]>([]);
   const [favoriteLeagues, setFavoriteLeagues] = useState<number[]>([]);
   const [notifiedMatches, setNotifiedMatches] = useState<string[]>([]);
@@ -92,7 +100,15 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       const userData = users[sessionId];
       if (userData) {
         const sub = getUserSub(userData);
-        setUser({ id: sessionId, username: userData.username, email: userData.email, createdAt: userData.createdAt, isPremium: sub.tier !== 'free', subscription: sub });
+        setUser({ 
+          id: sessionId, 
+          username: userData.username, 
+          email: userData.email, 
+          createdAt: userData.createdAt, 
+          isPremium: sub.tier !== 'free', 
+          subscription: sub,
+          purchasedJackpotIds: userData.purchasedJackpotIds || [] 
+        });
       }
     }
 
@@ -124,11 +140,11 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
     const id = crypto.randomUUID();
     const sub = DEFAULT_SUB;
-    const newUser = { username: username.trim(), email: normalizedEmail, password, createdAt: new Date().toISOString(), subscription: sub };
+    const newUser = { username: username.trim(), email: normalizedEmail, password, createdAt: new Date().toISOString(), subscription: sub, purchasedJackpotIds: [] };
     users[id] = newUser;
     saveUsers(users);
     localStorage.setItem(SESSION_KEY, id);
-    setUser({ id, username: newUser.username, email: newUser.email, createdAt: newUser.createdAt, isPremium: false, subscription: sub });
+    setUser({ id, username: newUser.username, email: newUser.email, createdAt: newUser.createdAt, isPremium: false, subscription: sub, purchasedJackpotIds: [] });
     setShowAuthModal(false);
     return { success: true };
   }, []);
@@ -141,7 +157,15 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       if (u.email === normalizedEmail && u.password === password) {
         localStorage.setItem(SESSION_KEY, id);
         const sub = getUserSub(u);
-        setUser({ id, username: u.username, email: u.email, createdAt: u.createdAt, isPremium: sub.tier !== 'free', subscription: sub });
+        setUser({ 
+          id, 
+          username: u.username, 
+          email: u.email, 
+          createdAt: u.createdAt, 
+          isPremium: sub.tier !== 'free', 
+          subscription: sub,
+          purchasedJackpotIds: u.purchasedJackpotIds || [] 
+        });
         setShowAuthModal(false);
         return { success: true };
       }
@@ -162,6 +186,30 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         setUser(prev => prev ? { ...prev, isPremium: tier !== 'free', subscription: sub } : prev);
       }
     }
+  }, [user]);
+
+  const purchaseJackpot = useCallback((jackpotId: string) => {
+    if (user) {
+      const users = loadUsers();
+      if (users[user.id]) {
+        const currentIds = users[user.id].purchasedJackpotIds || [];
+        if (!currentIds.includes(jackpotId)) {
+          const nextIds = [...currentIds, jackpotId];
+          users[user.id].purchasedJackpotIds = nextIds;
+          saveUsers(users);
+          setUser(prev => prev ? { ...prev, purchasedJackpotIds: nextIds } : prev);
+        }
+      }
+    }
+  }, [user]);
+
+  const hasJackpotAccess = useCallback((jackpotId: string): boolean => {
+    if (!user) return false;
+    // Premium members get all jackpots for free
+    if (user.subscription.tier === 'premium' && (!user.subscription.expiresAt || new Date(user.subscription.expiresAt) > new Date())) {
+      return true;
+    }
+    return user.purchasedJackpotIds?.includes(jackpotId) || false;
   }, [user]);
 
   // Legacy compat
@@ -226,8 +274,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   return (
     <UserContext.Provider value={{
       user, isLoggedIn: !!user, login, signup, logout, upgradeToPremium, subscribeTo, hasAccess,
-      showAuthModal, setShowAuthModal,
       showPricingModal, setShowPricingModal,
+      purchaseJackpot, hasJackpotAccess,
+      showJackpotModal, setShowJackpotModal,
+      selectedJackpot, setSelectedJackpot,
       favoriteTeams, toggleFavoriteTeam, favoriteLeagues, toggleFavoriteLeague,
       notifiedMatches, toggleMatchNotification, notifiedLeagues, toggleLeagueNotification,
       bettingHistory, addBet,

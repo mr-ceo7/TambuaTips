@@ -87,18 +87,24 @@ function LiveScoreboard({ fixtures, selectedLeague }: { fixtures: FixtureData[];
 }
 
 function AnimatedPremiumAd() {
+  const [isLoaded, setIsLoaded] = useState(false);
+
   return (
     <div className="absolute inset-0 w-full h-full bg-zinc-950 overflow-hidden">
-      {/* Video Background with Invert Trick to make white bg into dark theme context */}
-      <video 
-        autoPlay 
-        loop 
-        muted 
-        playsInline 
-        className="absolute inset-0 w-full h-full object-cover mix-blend-screen border-none invert hue-rotate-180 brightness-110 opacity-70"
-      >
-        <source src="/tambua-brand.mp4" type="video/mp4" />
-      </video>
+      {/* 3D Spline Background */}
+      <div className={`absolute inset-0 transition-opacity duration-1000 ${isLoaded ? 'opacity-70' : 'opacity-0'}`}>
+        {/* <Spline 
+          scene="https://prod.spline.design/kZqon7WAhInm8Y8P/scene.splinecode" 
+          onLoad={() => setIsLoaded(true)}
+        /> */}
+      </div>
+
+      {/* Loading Placeholder */}
+      {!isLoaded && (
+        <div className="absolute inset-0 flex items-center justify-center bg-zinc-950/50">
+          <div className="w-8 h-8 border-2 border-gold-500/20 border-t-gold-500 rounded-full animate-spin" />
+        </div>
+      )}
 
       {/* Dark gradient overlay for text readability */}
       <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/80 to-transparent" />

@@ -8,10 +8,11 @@ import { Toaster } from 'sonner';
 import { BetSlipDrawer } from '../BetSlipDrawer';
 import { ReloadPrompt } from '../ReloadPrompt';
 import { PricingModal } from '../PricingModal';
+import { JackpotPurchaseModal } from '../JackpotPurchaseModal';
 import { useUser } from '../../context/UserContext';
 
 export function Layout() {
-  const { showPricingModal, setShowPricingModal } = useUser();
+  const { showPricingModal, setShowPricingModal, showJackpotModal, setShowJackpotModal, selectedJackpot } = useUser();
 
   return (
     <div className="min-h-screen bg-pitch text-zinc-50 font-sans flex flex-col">
@@ -25,6 +26,11 @@ export function Layout() {
       <AuthModal />
       <BetSlipDrawer />
       <PricingModal isOpen={showPricingModal} onClose={() => setShowPricingModal(false)} />
+      <JackpotPurchaseModal 
+        isOpen={showJackpotModal} 
+        onClose={() => setShowJackpotModal(false)} 
+        jackpot={selectedJackpot} 
+      />
       <ReloadPrompt />
     </div>
   );
