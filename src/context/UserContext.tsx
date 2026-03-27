@@ -1,19 +1,29 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import type { SubscriptionTier } from '../services/pricingService';
+import type { TipCategory } from '../services/tipsService';
+import { hasAccessToCategory } from '../services/pricingService';
 
 // ---- Types ----
+export interface UserSubscription {
+  tier: SubscriptionTier;
+  expiresAt: string; // ISO date
+}
+
 export interface UserData {
   id: string;
   username: string;
   email: string;
   createdAt: string;
-  isPremium?: boolean;
+  isPremium?: boolean; // kept for backwards compat
+  subscription: UserSubscription;
 }
 
 interface UserContextType {
   // Auth
   user: UserData | null;
   isLoggedIn: boolean;
-  upgradeToPremium: () => void;
+  subscribeTo: (tier: SubscriptionTier, durationWeeks: 2 | 4) => void;
+  hasAccess: (category: TipCategory) => boolean;
   showPricingModal: boolean;
   setShowPricingModal: (show: boolean) => void;
   login: (email: string, password: string) => { success: boolean; error?: string };
@@ -21,6 +31,9 @@ interface UserContextType {
   logout: () => void;
   showAuthModal: boolean;
   setShowAuthModal: (show: boolean) => void;
+
+  // Legacy compat
+  upgradeToPremium: () => void;
 
   // Personalization
   favoriteTeams: string[];
@@ -41,7 +54,9 @@ const UserContext = createContext<UserContextType | undefined>(undefined);
 const USERS_KEY = 'tambuatips_users';
 const SESSION_KEY = 'tambuatips_session';
 
-function loadUsers(): Record<string, { username: string; email: string; password: string; createdAt: string; isPremium?: boolean }> {
+const DEFAULT_SUB: UserSubscription = { tier: 'free', expiresAt: '' };
+
+function loadUsers(): Record<string, { username: string; email: string; password: string; createdAt: string; isPremium?: boolean; subscription?: UserSubscription }> {
   try {
     const raw = localStorage.getItem(USERS_KEY);
     return raw ? JSON.parse(raw) : {};
@@ -50,6 +65,13 @@ function loadUsers(): Record<string, { username: string; email: string; password
 
 function saveUsers(users: Record<string, any>) {
   localStorage.setItem(USERS_KEY, JSON.stringify(users));
+}
+
+function getUserSub(userData: any): UserSubscription {
+  if (userData.subscription) return userData.subscription;
+  // Migrate old isPremium users
+  if (userData.isPremium) return { tier: 'premium', expiresAt: new Date(Date.now() + 30 * 86400000).toISOString() };
+  return DEFAULT_SUB;
 }
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
@@ -69,7 +91,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       const users = loadUsers();
       const userData = users[sessionId];
       if (userData) {
-        setUser({ id: sessionId, username: userData.username, email: userData.email, createdAt: userData.createdAt, isPremium: userData.isPremium });
+        const sub = getUserSub(userData);
+        setUser({ id: sessionId, username: userData.username, email: userData.email, createdAt: userData.createdAt, isPremium: sub.tier !== 'free', subscription: sub });
       }
     }
 
@@ -93,7 +116,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     const users = loadUsers();
     const normalizedEmail = email.toLowerCase().trim();
 
-    // Check if email exists
     for (const u of Object.values(users)) {
       if (u.email === normalizedEmail) {
         return { success: false, error: 'Email already registered' };
@@ -101,11 +123,12 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     }
 
     const id = crypto.randomUUID();
-    const newUser = { username: username.trim(), email: normalizedEmail, password, createdAt: new Date().toISOString(), isPremium: false };
+    const sub = DEFAULT_SUB;
+    const newUser = { username: username.trim(), email: normalizedEmail, password, createdAt: new Date().toISOString(), subscription: sub };
     users[id] = newUser;
     saveUsers(users);
     localStorage.setItem(SESSION_KEY, id);
-    setUser({ id, username: newUser.username, email: newUser.email, createdAt: newUser.createdAt, isPremium: false });
+    setUser({ id, username: newUser.username, email: newUser.email, createdAt: newUser.createdAt, isPremium: false, subscription: sub });
     setShowAuthModal(false);
     return { success: true };
   }, []);
@@ -117,7 +140,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     for (const [id, u] of Object.entries(users)) {
       if (u.email === normalizedEmail && u.password === password) {
         localStorage.setItem(SESSION_KEY, id);
-        setUser({ id, username: u.username, email: u.email, createdAt: u.createdAt, isPremium: u.isPremium });
+        const sub = getUserSub(u);
+        setUser({ id, username: u.username, email: u.email, createdAt: u.createdAt, isPremium: sub.tier !== 'free', subscription: sub });
         setShowAuthModal(false);
         return { success: true };
       }
@@ -126,15 +150,32 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     return { success: false, error: 'Invalid email or password' };
   }, []);
 
-  const upgradeToPremium = useCallback(() => {
+  const subscribeTo = useCallback((tier: SubscriptionTier, durationWeeks: 2 | 4) => {
     if (user) {
       const users = loadUsers();
       if (users[user.id]) {
-        users[user.id].isPremium = true;
+        const expiresAt = new Date(Date.now() + durationWeeks * 7 * 86400000).toISOString();
+        const sub: UserSubscription = { tier, expiresAt };
+        users[user.id].subscription = sub;
+        users[user.id].isPremium = tier !== 'free';
         saveUsers(users);
-        setUser(prev => prev ? { ...prev, isPremium: true } : prev);
+        setUser(prev => prev ? { ...prev, isPremium: tier !== 'free', subscription: sub } : prev);
       }
     }
+  }, [user]);
+
+  // Legacy compat
+  const upgradeToPremium = useCallback(() => {
+    subscribeTo('premium', 4);
+  }, [subscribeTo]);
+
+  const hasAccess = useCallback((category: TipCategory): boolean => {
+    if (!user) return category === 'free';
+    // Check if subscription is expired
+    if (user.subscription.expiresAt && new Date(user.subscription.expiresAt) < new Date()) {
+      return category === 'free';
+    }
+    return hasAccessToCategory(user.subscription.tier, category);
   }, [user]);
 
   const logout = useCallback(() => {
@@ -184,7 +225,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <UserContext.Provider value={{
-      user, isLoggedIn: !!user, login, signup, logout, upgradeToPremium, 
+      user, isLoggedIn: !!user, login, signup, logout, upgradeToPremium, subscribeTo, hasAccess,
       showAuthModal, setShowAuthModal,
       showPricingModal, setShowPricingModal,
       favoriteTeams, toggleFavoriteTeam, favoriteLeagues, toggleFavoriteLeague,
