@@ -174,7 +174,10 @@ export function JackpotPurchaseModal({ isOpen, onClose, jackpot }: JackpotPurcha
                         <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="mb-5 overflow-hidden">
                           <label className="block text-xs font-bold text-zinc-500 uppercase mb-2">Safaricom phone number</label>
                           <div className="flex bg-zinc-800 border border-zinc-700 rounded-xl overflow-hidden focus-within:border-gold-500 transition-all">
-                            <div className="px-4 py-3 bg-zinc-900 border-r border-zinc-700 text-sm text-zinc-400">+254</div>
+                            <div className="px-4 py-3 bg-zinc-900 border-r border-zinc-700 text-sm text-zinc-400 flex items-center gap-2">
+                              <span>🇰🇪</span>
+                              <span>+254</span>
+                            </div>
                             <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="712345678" className="w-full bg-transparent px-4 py-3 text-white focus:outline-hidden font-mono" />
                           </div>
                         </motion.div>
@@ -196,7 +199,6 @@ export function JackpotPurchaseModal({ isOpen, onClose, jackpot }: JackpotPurcha
                     <div className="w-16 h-16 border-4 border-gold-500/20 border-t-gold-500 rounded-full animate-spin mb-6" />
                     <h3 className="text-xl font-bold text-white mb-2">Verifying Payment...</h3>
                     <p className="text-zinc-400 text-center text-sm max-w-xs mb-8">Please check your phone for the M-Pesa prompt and enter your PIN.</p>
-                    <button onClick={() => setPaymentView('selection')} className="text-sm font-bold text-gold-500 hover:text-gold-400 transition-colors">Go Back</button>
                   </motion.div>
                 )}
 

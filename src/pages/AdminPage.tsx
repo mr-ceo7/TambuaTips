@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Shield, Plus, Trash2, Edit, Check, X, Bot, Star, TrendingUp, Trophy, Settings } from 'lucide-react';
 import { getAllTips, addTip, updateTip, deleteTip, getTipStats, getAllJackpots, addJackpot, deleteJackpot, type Tip, type TipCategory, type JackpotType, type DCLevel, type JackpotMatch, type JackpotPrediction } from '../services/tipsService';
-import { getPricingTiers, updatePricingTier, type TierConfig, CATEGORY_LABELS } from '../services/pricingService';
+import { getPricingTiers, updatePricingTier, addPricingTier, deletePricingTier, type TierConfig, CATEGORY_LABELS } from '../services/pricingService';
 import { toast } from 'sonner';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useUser } from '../context/UserContext';
@@ -56,6 +56,16 @@ export function AdminPage() {
   }, []);
   const [editingTier, setEditingTier] = useState<string | null>(null);
   const [tierForm, setTierForm] = useState({ price2wk: 0, price4wk: 0 });
+  const [showTierForm, setShowTierForm] = useState(false);
+  const [newTierForm, setNewTierForm] = useState({
+    tier_id: '',
+    name: '',
+    description: '',
+    price2wk: 99,
+    price4wk: 199,
+    categories: ['free'] as TipCategory[],
+    popular: false
+  });
 
   useEffect(() => {
     if (user?.is_admin) {
@@ -192,10 +202,38 @@ export function AdminPage() {
   };
 
   const saveTier = (tierId: string) => {
-    updatePricingTier(tierId as any, tierForm);
-    getPricingTiers().then(setPricingTiers);
-    setEditingTier(null);
-    toast.success('Pricing updated');
+    updatePricingTier(tierId as any, tierForm).then(() => {
+      getPricingTiers().then(setPricingTiers);
+      setEditingTier(null);
+      toast.success('Pricing updated');
+    });
+  };
+
+  const handleCreateTier = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTierForm.tier_id || !newTierForm.name) {
+      toast.error('Tier ID and Name are required');
+      return;
+    }
+    addPricingTier(newTierForm as any).then(res => {
+      if (res) {
+        getPricingTiers().then(setPricingTiers);
+        setShowTierForm(false);
+        setNewTierForm({ tier_id: '', name: '', description: '', price2wk: 99, price4wk: 199, categories: ['free'], popular: false });
+        toast.success('New plan created');
+      }
+    });
+  };
+
+  const handleDeleteTier = (tierId: string) => {
+    if (confirm(`Are you sure you want to delete the ${tierId} plan?`)) {
+      deletePricingTier(tierId).then(success => {
+        if (success) {
+          getPricingTiers().then(setPricingTiers);
+          toast.success('Plan deleted');
+        }
+      });
+    }
   };
 
   // ─── Auth Screen ─────────────────────────────────────────────
@@ -501,22 +539,90 @@ export function AdminPage() {
       {/* ═══ PRICING TAB ═══ */}
       {activeTab === 'pricing' && (
         <div className="space-y-4">
-          <p className="text-sm text-zinc-400 mb-4">Edit subscription prices below. Changes are reflected immediately on the public pricing page.</p>
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-sm text-zinc-400">Edit subscription prices below. Changes are reflected immediately on the public pricing page.</p>
+            <button onClick={() => setShowTierForm(true)} className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-zinc-950 font-bold rounded-xl hover:bg-emerald-400 transition-all text-sm">
+              <Plus className="w-4 h-4" /> New Plan
+            </button>
+          </div>
+
+          {showTierForm && (
+            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 mb-6">
+              <h3 className="text-lg font-bold text-zinc-200 mb-4">Create Subscription Plan</h3>
+              <form onSubmit={handleCreateTier} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">Tier ID (System ID) *</label>
+                  <input value={newTierForm.tier_id} onChange={e => setNewTierForm({ ...newTierForm, tier_id: e.target.value })} placeholder="e.g. gold-plan" className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500" required />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">Display Name *</label>
+                  <input value={newTierForm.name} onChange={e => setNewTierForm({ ...newTierForm, name: e.target.value })} placeholder="e.g. Gold VIP" className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500" required />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">2 Weeks Price (KES)</label>
+                  <input type="number" value={newTierForm.price2wk} onChange={e => setNewTierForm({ ...newTierForm, price2wk: parseInt(e.target.value) || 0 })} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">4 Weeks Price (KES)</label>
+                  <input type="number" value={newTierForm.price4wk} onChange={e => setNewTierForm({ ...newTierForm, price4wk: parseInt(e.target.value) || 0 })} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500" />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">Included Categories</label>
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {TIP_CATEGORIES.map(cat => (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => {
+                          const cats = newTierForm.categories.includes(cat) 
+                            ? newTierForm.categories.filter(c => c !== cat)
+                            : [...newTierForm.categories, cat];
+                          setNewTierForm({ ...newTierForm, categories: cats });
+                        }}
+                        className={`px-3 py-1 rounded-full text-[10px] font-bold transition-all ${
+                          newTierForm.categories.includes(cat) ? 'bg-emerald-500 text-zinc-950' : 'bg-zinc-800 text-zinc-500'
+                        }`}
+                      >
+                        {CATEGORY_LABELS[cat]?.label || cat}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 py-2">
+                   <input type="checkbox" id="isPopular" checked={newTierForm.popular} onChange={e => setNewTierForm({ ...newTierForm, popular: e.target.checked })} className="w-4 h-4 accent-emerald-500" />
+                   <label htmlFor="isPopular" className="text-sm text-zinc-300">Highlight as "Popular"</label>
+                </div>
+                <div className="sm:col-span-2 flex gap-3 mt-2">
+                  <button type="submit" className="flex-1 py-2.5 bg-emerald-500 text-zinc-950 font-bold rounded-xl hover:bg-emerald-400 transition-all text-sm">Create Plan</button>
+                  <button type="button" onClick={() => setShowTierForm(false)} className="px-4 py-2.5 bg-zinc-800 text-zinc-300 rounded-xl hover:bg-zinc-700 transition-all text-sm">Cancel</button>
+                </div>
+              </form>
+            </div>
+          )}
+
           {pricingTiers.map(tier => (
             <div key={tier.id} className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-5">
               <div className="flex items-center justify-between mb-3">
                 <div>
-                  <h4 className="text-base font-bold text-zinc-200">{tier.name}</h4>
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-base font-bold text-zinc-200">{tier.name}</h4>
+                    {tier.popular && <span className="bg-emerald-500 text-emerald-950 text-[8px] font-black px-1.5 py-0.5 rounded-full uppercase">Popular</span>}
+                  </div>
                   <p className="text-xs text-zinc-500">{tier.categories.filter(c => c !== 'free').map(c => CATEGORY_LABELS[c]?.label).join(', ')}</p>
                 </div>
-                {editingTier === tier.id ? (
-                  <div className="flex gap-2">
-                    <button onClick={() => saveTier(tier.id)} className="p-1.5 bg-emerald-500/20 text-emerald-400 rounded hover:bg-emerald-500/30 transition-all"><Check className="w-4 h-4" /></button>
-                    <button onClick={() => setEditingTier(null)} className="p-1.5 bg-zinc-800 text-zinc-400 rounded hover:bg-zinc-700 transition-all"><X className="w-4 h-4" /></button>
-                  </div>
-                ) : (
-                  <button onClick={() => startEditTier(tier)} className="p-1.5 bg-zinc-800 text-zinc-400 rounded hover:bg-zinc-700 hover:text-white transition-all"><Edit className="w-4 h-4" /></button>
-                )}
+                <div className="flex gap-2">
+                  {editingTier === tier.id ? (
+                    <>
+                      <button onClick={() => saveTier(tier.id)} className="p-1.5 bg-emerald-500/20 text-emerald-400 rounded hover:bg-emerald-500/30 transition-all"><Check className="w-4 h-4" /></button>
+                      <button onClick={() => setEditingTier(null)} className="p-1.5 bg-zinc-800 text-zinc-400 rounded hover:bg-zinc-700 transition-all"><X className="w-4 h-4" /></button>
+                    </>
+                  ) : (
+                    <>
+                      <button onClick={() => startEditTier(tier)} className="p-1.5 bg-zinc-800 text-zinc-400 rounded hover:bg-zinc-700 hover:text-white transition-all"><Edit className="w-4 h-4" /></button>
+                      <button onClick={() => handleDeleteTier(tier.id)} className="p-1.5 bg-zinc-800 text-zinc-400 rounded hover:bg-red-500/20 hover:text-red-400 transition-all"><Trash2 className="w-4 h-4" /></button>
+                    </>
+                  )}
+                </div>
               </div>
               {editingTier === tier.id ? (
                 <div className="grid grid-cols-2 gap-4">

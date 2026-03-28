@@ -1,5 +1,6 @@
 import type { TipCategory } from './tipsService';
 import apiClient from './apiClient';
+import { toast } from 'sonner';
 
 export type SubscriptionTier = 'free' | 'basic' | 'standard' | 'premium';
 
@@ -85,7 +86,70 @@ export async function getPricingTiers(): Promise<TierConfig[]> {
   }
 }
 
-export async function updatePricingTier(tierId: SubscriptionTier, updates: Partial<TierConfig>): Promise<TierConfig | null> {
-  console.warn("Pricing updates are not yet supported in the FastAPI backend.");
-  return null;
+export async function updatePricingTier(tierId: string, updates: Partial<TierConfig>): Promise<TierConfig | null> {
+  try {
+    const payload = {
+      name: updates.name,
+      description: updates.description,
+      price_2wk: updates.price2wk,
+      price_4wk: updates.price4wk,
+      categories: updates.categories,
+      popular: updates.popular,
+    };
+    const response = await apiClient.put(`/subscriptions/tiers/${tierId}`, payload);
+    const t = response.data;
+    return {
+      id: t.tier_id,
+      name: t.name,
+      description: t.description,
+      price2wk: t.price_2wk,
+      price4wk: t.price_4wk,
+      categories: Array.isArray(t.categories) ? t.categories : JSON.parse(t.categories || '[]'),
+      popular: t.popular,
+    };
+  } catch (error) {
+    console.error('Failed to update tier', error);
+    toast.error('Failed to update pricing tier');
+    return null;
+  }
+}
+
+export async function addPricingTier(tierData: Omit<TierConfig, 'id'> & { tier_id: string }): Promise<TierConfig | null> {
+  try {
+    const payload = {
+      tier_id: tierData.tier_id,
+      name: tierData.name,
+      description: tierData.description,
+      price_2wk: tierData.price2wk,
+      price_4wk: tierData.price4wk,
+      categories: tierData.categories,
+      popular: tierData.popular || false,
+    };
+    const response = await apiClient.post('/subscriptions/tiers', payload);
+    const t = response.data;
+    return {
+      id: t.tier_id,
+      name: t.name,
+      description: t.description,
+      price2wk: t.price_2wk,
+      price4wk: t.price_4wk,
+      categories: t.categories,
+      popular: t.popular,
+    };
+  } catch (error) {
+    console.error('Failed to add tier', error);
+    toast.error('Failed to create new tier');
+    return null;
+  }
+}
+
+export async function deletePricingTier(tierId: string): Promise<boolean> {
+  try {
+    await apiClient.delete(`/subscriptions/tiers/${tierId}`);
+    return true;
+  } catch (error) {
+    console.error('Failed to delete tier', error);
+    toast.error('Failed to delete tier');
+    return false;
+  }
 }
