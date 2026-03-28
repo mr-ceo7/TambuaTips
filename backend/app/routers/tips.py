@@ -42,6 +42,7 @@ def user_has_access(user: Optional[User], category: str) -> bool:
 async def list_tips(
     category: Optional[str] = Query(None),
     date_str: Optional[str] = Query(None, alias="date"),
+    fixture_id: Optional[int] = Query(None),
     db: AsyncSession = Depends(get_db),
     user: Optional[User] = Depends(get_current_user_optional),
 ):
@@ -56,6 +57,9 @@ async def list_tips(
         target_date = date.today()
 
     query = query.where(func.date(Tip.match_date) == target_date)
+
+    if fixture_id:
+        query = query.where(Tip.fixture_id == fixture_id)
     query = query.order_by(Tip.created_at.desc())
 
     result = await db.execute(query)
@@ -77,6 +81,13 @@ async def list_tips(
                 is_premium=tip.is_premium,
                 result=tip.result,
                 created_at=tip.created_at,
+                # These fields are explicitly overridden to ensure no leakage
+                prediction="🔒 Locked",
+                odds="🔒",
+                bookmaker="",
+                bookmaker_odds=None,
+                confidence=0,
+                reasoning=None
             ))
     return response
 

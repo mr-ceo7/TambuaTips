@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useUser } from '../context/UserContext';
-import { X, User, Bell, Star, History, Trash2, CheckCircle2, XCircle } from 'lucide-react';
+import { X, User, Bell, Star, History, Trash2, CheckCircle2, XCircle, Shield } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
 
@@ -10,7 +11,7 @@ interface UserProfileProps {
 }
 
 export function UserProfile({ isOpen, onClose }: UserProfileProps) {
-  const { favoriteTeams, toggleFavoriteTeam, notifiedMatches, toggleMatchNotification, notifiedLeagues, toggleLeagueNotification, bettingHistory, addBet } = useUser();
+  const { user, favoriteTeams, toggleFavoriteTeam, notifiedMatches, toggleMatchNotification, notifiedLeagues, toggleLeagueNotification, bettingHistory, addBet } = useUser();
   const [activeTab, setActiveTab] = useState<'history' | 'favorites' | 'notifications'>('history');
 
   const [newBet, setNewBet] = useState({
@@ -75,9 +76,20 @@ export function UserProfile({ isOpen, onClose }: UserProfileProps) {
                   <p className="text-xs text-zinc-400">Manage your betting journey</p>
                 </div>
               </div>
-              <button onClick={onClose} className="p-2 text-zinc-400 hover:text-white transition-all rounded-lg hover:bg-zinc-900 hover:scale-110 active:scale-95">
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-3">
+                {user?.is_admin && (
+                  <Link 
+                    to="/admin" 
+                    onClick={onClose}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-lg hover:bg-emerald-500/20 transition-all text-xs font-bold"
+                  >
+                    <Shield className="w-3.5 h-3.5" /> Admin Panel
+                  </Link>
+                )}
+                <button onClick={onClose} className="p-2 text-zinc-400 hover:text-white transition-all rounded-lg hover:bg-zinc-900 hover:scale-110 active:scale-95">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             <div className="flex border-b border-zinc-800 overflow-x-auto hide-scrollbar">

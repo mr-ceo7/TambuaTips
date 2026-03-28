@@ -15,6 +15,7 @@ export interface UserData {
   username: string;
   email: string;
   createdAt: string;
+  is_admin?: boolean;
   subscription: UserSubscription;
   purchasedJackpotIds?: string[];
 }
@@ -26,10 +27,12 @@ interface UserContextType {
   subscribeTo: (tier: SubscriptionTier, durationWeeks: 2 | 4) => void;
   hasAccess: (category: TipCategory) => boolean;
   showPricingModal: boolean;
-  setShowPricingModal: (show: boolean) => void;
+  setShowPricingModal: (show: boolean, category?: TipCategory) => void;
+  targetCategory: TipCategory | null;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   signup: (username: string, email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
+  refreshUser: () => Promise<void>;
   showAuthModal: boolean;
   setShowAuthModal: (show: boolean) => void;
   purchaseJackpot: (jackpotId: string) => void;
@@ -60,7 +63,14 @@ const UserContext = createContext<UserContextType | undefined>(undefined);
 export function UserProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserData | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [showPricingModal, setShowPricingModal] = useState(false);
+  const [showPricingModal, _setShowPricingModal] = useState(false);
+  const [targetCategory, setTargetCategory] = useState<TipCategory | null>(null);
+
+  const setShowPricingModal = useCallback((show: boolean, category?: TipCategory) => {
+    _setShowPricingModal(show);
+    if (show && category) setTargetCategory(category);
+    else if (!show) setTargetCategory(null);
+  }, []);
   const [showJackpotModal, setShowJackpotModal] = useState(false);
   const [selectedJackpot, setSelectedJackpot] = useState<JackpotPrediction | null>(null);
   const [favoriteTeams, setFavoriteTeams] = useState<string[]>([]);
@@ -69,29 +79,32 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [notifiedLeagues, setNotifiedLeagues] = useState<string[]>([]);
   const [bettingHistory, setBettingHistory] = useState<any[]>([]);
 
-  // Restore session from backend on mount
-  useEffect(() => {
-    const initAuth = async () => {
-      const token = localStorage.getItem('tambuatips_access_token');
-      if (token) {
-        try {
-          const userData = await authService.me();
-          setUser(userData);
-        } catch (error) {
-          console.error('Failed to restore session', error);
-          authService.logout();
+  const refreshUser = useCallback(async () => {
+    const token = localStorage.getItem('tambuatips_access_token');
+    if (token) {
+      try {
+        const userData = await authService.me();
+        setUser(userData);
+      } catch (error) {
+        console.error('Failed to refresh user', error);
+        // Don't logout on refresh error, just set user to null if it's a 401
+        if ((error as any).response?.status === 401) {
           setUser(null);
         }
       }
-    };
+    }
+  }, []);
 
-    initAuth();
+  // Restore session from backend on mount
+  useEffect(() => {
+    refreshUser();
 
     // Listen for unauthorized events to clear state
     const handleUnauthorized = () => setUser(null);
     window.addEventListener('auth:unauthorized', handleUnauthorized);
     
     // Load local personalization
+    // ...
     const favs = localStorage.getItem('tambua_fav_teams');
     if (favs) setFavoriteTeams(JSON.parse(favs));
     
@@ -237,10 +250,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <UserContext.Provider value={{
-      user, isLoggedIn: !!user, login, signup, logout, upgradeToPremium, subscribeTo, hasAccess,
+      user, isLoggedIn: !!user, login, signup, logout, refreshUser, upgradeToPremium, subscribeTo, hasAccess,
       showAuthModal, setShowAuthModal,
-      showPricingModal, setShowPricingModal,
-      purchaseJackpot, hasJackpotAccess,
+      showPricingModal, setShowPricingModal, targetCategory,
+      purchaseJackpot, hasAccessToCategory, hasJackpotAccess,
       showJackpotModal, setShowJackpotModal,
       selectedJackpot, setSelectedJackpot,
       favoriteTeams, toggleFavoriteTeam, favoriteLeagues, toggleFavoriteLeague,

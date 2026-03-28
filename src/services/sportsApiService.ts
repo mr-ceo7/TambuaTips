@@ -34,7 +34,7 @@ export function getLeagueInfo(leagueId: number) {
 
 export async function fetchFixturesByDate(date?: string): Promise<FixtureData[]> {
   const dateStr = date || new Date().toISOString().split('T')[0];
-  const response = await apiClient.get<FixtureData[]>(`/sports/fixtures?date=${dateStr}`);
+  const response = await apiClient.get<FixtureData[]>('/sports/fixtures', { params: { date: dateStr } });
   return response.data;
 }
 
@@ -60,23 +60,24 @@ export async function fetchFixtureById(fixtureId: number): Promise<FixtureData |
 export async function fetchLiveUpdates(fixtureIds: number[]): Promise<FixtureData[]> {
   if (fixtureIds.length === 0) return [];
   const ids = fixtureIds.join(',');
-  const response = await apiClient.get<FixtureData[]>(`/sports/live?ids=${ids}`);
+  const response = await apiClient.get<FixtureData[]>('/sports/live', { params: { ids } });
   return response.data;
 }
 
 export async function fetchH2H(teamId1: number, teamId2: number): Promise<FixtureData[]> {
-  const response = await apiClient.get<FixtureData[]>(`/sports/h2h?team1=${teamId1}&team2=${teamId2}`);
+  const response = await apiClient.get<FixtureData[]>('/sports/h2h', { params: { team1: teamId1, team2: teamId2 } });
   return response.data;
 }
 
 export async function fetchStandings(leagueId: number, season?: number): Promise<TeamStanding[]> {
-  const url = season ? `/sports/standings/${leagueId}?season=${season}` : `/sports/standings/${leagueId}`;
-  const response = await apiClient.get<TeamStanding[]>(url);
+  const params: any = {};
+  if (season) params.season = season;
+  const response = await apiClient.get<TeamStanding[]>(`/sports/standings/${leagueId}`, { params });
   return response.data;
 }
 
 export async function fetchFixturesByLeague(leagueId: number, date?: string): Promise<FixtureData[]> {
   const dateStr = date || new Date().toISOString().split('T')[0];
-  const response = await apiClient.get<FixtureData[]>(`/sports/fixtures?league=${leagueId}&date=${dateStr}`);
+  const response = await apiClient.get<FixtureData[]>('/sports/fixtures', { params: { league: leagueId, date: dateStr } });
   return response.data;
 }

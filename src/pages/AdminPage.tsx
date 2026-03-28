@@ -4,15 +4,14 @@ import { getAllTips, addTip, updateTip, deleteTip, getTipStats, getAllJackpots, 
 import { getPricingTiers, updatePricingTier, type TierConfig, CATEGORY_LABELS } from '../services/pricingService';
 import { toast } from 'sonner';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { useUser } from '../context/UserContext';
 
-const ADMIN_PASSWORD = 'tambuatips2026';
 const TIP_CATEGORIES: TipCategory[] = ['free', '2+', '4+', 'gg', '10+', 'vip'];
 const DC_LEVELS: DCLevel[] = [3, 4, 5, 6, 7, 10];
 
 export function AdminPage() {
   usePageTitle('Admin Panel');
-  const [isAuth, setIsAuth] = useState(false);
-  const [password, setPassword] = useState('');
+  const { user } = useUser();
   const [activeTab, setActiveTab] = useState<'tips' | 'jackpot' | 'pricing'>('tips');
 
   // ─── Tips State ──────────────────────────────────────────────
@@ -59,23 +58,13 @@ export function AdminPage() {
   const [tierForm, setTierForm] = useState({ price2wk: 0, price4wk: 0 });
 
   useEffect(() => {
-    if (isAuth) {
+    if (user?.is_admin) {
       getAllTips().then(setTips);
       getAllJackpots().then(setJackpots);
       getPricingTiers().then(setPricingTiers);
       getTipStats().then(setStats);
     }
-  }, [isAuth]);
-
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (password === ADMIN_PASSWORD) {
-      setIsAuth(true);
-      toast.success('Admin access granted');
-    } else {
-      toast.error('Wrong password');
-    }
-  };
+  }, [user?.is_admin]);
 
   // ─── Tips Handlers ───────────────────────────────────────────
   const resetTipForm = () => {
@@ -210,22 +199,19 @@ export function AdminPage() {
   };
 
   // ─── Auth Screen ─────────────────────────────────────────────
-  if (!isAuth) {
+  if (!user || !user.is_admin) {
     return (
-      <div className="min-h-[60vh] flex items-center justify-center px-4">
-        <form onSubmit={handleLogin} className="max-w-sm w-full bg-zinc-900 border border-zinc-800 rounded-2xl p-8">
-          <div className="flex items-center justify-center w-14 h-14 bg-emerald-500/20 rounded-full mx-auto mb-6">
-            <Shield className="w-7 h-7 text-emerald-500" />
-          </div>
-          <h2 className="text-xl font-display font-bold text-center mb-6">Admin Access</h2>
-          <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Enter admin password" className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-emerald-500 mb-4" />
-          <button type="submit" className="w-full py-3 bg-emerald-500 text-zinc-950 font-bold rounded-xl hover:bg-emerald-400 transition-all text-sm">Login</button>
-        </form>
+      <div className="min-h-[60vh] flex flex-col items-center justify-center p-4">
+        <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mb-4">
+          <Shield className="w-8 h-8 text-red-500" />
+        </div>
+        <h2 className="text-2xl font-bold text-white mb-2">Access Denied</h2>
+        <p className="text-zinc-400 text-center max-w-sm">
+          You do not have administrative privileges to view this page. Please return to the homepage.
+        </p>
       </div>
     );
   }
-
-
 
   return (
     <div className="container mx-auto px-4 py-4 sm:py-8 max-w-5xl">

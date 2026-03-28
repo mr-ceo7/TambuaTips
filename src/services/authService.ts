@@ -26,8 +26,20 @@ export const authService = {
   },
 
   async me(): Promise<UserData> {
-    const response = await apiClient.get<UserData>('/auth/me');
-    return response.data;
+    const response = await apiClient.get<any>('/auth/me');
+    const data = response.data;
+    return {
+      id: String(data.id),
+      username: data.name,
+      email: data.email,
+      createdAt: data.created_at,
+      is_admin: data.is_admin,
+      subscription: {
+        tier: data.subscription_tier || 'free',
+        expiresAt: data.subscription_expires_at || '',
+      },
+      purchasedJackpotIds: [],
+    };
   },
 
   logout() {

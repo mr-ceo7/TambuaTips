@@ -12,6 +12,7 @@ from sqlalchemy import select
 
 from app.config import settings
 from app.dependencies import get_db, get_current_user
+from app.services.payment_gateway import initiate_mpesa_stk
 from app.models.user import User
 from app.models.payment import Payment
 from app.models.jackpot import Jackpot, JackpotPurchase
@@ -92,11 +93,22 @@ async def pay_mpesa(body: MpesaPaymentRequest, db: AsyncSession = Depends(get_db
     await db.refresh(payment)
 
     if settings.PAYMENTS_LIVE:
-        # TODO: Implement real M-Pesa Daraja STK Push
-        # from app.services.payment_gateway import initiate_mpesa_stk
-        # result = await initiate_mpesa_stk(phone=body.phone, amount=amount, reference=reference)
-        # payment.gateway_response = str(result)
-        pass
+        try:
+            result = await initiate_mpesa_stk(phone=body.phone, amount=amount, reference=reference)
+            payment.gateway_response = str(result)
+            
+            # Safaricom returns 'CheckoutRequestID' on success
+            if result.get("ResponseCode") == "0":
+                payment.transaction_id = result.get("CheckoutRequestID")
+                await db.commit()
+            else:
+                payment.status = "failed"
+                await db.commit()
+        except Exception as e:
+            payment.status = "error"
+            payment.gateway_response = str(e)
+            await db.commit()
+            raise HTTPException(status_code=500, detail="M-Pesa initiation failed")
     else:
         # Simulate: auto-complete after short delay
         await asyncio.sleep(1)
@@ -113,14 +125,46 @@ async def pay_mpesa(body: MpesaPaymentRequest, db: AsyncSession = Depends(get_db
 async def mpesa_callback(request: Request, db: AsyncSession = Depends(get_db)):
     """M-Pesa STK Push callback webhook (Daraja API)."""
     data = await request.json()
+    stk_callback = data.get("Body", {}).get("stkCallback", {})
+    
+    checkout_request_id = stk_callback.get("CheckoutRequestID")
+    result_code = stk_callback.get("ResultCode")
+    result_desc = stk_callback.get("ResultDesc")
+    
+    if not checkout_request_id:
+        return {"ResultCode": 1, "ResultDesc": "Invalid Callback"}
 
-    # TODO: Parse Daraja callback, find payment by reference, update status
-    # This is the real production handler
-    # body = data.get("Body", {}).get("stkCallback", {})
-    # result_code = body.get("ResultCode")
-    # checkout_request_id = body.get("CheckoutRequestID")
+    # Find the matching payment
+    result = await db.execute(
+        select(Payment).where(Payment.transaction_id == checkout_request_id)
+    )
+    payment = result.scalar_one_or_none()
+    
+    if not payment:
+        return {"ResultCode": 1, "ResultDesc": "Payment Not Found"}
 
-    return {"ResultCode": 0, "ResultDesc": "Accepted"}
+    # Find user
+    user_result = await db.execute(select(User).where(User.id == payment.user_id))
+    user = user_result.scalar_one_or_none()
+
+    if result_code == 0:
+        # Success
+        payment.status = "completed"
+        # Extract MpesaReceiptNumber if available
+        meta = stk_callback.get("CallbackMetadata", {}).get("Item", [])
+        receipt = next((item["Value"] for item in meta if item["Name"] == "MpesaReceiptNumber"), None)
+        if receipt:
+            payment.reference = receipt
+        
+        if user:
+            await _fulfill_payment(payment, user, db)
+    else:
+        # Error/Canceled
+        payment.status = "failed"
+        payment.gateway_response = result_desc
+
+    await db.commit()
+    return {"ResultCode": 0, "ResultDesc": "Success"}
 
 
 # ── PayPal ───────────────────────────────────────────────────
@@ -243,4 +287,21 @@ async def pay_card(body: CardPaymentRequest, db: AsyncSession = Depends(get_db),
         await _fulfill_payment(payment, user, db)
         await db.refresh(payment)
 
+    return payment
+
+
+# ── Status Check ─────────────────────────────────────────────
+
+@router.get("/status/{payment_id}", response_model=PaymentResponse)
+async def get_payment_status(payment_id: int, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+    """Check the real-time status of a payment."""
+    result = await db.execute(select(Payment).where(Payment.id == payment_id))
+    payment = result.scalar_one_or_none()
+    
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment not found")
+        
+    if payment.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to view this payment")
+        
     return payment

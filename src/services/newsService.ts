@@ -63,7 +63,7 @@ export const PROMO_SLIDES: NewsItem[] = [
 
 export async function fetchNews(page: number = 1): Promise<{ articles: NewsItem[]; hasMore: boolean }> {
   try {
-    const response = await apiClient.get(`/news?page=${page}`);
+    const response = await apiClient.get('/news', { params: { page } });
     return response.data;
   } catch (error) {
     console.error('Failed to fetch news:', error);

@@ -91,13 +91,13 @@ export async function getAllTips(): Promise<Tip[]> {
 
 export async function getTodayTips(): Promise<Tip[]> {
   const dateStr = new Date().toISOString().split('T')[0];
-  const res = await apiClient.get(`/tips?date=${dateStr}`);
+  const res = await apiClient.get('/tips', { params: { date: dateStr } });
   return res.data.map(mapTip);
 }
 
 export async function getFreeTips(): Promise<Tip[]> {
   const dateStr = new Date().toISOString().split('T')[0];
-  const res = await apiClient.get(`/tips?category=free&date=${dateStr}`);
+  const res = await apiClient.get('/tips', { params: { category: 'free', date: dateStr } });
   return res.data.map(mapTip);
 }
 
@@ -108,13 +108,13 @@ export async function getPremiumTips(): Promise<Tip[]> {
 
 export async function getTipsByCategory(category: TipCategory): Promise<Tip[]> {
   const dateStr = new Date().toISOString().split('T')[0];
-  const res = await apiClient.get(`/tips?category=${category}&date=${dateStr}`);
+  const res = await apiClient.get('/tips', { params: { category, date: dateStr } });
   return res.data.map(mapTip);
 }
 
 export async function getTipByFixtureId(fixtureId: number): Promise<Tip | null> {
   try {
-    const res = await apiClient.get(`/tips?fixture_id=${fixtureId}`);
+    const res = await apiClient.get('/tips', { params: { fixture_id: fixtureId } });
     if (res.data && res.data.length > 0) {
       return mapTip(res.data[0]);
     }
@@ -153,7 +153,21 @@ export async function getTipStats(): Promise<{ total: number; won: number; lost:
 
 export async function addTip(tip: Partial<Tip>): Promise<Tip | null> {
   try {
-    const res = await apiClient.post('/tips', tip);
+    const payload = {
+      fixture_id: tip.fixtureId,
+      home_team: tip.homeTeam,
+      away_team: tip.awayTeam,
+      league: tip.league,
+      match_date: tip.matchDate,
+      prediction: tip.prediction,
+      odds: tip.odds,
+      bookmaker: tip.bookmaker,
+      bookmaker_odds: tip.bookmakerOdds,
+      confidence: tip.confidence,
+      reasoning: tip.reasoning,
+      category: tip.category,
+    };
+    const res = await apiClient.post('/tips', payload);
     return mapTip(res.data);
   } catch (error) {
     console.error('Failed to add tip:', error);
@@ -163,7 +177,22 @@ export async function addTip(tip: Partial<Tip>): Promise<Tip | null> {
 
 export async function updateTip(id: string, updates: Partial<Tip>): Promise<Tip | null> {
   try {
-    const res = await apiClient.put(`/tips/${id}`, updates);
+    const payload: any = {};
+    if (updates.fixtureId !== undefined) payload.fixture_id = updates.fixtureId;
+    if (updates.homeTeam !== undefined) payload.home_team = updates.homeTeam;
+    if (updates.awayTeam !== undefined) payload.away_team = updates.awayTeam;
+    if (updates.league !== undefined) payload.league = updates.league;
+    if (updates.matchDate !== undefined) payload.match_date = updates.matchDate;
+    if (updates.prediction !== undefined) payload.prediction = updates.prediction;
+    if (updates.odds !== undefined) payload.odds = updates.odds;
+    if (updates.bookmaker !== undefined) payload.bookmaker = updates.bookmaker;
+    if (updates.bookmakerOdds !== undefined) payload.bookmaker_odds = updates.bookmakerOdds;
+    if (updates.confidence !== undefined) payload.confidence = updates.confidence;
+    if (updates.reasoning !== undefined) payload.reasoning = updates.reasoning;
+    if (updates.category !== undefined) payload.category = updates.category;
+    if (updates.result !== undefined) payload.result = updates.result;
+
+    const res = await apiClient.put(`/tips/${id}`, payload);
     return mapTip(res.data);
   } catch (error) {
     console.error('Failed to update tip:', error);
@@ -202,9 +231,17 @@ export async function getJackpotById(id: string): Promise<JackpotPrediction | nu
 }
 
 export async function addJackpot(jackpot: any): Promise<JackpotPrediction> {
-  throw new Error("addJackpot must be called via backend Admin API");
+  const payload = {
+    type: jackpot.type,
+    dc_level: jackpot.dcLevel,
+    price: jackpot.price,
+    matches: jackpot.matches,
+  };
+  const res = await apiClient.post('/jackpots', payload);
+  return mapJackpot(res.data);
 }
 
 export async function deleteJackpot(id: string): Promise<boolean> {
-  throw new Error("deleteJackpot must be called via backend Admin API");
+  await apiClient.delete(`/jackpots/${id}`);
+  return true;
 }

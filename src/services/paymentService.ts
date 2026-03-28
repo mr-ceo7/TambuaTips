@@ -33,4 +33,8 @@ export const paymentService = {
     const response = await apiClient.post<PaymentResponse>('/pay/card', data);
     return response.data;
   },
+  checkStatus: async (paymentId: number): Promise<PaymentResponse> => {
+    const response = await apiClient.get<PaymentResponse>(`/pay/status/${paymentId}`);
+    return response.data;
+  },
 };

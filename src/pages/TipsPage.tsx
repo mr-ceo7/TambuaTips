@@ -20,7 +20,7 @@ const CATEGORY_ICONS: Record<TipCategory, React.ElementType> = {
 
 // ─── Tip Card ────────────────────────────────────────────────
 function TipCard({ tip, locked = false }: { tip: Tip; locked?: boolean; key?: React.Key }) {
-  const { user, setShowAuthModal, setShowPricingModal } = useUser();
+  const { user, setShowAuthModal, setShowPricingModal, hasAccess } = useUser();
   const { addSelection, selections } = useBetSlip();
   const [addedBookmaker, setAddedBookmaker] = useState<string | null>(null);
 
@@ -29,7 +29,7 @@ function TipCard({ tip, locked = false }: { tip: Tip; locked?: boolean; key?: Re
   const handleUnlock = (e: React.MouseEvent) => {
     e.preventDefault();
     if (!user) setShowAuthModal(true);
-    else setShowPricingModal(true);
+    else setShowPricingModal(true, tip.category);
   };
 
   const handleAddToSlip = (bookmaker: string, odds: string) => {
@@ -81,10 +81,13 @@ function TipCard({ tip, locked = false }: { tip: Tip; locked?: boolean; key?: Re
       <div className="relative group/tip">
         {locked ? (
           <div className="relative">
-            {/* Blurred Prediction Preview */}
-            <div className="bg-zinc-950/50 border border-zinc-800 rounded-xl p-4 mb-3 blur-sm select-none">
+            {/* Blurred Prediction Preview — Completely secure, data is not even sent from the backend */}
+            <div className="bg-zinc-950/50 border border-zinc-800 rounded-xl p-4 mb-3 blur-sm select-none pointer-events-none">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-bold text-zinc-600">{tip.prediction}</span>
+                {/* We render a randomized placeholder to ensure character count leakage is impossible */}
+                <span className="text-sm font-bold text-zinc-700 tracking-widest">
+                  {tip.prediction.split('').map(() => '•').join('')}
+                </span>
               </div>
               <div className="flex items-center gap-1 opacity-20">
                 {[...Array(5)].map((_, i) => (
@@ -391,17 +394,6 @@ export function TipsPage() {
       )}
 
       {/* CTA */}
-      <div className="mt-10 bg-gradient-to-r from-emerald-500/20 via-blue-500/10 to-purple-500/20 border border-emerald-500/20 rounded-2xl p-6 text-center">
-        <Trophy className="w-10 h-10 text-emerald-500 mx-auto mb-3" />
-        <h3 className="text-xl font-display font-bold text-white mb-2">Unlock All Tips</h3>
-        <p className="text-sm text-zinc-400 mb-4 max-w-md mx-auto">Get all expert predictions, detailed analysis, and priority alerts. Join thousands of winning bettors.</p>
-        <button 
-          onClick={() => !user ? setShowAuthModal(true) : setShowPricingModal(true)}
-          className="px-8 py-3 bg-emerald-500 text-zinc-950 font-bold rounded-xl hover:bg-emerald-400 transition-all hover:scale-105 text-sm"
-        >
-          View Plans — Starting at KES 550
-        </button>
-      </div>
     </div>
   );
 }

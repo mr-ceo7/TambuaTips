@@ -74,8 +74,8 @@ export async function getPricingTiers(): Promise<TierConfig[]> {
         description: t.description,
         price2wk: t.price_2wk,
         price4wk: t.price_4wk,
-        categories: Array.isArray(t.features) ? t.features : JSON.parse(t.features || '[]'),
-        popular: t.is_popular,
+        categories: Array.isArray(t.categories) ? t.categories : JSON.parse(t.categories || '[]'),
+        popular: t.popular,
       }));
     }
     return DEFAULT_TIERS;
