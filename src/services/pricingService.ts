@@ -1,10 +1,5 @@
-/**
- * Pricing Service — Admin-configurable subscription tiers stored in localStorage.
- */
-
 import type { TipCategory } from './tipsService';
-
-const PRICING_KEY = 'tambuatips_pricing';
+import apiClient from './apiClient';
 
 export type SubscriptionTier = 'free' | 'basic' | 'standard' | 'premium';
 
@@ -12,8 +7,8 @@ export interface TierConfig {
   id: SubscriptionTier;
   name: string;
   description: string;
-  price2wk: number; // KES
-  price4wk: number; // KES
+  price2wk: number;
+  price4wk: number;
   categories: TipCategory[];
   popular: boolean;
 }
@@ -48,9 +43,6 @@ const DEFAULT_TIERS: TierConfig[] = [
   },
 ];
 
-/**
- * Map of which tier is required for each category.
- */
 export const CATEGORY_LABELS: Record<TipCategory, { label: string; minTier: SubscriptionTier }> = {
   'free': { label: 'Free Tips', minTier: 'free' },
   '2+': { label: '2+ Odds', minTier: 'standard' },
@@ -60,9 +52,6 @@ export const CATEGORY_LABELS: Record<TipCategory, { label: string; minTier: Subs
   'vip': { label: 'VIP Special (80+)', minTier: 'premium' },
 };
 
-/**
- * Tier hierarchy for access checks.
- */
 const TIER_RANK: Record<SubscriptionTier, number> = {
   free: 0,
   basic: 1,
@@ -71,40 +60,32 @@ const TIER_RANK: Record<SubscriptionTier, number> = {
 };
 
 export function hasAccessToCategory(userTier: SubscriptionTier, category: TipCategory): boolean {
-  const requiredTier = CATEGORY_LABELS[category].minTier;
+  const requiredTier = CATEGORY_LABELS[category]?.minTier || 'premium';
   return TIER_RANK[userTier] >= TIER_RANK[requiredTier];
 }
 
-// ─── CRUD ────────────────────────────────────────────────────
-
-function loadPricing(): TierConfig[] {
+export async function getPricingTiers(): Promise<TierConfig[]> {
   try {
-    const raw = localStorage.getItem(PRICING_KEY);
-    if (!raw) return DEFAULT_TIERS;
-    return JSON.parse(raw);
-  } catch {
+    const response = await apiClient.get('/subscriptions/tiers');
+    if (response.data && response.data.length > 0) {
+      return response.data.map((t: any) => ({
+        id: t.tier_id,
+        name: t.name,
+        description: t.description,
+        price2wk: t.price_2wk,
+        price4wk: t.price_4wk,
+        categories: Array.isArray(t.features) ? t.features : JSON.parse(t.features || '[]'),
+        popular: t.is_popular,
+      }));
+    }
+    return DEFAULT_TIERS;
+  } catch (error) {
+    console.error('Failed to fetch pricing tiers, falling back to default', error);
     return DEFAULT_TIERS;
   }
 }
 
-function savePricing(tiers: TierConfig[]): void {
-  localStorage.setItem(PRICING_KEY, JSON.stringify(tiers));
-}
-
-export function getPricingTiers(): TierConfig[] {
-  return loadPricing();
-}
-
-export function updatePricingTier(tierId: SubscriptionTier, updates: Partial<Pick<TierConfig, 'price2wk' | 'price4wk' | 'description' | 'name'>>): TierConfig | null {
-  const tiers = loadPricing();
-  const index = tiers.findIndex(t => t.id === tierId);
-  if (index === -1) return null;
-
-  tiers[index] = { ...tiers[index], ...updates };
-  savePricing(tiers);
-  return tiers[index];
-}
-
-export function resetPricing(): void {
-  savePricing(DEFAULT_TIERS);
+export async function updatePricingTier(tierId: SubscriptionTier, updates: Partial<TierConfig>): Promise<TierConfig | null> {
+  console.warn("Pricing updates are not yet supported in the FastAPI backend.");
+  return null;
 }

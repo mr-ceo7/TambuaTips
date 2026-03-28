@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { Loader2, ChevronRight, ChevronLeft, Trophy, Zap, ArrowRight, ExternalLink, MessageCircle, Twitter, Star, Target } from 'lucide-react';
-import { fetchTodayFixtures, fetchStandings, fetchFixturesByLeague, LEAGUES, ALL_LEAGUE_IDS } from '../services/sportsApiService';
+import { fetchTodayFixtures, fetchStandings, fetchFixturesByLeague, LEAGUES, EUROPEAN_LEAGUE_IDS } from '../services/sportsApiService';
 import { fetchNews, mixPromoSlides, FALLBACK_IMAGE, NewsItem } from '../services/newsService';
 import { getTipStats, getFreeTips } from '../services/tipsService';
 import { FixtureData, TeamStanding } from '../types';
@@ -470,8 +470,8 @@ export function HomePage() {
               </h3>
             </div>
             <div className="space-y-3">
-              {(fixtures.filter(f => f.leagueId && ALL_LEAGUE_IDS.includes(f.leagueId)).length > 0 
-                ? fixtures.filter(f => f.leagueId && ALL_LEAGUE_IDS.includes(f.leagueId)) 
+              {(fixtures.filter(f => f.leagueId && EUROPEAN_LEAGUE_IDS.includes(f.leagueId)).length > 0 
+                ? fixtures.filter(f => f.leagueId && EUROPEAN_LEAGUE_IDS.includes(f.leagueId)) 
                 : fixtures).slice(0, 3).map(f => (
                 <Link key={f.id} to={`/match/${f.id}`} className="block bg-zinc-950/50 border border-zinc-800 rounded-xl p-3 hover:border-orange-500/30 transition-all">
                   <div className="text-xs text-zinc-500 mb-1">{f.league}</div>

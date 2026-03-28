@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Check, Shield, Zap, Star, Crown, Smartphone, CreditCard, Wallet } from 'lucide-react';
+import { X, Check, Shield, Zap, Star, Crown, Smartphone, CreditCard, Wallet, Lock } from 'lucide-react';
 import { useUser } from '../context/UserContext';
 import { getPricingTiers, CATEGORY_LABELS, type TierConfig, type SubscriptionTier } from '../services/pricingService';
 import { toast } from 'sonner';
@@ -27,10 +27,10 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
   const [selectedMethod, setSelectedMethod] = useState<'mpesa' | 'paypal' | 'skrill' | null>(null);
   const [phone, setPhone] = useState('');
   const [processing, setProcessing] = useState(false);
-
-  const tiers = getPricingTiers();
+  const [tiers, setTiers] = useState<TierConfig[]>([]);
 
   useEffect(() => {
+    getPricingTiers().then(setTiers);
     if (!isOpen) return;
     
     fetch('https://ipapi.co/json/')
@@ -100,7 +100,10 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
               {/* Duration Toggle */}
               <div className="flex bg-zinc-800 rounded-xl p-1 mb-5">
                 <button onClick={() => setDuration(2)} className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${duration === 2 ? 'bg-emerald-500 text-zinc-950' : 'text-zinc-400'}`}>2 Weeks</button>
-                <button onClick={() => setDuration(4)} className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${duration === 4 ? 'bg-emerald-500 text-zinc-950' : 'text-zinc-400'}`}>4 Weeks</button>
+                <button onClick={() => setDuration(4)} className={`relative flex-1 py-2 rounded-lg text-sm font-bold transition-all ${duration === 4 ? 'bg-emerald-500 text-zinc-950' : 'text-zinc-400'}`}>
+                  4 Weeks
+                  <span className="absolute -top-2.5 -right-2 bg-emerald-400 text-emerald-950 text-[10px] px-2 py-0.5 rounded-full shadow border border-emerald-300 animate-pulse">Save up to 22%</span>
+                </button>
               </div>
 
               {/* Tier Selection */}
@@ -145,21 +148,18 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
                   <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Payment Method</p>
                   
                   {(isKenya || true) && (
-                    <button onClick={() => setSelectedMethod('mpesa')} className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all ${selectedMethod === 'mpesa' ? 'border-emerald-500 bg-emerald-500/10 text-white' : 'border-zinc-700 hover:border-zinc-500 text-zinc-300'}`}>
-                      <Smartphone className="w-5 h-5 text-emerald-400" />
-                      <span className="font-semibold flex-1 text-left">M-Pesa</span>
-                      {selectedMethod === 'mpesa' && <Check className="w-4 h-4 text-emerald-500" />}
+                    <button onClick={() => setSelectedMethod('mpesa')} className={`relative w-full flex items-center justify-center p-3 rounded-xl border transition-all ${selectedMethod === 'mpesa' ? 'border-emerald-500 bg-emerald-500/10' : 'border-zinc-700 hover:border-zinc-500'}`}>
+                      <img src="/mpesa.svg" alt="M-Pesa" className="h-7 object-contain" />
+                      {selectedMethod === 'mpesa' && <Check className="absolute right-4 w-5 h-5 text-emerald-500" />}
                     </button>
                   )}
-                  <button onClick={() => setSelectedMethod('paypal')} className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all ${selectedMethod === 'paypal' ? 'border-blue-500 bg-blue-500/10 text-white' : 'border-zinc-700 hover:border-zinc-500 text-zinc-300'}`}>
-                    <CreditCard className="w-5 h-5 text-blue-400" />
-                    <span className="font-semibold flex-1 text-left">PayPal</span>
-                    {selectedMethod === 'paypal' && <Check className="w-4 h-4 text-blue-500" />}
+                  <button onClick={() => setSelectedMethod('paypal')} className={`relative w-full flex items-center justify-center p-3 rounded-xl border transition-all ${selectedMethod === 'paypal' ? 'border-blue-500 bg-blue-500/10' : 'border-zinc-700 hover:border-zinc-500'}`}>
+                    <img src="/paypal.svg" alt="PayPal" className="h-5 object-contain" />
+                    {selectedMethod === 'paypal' && <Check className="absolute right-4 w-5 h-5 text-blue-500" />}
                   </button>
-                  <button onClick={() => setSelectedMethod('skrill')} className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all ${selectedMethod === 'skrill' ? 'border-purple-500 bg-purple-500/10 text-white' : 'border-zinc-700 hover:border-zinc-500 text-zinc-300'}`}>
-                    <Wallet className="w-5 h-5 text-purple-400" />
-                    <span className="font-semibold flex-1 text-left">Skrill</span>
-                    {selectedMethod === 'skrill' && <Check className="w-4 h-4 text-purple-500" />}
+                  <button onClick={() => setSelectedMethod('skrill')} className={`relative w-full flex items-center justify-center p-3 rounded-xl border transition-all ${selectedMethod === 'skrill' ? 'border-purple-500 bg-purple-500/10' : 'border-zinc-700 hover:border-zinc-500'}`}>
+                    <img src="/skrill.svg" alt="Skrill" className="h-6 object-contain" />
+                    {selectedMethod === 'skrill' && <Check className="absolute right-4 w-5 h-5 text-purple-500" />}
                   </button>
                 </div>
               )}
@@ -169,7 +169,12 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
                 {selectedMethod === 'mpesa' && (
                   <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="mb-5 overflow-hidden">
                     <label className="block text-sm font-medium text-zinc-300 mb-2">Safaricom Phone Number</label>
-                    <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="e.g. 0712345678" className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-3 text-white focus:outline-hidden focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all font-mono" />
+                    <div className="flex bg-zinc-800 border border-zinc-700 rounded-lg overflow-hidden focus-within:border-emerald-500 focus-within:ring-1 focus-within:ring-emerald-500 transition-all">
+                      <div className="flex items-center justify-center bg-zinc-900 border-r border-zinc-700 px-3 text-sm text-zinc-300 font-mono">
+                        🇰🇪 +254
+                      </div>
+                      <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="712345678" className="w-full bg-transparent px-3 py-3 text-white focus:outline-hidden font-mono" />
+                    </div>
                     <p className="text-xs text-emerald-400/80 mt-2">You will receive an STK push prompt on your phone.</p>
                   </motion.div>
                 )}
@@ -190,7 +195,9 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
                     <span>Processing Payment...</span>
                   </>
                 ) : (
-                  <span>Pay KES {price.toLocaleString()} Now</span>
+                  <span className="flex items-center gap-2">
+                    <Lock className="w-4 h-4" /> Securely Pay KES {price.toLocaleString()}
+                  </span>
                 )}
               </button>
               

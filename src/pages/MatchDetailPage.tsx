@@ -51,8 +51,8 @@ export function MatchDetailPage() {
       try {
         const data = await fetchFixtureById(parseInt(id));
         setFixture(data);
-        const matchTip = getTipByFixtureId(parseInt(id));
-        setTip(matchTip);
+        const matchTip = await getTipByFixtureId(parseInt(id));
+        setTip(matchTip || undefined);
       } catch (err) {
         console.error('Failed to load match:', err);
       } finally {

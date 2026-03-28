@@ -1,4 +1,4 @@
-import { getCached, setCache, CACHE_TTL } from './cache';
+import apiClient from './apiClient';
 
 export interface NewsItem {
   id: number | string;
@@ -18,9 +18,9 @@ const PLAYER_IMAGES = [
   "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b3/2022_FIFA_World_Cup_France_4%E2%80%931_Australia_-_%287%29_%28cropped%29.jpg/800px-2022_FIFA_World_Cup_France_4%E2%80%931_Australia_-_%287%29_%28cropped%29.jpg",
 ];
 
-const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?q=80&w=800&auto=format&fit=crop";
+export const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?q=80&w=800&auto=format&fit=crop";
 
-const BRAND_AD_ARTICLE: NewsItem = {
+export const BRAND_AD_ARTICLE: NewsItem = {
   id: 'promo-tambua-ad',
   title: "TAMBUA TIPS - KEEP YOUR TIPS UP",
   source: "TambuaTips",
@@ -61,39 +61,12 @@ export const PROMO_SLIDES: NewsItem[] = [
   },
 ];
 
-/**
- * Fetch football news from ESPN API.
- */
 export async function fetchNews(page: number = 1): Promise<{ articles: NewsItem[]; hasMore: boolean }> {
-  const cacheKey = `news_page_${page}`;
-  
-  const cached = getCached<{ articles: NewsItem[]; hasMore: boolean }>(cacheKey);
-  if (cached) return cached;
-
   try {
-    const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/news?limit=6&page=${page}`);
-    const data = await res.json();
-
-    if (data?.articles?.length > 0) {
-      const articles: NewsItem[] = data.articles.map((article: any, index: number) => ({
-        id: article.id || `${page}-${index}`,
-        title: article.headline,
-        source: article.source || 'ESPN FC',
-        time: new Date(article.published).toLocaleDateString(),
-        image: article.images?.[0]?.url || PLAYER_IMAGES[index % PLAYER_IMAGES.length],
-        category: article.categories?.[0]?.description || 'Premier League',
-        link: article.links?.web?.href || '#',
-      }));
-
-      const result = { articles, hasMore: data.articles.length === 6 };
-      setCache(cacheKey, result, CACHE_TTL.NEWS);
-      return result;
-    }
-
-    return { articles: [], hasMore: false };
+    const response = await apiClient.get(`/news?page=${page}`);
+    return response.data;
   } catch (error) {
     console.error('Failed to fetch news:', error);
-    // Return fallback news
     return {
       articles: [BRAND_AD_ARTICLE],
       hasMore: false,
@@ -101,10 +74,6 @@ export async function fetchNews(page: number = 1): Promise<{ articles: NewsItem[
   }
 }
 
-/**
- * Get news articles with promo slides mixed in.
- * Inserts a promo slide after every 3 real articles.
- */
 export function mixPromoSlides(articles: NewsItem[]): NewsItem[] {
   const result: NewsItem[] = [];
   let promoIndex = 0;
@@ -119,5 +88,3 @@ export function mixPromoSlides(articles: NewsItem[]): NewsItem[] {
   
   return result;
 }
-
-export { FALLBACK_IMAGE, PLAYER_IMAGES };

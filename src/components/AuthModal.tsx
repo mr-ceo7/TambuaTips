@@ -20,7 +20,7 @@ export function AuthModal() {
     setError('');
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -38,7 +38,7 @@ export function AuthModal() {
         setError('Password must be at least 4 characters');
         return;
       }
-      const result = signup(username, email, password);
+      const result = await signup(username, email, password);
       if (result.success) {
         toast.success(`Welcome to TambuaTips, ${username}! 🎉`);
         resetForm();
@@ -46,7 +46,7 @@ export function AuthModal() {
         setError(result.error || 'Signup failed');
       }
     } else {
-      const result = login(email, password);
+      const result = await login(email, password);
       if (result.success) {
         toast.success('Welcome back! 👋');
         resetForm();

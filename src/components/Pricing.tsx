@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Check, Zap, Star, Crown } from 'lucide-react';
 import { getPricingTiers, type TierConfig, CATEGORY_LABELS } from '../services/pricingService';
 import { useUser } from '../context/UserContext';
@@ -32,8 +32,12 @@ const TIER_COLORS: Record<string, { border: string; glow: string; button: string
 
 export function Pricing() {
   const [duration, setDuration] = useState<'2wk' | '4wk'>('2wk');
-  const tiers = getPricingTiers();
+  const [tiers, setTiers] = useState<TierConfig[]>([]);
   const { user, setShowAuthModal, setShowPricingModal } = useUser();
+
+  useEffect(() => {
+    getPricingTiers().then(setTiers);
+  }, []);
 
   const handleSelect = () => {
     if (!user) setShowAuthModal(true);

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Shield, Plus, Trash2, Edit, Check, X, Bot, Star, TrendingUp, Trophy, Settings } from 'lucide-react';
-import { getAllTips, addTip, updateTip, deleteTip, getTipStats, getAllJackpots, addJackpot, deleteJackpot, type Tip, type TipCategory, type JackpotType, type DCLevel, type JackpotMatch } from '../services/tipsService';
+import { getAllTips, addTip, updateTip, deleteTip, getTipStats, getAllJackpots, addJackpot, deleteJackpot, type Tip, type TipCategory, type JackpotType, type DCLevel, type JackpotMatch, type JackpotPrediction } from '../services/tipsService';
 import { getPricingTiers, updatePricingTier, type TierConfig, CATEGORY_LABELS } from '../services/pricingService';
 import { toast } from 'sonner';
 import { usePageTitle } from '../hooks/usePageTitle';
@@ -37,7 +37,7 @@ export function AdminPage() {
   });
 
   // ─── Jackpot State ───────────────────────────────────────────
-  const [jackpots, setJackpots] = useState(getAllJackpots());
+  const [jackpots, setJackpots] = useState<JackpotPrediction[]>([]);
   const [showJackpotForm, setShowJackpotForm] = useState(false);
   const [jackpotForm, setJackpotForm] = useState({
     type: 'midweek' as JackpotType,
@@ -48,15 +48,22 @@ export function AdminPage() {
   const [matchInput, setMatchInput] = useState({ homeTeam: '', awayTeam: '', pick: '1X' });
 
   // ─── Pricing State ───────────────────────────────────────────
-  const [pricingTiers, setPricingTiers] = useState<TierConfig[]>(getPricingTiers());
+  const [pricingTiers, setPricingTiers] = useState<TierConfig[]>([]);
+  const [stats, setStats] = useState({ total: 0, won: 0, lost: 0, pending: 0, voided: 0, winRate: 0 });
+
+  useEffect(() => {
+    getAllJackpots().then(setJackpots);
+    getPricingTiers().then(setPricingTiers);
+  }, []);
   const [editingTier, setEditingTier] = useState<string | null>(null);
   const [tierForm, setTierForm] = useState({ price2wk: 0, price4wk: 0 });
 
   useEffect(() => {
     if (isAuth) {
-      setTips(getAllTips());
-      setJackpots(getAllJackpots());
-      setPricingTiers(getPricingTiers());
+      getAllTips().then(setTips);
+      getAllJackpots().then(setJackpots);
+      getPricingTiers().then(setPricingTiers);
+      getTipStats().then(setStats);
     }
   }, [isAuth]);
 
@@ -110,7 +117,7 @@ export function AdminPage() {
       addTip({ ...tipData, result: 'pending' });
       toast.success('Tip published');
     }
-    setTips(getAllTips());
+    getAllTips().then(setTips);
     resetTipForm();
   };
 
@@ -139,14 +146,14 @@ export function AdminPage() {
   const handleDeleteTip = (id: string) => {
     if (confirm('Delete this tip?')) {
       deleteTip(id);
-      setTips(getAllTips());
+      getAllTips().then(setTips);
       toast.success('Tip deleted');
     }
   };
 
   const handleResult = (id: string, result: 'won' | 'lost' | 'void') => {
     updateTip(id, { result });
-    setTips(getAllTips());
+    getAllTips().then(setTips);
     toast.success(`Marked as ${result}`);
   };
 
@@ -175,7 +182,7 @@ export function AdminPage() {
       return;
     }
     addJackpot(jackpotForm);
-    setJackpots(getAllJackpots());
+    getAllJackpots().then(setJackpots);
     setJackpotForm({ type: 'midweek', dcLevel: 3, price: 500, matches: [] });
     setShowJackpotForm(false);
     toast.success('Jackpot prediction published');
@@ -184,7 +191,7 @@ export function AdminPage() {
   const handleDeleteJackpot = (id: string) => {
     if (confirm('Delete this jackpot prediction?')) {
       deleteJackpot(id);
-      setJackpots(getAllJackpots());
+      getAllJackpots().then(setJackpots);
       toast.success('Jackpot deleted');
     }
   };
@@ -197,7 +204,7 @@ export function AdminPage() {
 
   const saveTier = (tierId: string) => {
     updatePricingTier(tierId as any, tierForm);
-    setPricingTiers(getPricingTiers());
+    getPricingTiers().then(setPricingTiers);
     setEditingTier(null);
     toast.success('Pricing updated');
   };
@@ -218,7 +225,7 @@ export function AdminPage() {
     );
   }
 
-  const stats = getTipStats();
+
 
   return (
     <div className="container mx-auto px-4 py-4 sm:py-8 max-w-5xl">

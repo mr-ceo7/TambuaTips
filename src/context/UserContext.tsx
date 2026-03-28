@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import type { SubscriptionTier } from '../services/pricingService';
 import type { TipCategory, JackpotPrediction } from '../services/tipsService';
 import { hasAccessToCategory } from '../services/pricingService';
+import { authService } from '../services/authService';
 
 // ---- Types ----
 export interface UserSubscription {
@@ -26,8 +27,8 @@ interface UserContextType {
   hasAccess: (category: TipCategory) => boolean;
   showPricingModal: boolean;
   setShowPricingModal: (show: boolean) => void;
-  login: (email: string, password: string) => { success: boolean; error?: string };
-  signup: (username: string, email: string, password: string) => { success: boolean; error?: string };
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  signup: (username: string, email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   showAuthModal: boolean;
   setShowAuthModal: (show: boolean) => void;
@@ -41,7 +42,7 @@ interface UserContextType {
   // Legacy compat
   upgradeToPremium: () => void;
 
-  // Personalization
+  // Personalization (Local Storage)
   favoriteTeams: string[];
   toggleFavoriteTeam: (team: string) => void;
   favoriteLeagues: number[];
@@ -56,30 +57,6 @@ interface UserContextType {
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
-// Storage keys
-const USERS_KEY = 'tambuatips_users';
-const SESSION_KEY = 'tambuatips_session';
-
-const DEFAULT_SUB: UserSubscription = { tier: 'free', expiresAt: '' };
-
-function loadUsers(): Record<string, { username: string; email: string; password: string; createdAt: string; isPremium?: boolean; subscription?: UserSubscription; purchasedJackpotIds?: string[] }> {
-  try {
-    const raw = localStorage.getItem(USERS_KEY);
-    return raw ? JSON.parse(raw) : {};
-  } catch { return {}; }
-}
-
-function saveUsers(users: Record<string, any>) {
-  localStorage.setItem(USERS_KEY, JSON.stringify(users));
-}
-
-function getUserSub(userData: any): UserSubscription {
-  if (userData.subscription) return userData.subscription;
-  // Migrate old isPremium users
-  if (userData.isPremium) return { tier: 'premium', expiresAt: new Date(Date.now() + 30 * 86400000).toISOString() };
-  return DEFAULT_SUB;
-}
-
 export function UserProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserData | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -92,26 +69,29 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [notifiedLeagues, setNotifiedLeagues] = useState<string[]>([]);
   const [bettingHistory, setBettingHistory] = useState<any[]>([]);
 
-  // Restore session on mount
+  // Restore session from backend on mount
   useEffect(() => {
-    const sessionId = localStorage.getItem(SESSION_KEY);
-    if (sessionId) {
-      const users = loadUsers();
-      const userData = users[sessionId];
-      if (userData) {
-        const sub = getUserSub(userData);
-        setUser({ 
-          id: sessionId, 
-          username: userData.username, 
-          email: userData.email, 
-          createdAt: userData.createdAt, 
-          isPremium: sub.tier !== 'free', 
-          subscription: sub,
-          purchasedJackpotIds: userData.purchasedJackpotIds || [] 
-        });
+    const initAuth = async () => {
+      const token = localStorage.getItem('tambuatips_access_token');
+      if (token) {
+        try {
+          const userData = await authService.me();
+          setUser(userData);
+        } catch (error) {
+          console.error('Failed to restore session', error);
+          authService.logout();
+          setUser(null);
+        }
       }
-    }
+    };
 
+    initAuth();
+
+    // Listen for unauthorized events to clear state
+    const handleUnauthorized = () => setUser(null);
+    window.addEventListener('auth:unauthorized', handleUnauthorized);
+    
+    // Load local personalization
     const favs = localStorage.getItem('tambua_fav_teams');
     if (favs) setFavoriteTeams(JSON.parse(favs));
     
@@ -126,79 +106,68 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
     const history = localStorage.getItem('tambua_betting_history');
     if (history) setBettingHistory(JSON.parse(history));
+
+    return () => window.removeEventListener('auth:unauthorized', handleUnauthorized);
   }, []);
 
-  const signup = useCallback((username: string, email: string, password: string) => {
-    const users = loadUsers();
-    const normalizedEmail = email.toLowerCase().trim();
-
-    for (const u of Object.values(users)) {
-      if (u.email === normalizedEmail) {
-        return { success: false, error: 'Email already registered' };
-      }
+  const signup = useCallback(async (username: string, email: string, password: string) => {
+    try {
+      const tokens = await authService.register(username, email, password);
+      localStorage.setItem('tambuatips_access_token', tokens.access_token);
+      localStorage.setItem('tambuatips_refresh_token', tokens.refresh_token);
+      
+      const userData = await authService.me();
+      setUser(userData);
+      setShowAuthModal(false);
+      return { success: true };
+    } catch (error: any) {
+      return { 
+        success: false, 
+        error: error.response?.data?.detail || 'Signup failed. Email might be in use.' 
+      };
     }
-
-    const id = crypto.randomUUID();
-    const sub = DEFAULT_SUB;
-    const newUser = { username: username.trim(), email: normalizedEmail, password, createdAt: new Date().toISOString(), subscription: sub, purchasedJackpotIds: [] };
-    users[id] = newUser;
-    saveUsers(users);
-    localStorage.setItem(SESSION_KEY, id);
-    setUser({ id, username: newUser.username, email: newUser.email, createdAt: newUser.createdAt, isPremium: false, subscription: sub, purchasedJackpotIds: [] });
-    setShowAuthModal(false);
-    return { success: true };
   }, []);
 
-  const login = useCallback((email: string, password: string) => {
-    const users = loadUsers();
-    const normalizedEmail = email.toLowerCase().trim();
-
-    for (const [id, u] of Object.entries(users)) {
-      if (u.email === normalizedEmail && u.password === password) {
-        localStorage.setItem(SESSION_KEY, id);
-        const sub = getUserSub(u);
-        setUser({ 
-          id, 
-          username: u.username, 
-          email: u.email, 
-          createdAt: u.createdAt, 
-          isPremium: sub.tier !== 'free', 
-          subscription: sub,
-          purchasedJackpotIds: u.purchasedJackpotIds || [] 
-        });
-        setShowAuthModal(false);
-        return { success: true };
-      }
+  const login = useCallback(async (email: string, password: string) => {
+    try {
+      const tokens = await authService.login(email, password);
+      localStorage.setItem('tambuatips_access_token', tokens.access_token);
+      localStorage.setItem('tambuatips_refresh_token', tokens.refresh_token);
+      
+      const userData = await authService.me();
+      setUser(userData);
+      setShowAuthModal(false);
+      return { success: true };
+    } catch (error: any) {
+      return { 
+        success: false, 
+        error: error.response?.data?.detail || 'Invalid email or password' 
+      };
     }
-
-    return { success: false, error: 'Invalid email or password' };
   }, []);
 
+  const logout = useCallback(() => {
+    authService.logout();
+    setUser(null);
+  }, []);
+
+  // TODO: Implement backend integration for subscriptions and jackpots
   const subscribeTo = useCallback((tier: SubscriptionTier, durationWeeks: 2 | 4) => {
     if (user) {
-      const users = loadUsers();
-      if (users[user.id]) {
-        const expiresAt = new Date(Date.now() + durationWeeks * 7 * 86400000).toISOString();
-        const sub: UserSubscription = { tier, expiresAt };
-        users[user.id].subscription = sub;
-        users[user.id].isPremium = tier !== 'free';
-        saveUsers(users);
-        setUser(prev => prev ? { ...prev, isPremium: tier !== 'free', subscription: sub } : prev);
-      }
+      const expiresAt = new Date(Date.now() + durationWeeks * 7 * 86400000).toISOString();
+      const sub: UserSubscription = { tier, expiresAt };
+      setUser(prev => prev ? { ...prev, subscription: sub } : prev);
+      // Backend integration will happen in pricingService
     }
   }, [user]);
 
   const purchaseJackpot = useCallback((jackpotId: string) => {
     if (user) {
-      const users = loadUsers();
-      if (users[user.id]) {
-        const currentIds = users[user.id].purchasedJackpotIds || [];
-        if (!currentIds.includes(jackpotId)) {
-          const nextIds = [...currentIds, jackpotId];
-          users[user.id].purchasedJackpotIds = nextIds;
-          saveUsers(users);
-          setUser(prev => prev ? { ...prev, purchasedJackpotIds: nextIds } : prev);
-        }
+      const currentIds = user.purchasedJackpotIds || [];
+      if (!currentIds.includes(jackpotId)) {
+        const nextIds = [...currentIds, jackpotId];
+        setUser(prev => prev ? { ...prev, purchasedJackpotIds: nextIds } : prev);
+        // Backend integration will happen in paymentService
       }
     }
   }, [user]);
@@ -225,11 +194,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     }
     return hasAccessToCategory(user.subscription.tier, category);
   }, [user]);
-
-  const logout = useCallback(() => {
-    localStorage.removeItem(SESSION_KEY);
-    setUser(null);
-  }, []);
 
   const toggleFavoriteTeam = (team: string) => {
     setFavoriteTeams(prev => {
@@ -274,6 +238,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   return (
     <UserContext.Provider value={{
       user, isLoggedIn: !!user, login, signup, logout, upgradeToPremium, subscribeTo, hasAccess,
+      showAuthModal, setShowAuthModal,
       showPricingModal, setShowPricingModal,
       purchaseJackpot, hasJackpotAccess,
       showJackpotModal, setShowJackpotModal,

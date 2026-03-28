@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Zap, Lock, Star, Trophy, Crown, ChevronRight, Target, Plus, Check, Eye } from 'lucide-react';
 import { getFreeTips, getPremiumTips, getTipsByCategory, getTipStats, getAllJackpots, type Tip, type TipCategory, type JackpotPrediction } from '../services/tipsService';
@@ -19,7 +19,7 @@ const CATEGORY_ICONS: Record<TipCategory, React.ElementType> = {
 };
 
 // ─── Tip Card ────────────────────────────────────────────────
-function TipCard({ tip, locked = false }: { tip: Tip; locked?: boolean }) {
+function TipCard({ tip, locked = false }: { tip: Tip; locked?: boolean; key?: React.Key }) {
   const { user, setShowAuthModal, setShowPricingModal } = useUser();
   const { addSelection, selections } = useBetSlip();
   const [addedBookmaker, setAddedBookmaker] = useState<string | null>(null);
@@ -179,7 +179,7 @@ function TipCard({ tip, locked = false }: { tip: Tip; locked?: boolean }) {
 }
 
 // ─── Jackpot Card ────────────────────────────────────────────
-function JackpotCard({ jackpot }: { jackpot: JackpotPrediction }) {
+function JackpotCard({ jackpot }: { jackpot: JackpotPrediction; key?: React.Key }) {
   const { user, setShowAuthModal, setSelectedJackpot, setShowJackpotModal, hasJackpotAccess } = useUser();
   const isUnlocked = hasJackpotAccess(jackpot.id);
 
@@ -268,8 +268,23 @@ export function TipsPage() {
   usePageTitle('Expert Tips');
   const { user, hasAccess, setShowAuthModal, setShowPricingModal } = useUser();
   const [activeTab, setActiveTab] = useState<'tips' | 'jackpot'>('tips');
-  const stats = getTipStats();
-  const jackpots = getAllJackpots();
+  const [stats, setStats] = useState({ total: 0, won: 0, lost: 0, pending: 0, voided: 0, winRate: 0 });
+  const [jackpots, setJackpots] = useState<JackpotPrediction[]>([]);
+  const [tipsByCategory, setTipsByCategory] = useState<Record<string, Tip[]>>({});
+
+  useEffect(() => {
+    getTipStats().then(setStats);
+    getAllJackpots().then(setJackpots);
+    
+    Promise.all(CATEGORY_ORDER.map(async cat => {
+      const tips = await getTipsByCategory(cat);
+      return { cat, tips };
+    })).then(results => {
+      const newMap: Record<string, Tip[]> = {};
+      results.forEach(r => { newMap[r.cat] = r.tips; });
+      setTipsByCategory(newMap);
+    });
+  }, []);
 
   return (
     <div className="container mx-auto px-4 py-4 sm:py-8 max-w-5xl">
@@ -323,7 +338,7 @@ export function TipsPage() {
       {activeTab === 'tips' && (
         <div className="space-y-8">
           {CATEGORY_ORDER.map(cat => {
-            const tips = getTipsByCategory(cat);
+            const tips = tipsByCategory[cat] || [];
             if (tips.length === 0) return null;
             const catInfo = CATEGORY_LABELS[cat];
             const Icon = CATEGORY_ICONS[cat];

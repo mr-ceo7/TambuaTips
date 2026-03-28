@@ -1,0 +1,36 @@
+import apiClient from './apiClient';
+
+export interface PaymentRequest {
+  item_type: 'subscription' | 'jackpot';
+  item_id: string;
+  duration_weeks?: number;
+  phone?: string;
+  email?: string;
+  payment_method_id?: string;
+}
+
+export interface PaymentResponse {
+  id: number;
+  status: string;
+  reference: string;
+  transaction_id?: string;
+}
+
+export const paymentService = {
+  payMpesa: async (data: PaymentRequest): Promise<PaymentResponse> => {
+    const response = await apiClient.post<PaymentResponse>('/pay/mpesa', data);
+    return response.data;
+  },
+  payPaypal: async (data: PaymentRequest): Promise<PaymentResponse> => {
+    const response = await apiClient.post<PaymentResponse>('/pay/paypal', data);
+    return response.data;
+  },
+  paySkrill: async (data: PaymentRequest): Promise<PaymentResponse> => {
+    const response = await apiClient.post<PaymentResponse>('/pay/skrill', data);
+    return response.data;
+  },
+  payCard: async (data: PaymentRequest): Promise<PaymentResponse> => {
+    const response = await apiClient.post<PaymentResponse>('/pay/card', data);
+    return response.data;
+  },
+};

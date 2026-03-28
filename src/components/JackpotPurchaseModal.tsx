@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Trophy, Smartphone, CreditCard, Wallet, Check, Shield } from 'lucide-react';
+import { X, Trophy, Smartphone, CreditCard, Wallet, Check, Shield, Lock } from 'lucide-react';
 import { useUser } from '../context/UserContext';
 import { toast } from 'sonner';
 import type { JackpotPrediction } from '../services/tipsService';
@@ -100,24 +100,22 @@ export function JackpotPurchaseModal({ isOpen, onClose, jackpot }: JackpotPurcha
                 
                 <button 
                   onClick={() => setSelectedMethod('mpesa')} 
-                  className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all ${
-                    selectedMethod === 'mpesa' ? 'border-gold-500 bg-gold-500/10 text-white' : 'border-zinc-700 hover:border-zinc-500 text-zinc-300'
+                  className={`relative w-full flex items-center justify-center p-3 rounded-xl border transition-all ${
+                    selectedMethod === 'mpesa' ? 'border-gold-500 bg-gold-500/10' : 'border-zinc-700 hover:border-zinc-500'
                   }`}
                 >
-                  <Smartphone className="w-5 h-5 text-gold-400" />
-                  <span className="font-semibold flex-1 text-left">M-Pesa</span>
-                  {selectedMethod === 'mpesa' && <Check className="w-4 h-4 text-gold-500" />}
+                  <img src="/mpesa.svg" alt="M-Pesa" className="h-7 object-contain" />
+                  {selectedMethod === 'mpesa' && <Check className="absolute right-4 w-5 h-5 text-gold-500" />}
                 </button>
 
                 <button 
                   onClick={() => setSelectedMethod('paypal')} 
-                  className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all ${
-                    selectedMethod === 'paypal' ? 'border-blue-500 bg-blue-500/10 text-white' : 'border-zinc-700 hover:border-zinc-500 text-zinc-300'
+                  className={`relative w-full flex items-center justify-center p-3 rounded-xl border transition-all ${
+                    selectedMethod === 'paypal' ? 'border-blue-500 bg-blue-500/10' : 'border-zinc-700 hover:border-zinc-500'
                   }`}
                 >
-                  <CreditCard className="w-5 h-5 text-blue-400" />
-                  <span className="font-semibold flex-1 text-left">PayPal</span>
-                  {selectedMethod === 'paypal' && <Check className="w-4 h-4 text-blue-500" />}
+                  <img src="/paypal.svg" alt="PayPal" className="h-5 object-contain" />
+                  {selectedMethod === 'paypal' && <Check className="absolute right-4 w-5 h-5 text-blue-500" />}
                 </button>
               </div>
 
@@ -125,13 +123,18 @@ export function JackpotPurchaseModal({ isOpen, onClose, jackpot }: JackpotPurcha
               {selectedMethod === 'mpesa' && (
                 <div className="mb-5">
                   <label className="block text-sm font-medium text-zinc-300 mb-2">Safaricom Phone Number</label>
-                  <input 
-                    type="tel" 
-                    value={phone} 
-                    onChange={(e) => setPhone(e.target.value)} 
-                    placeholder="e.g. 0712345678" 
-                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-3 text-white focus:outline-hidden focus:border-gold-500 focus:ring-1 focus:ring-gold-500 transition-all font-mono" 
-                  />
+                  <div className="flex bg-zinc-800 border border-zinc-700 rounded-lg overflow-hidden focus-within:border-gold-500 focus-within:ring-1 focus-within:ring-gold-500 transition-all">
+                    <div className="flex items-center justify-center bg-zinc-900 border-r border-zinc-700 px-3 text-sm text-zinc-300 font-mono">
+                      🇰🇪 +254
+                    </div>
+                    <input 
+                      type="tel" 
+                      value={phone} 
+                      onChange={(e) => setPhone(e.target.value)} 
+                      placeholder="712345678" 
+                      className="w-full bg-transparent px-3 py-3 text-white focus:outline-hidden font-mono" 
+                    />
+                  </div>
                   <p className="text-xs text-gold-400/80 mt-2 flex items-center gap-1">
                     <Shield className="w-3 h-3" /> Secure STK Push prompt will be sent.
                   </p>
@@ -150,7 +153,9 @@ export function JackpotPurchaseModal({ isOpen, onClose, jackpot }: JackpotPurcha
                     <span>Processing...</span>
                   </>
                 ) : (
-                  <span>Pay KES {jackpot.price.toLocaleString()} Now</span>
+                  <span className="flex items-center gap-2">
+                    <Lock className="w-4 h-4" /> Securely Pay KES {jackpot.price.toLocaleString()}
+                  </span>
                 )}
               </button>
               
