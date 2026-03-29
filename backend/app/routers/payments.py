@@ -17,7 +17,7 @@ from app.models.user import User
 from app.models.payment import Payment
 from app.models.jackpot import Jackpot, JackpotPurchase
 from app.models.subscription import SubscriptionTier
-from app.schemas.payment import MpesaPaymentRequest, PaymentRequest, CardPaymentRequest, PaymentResponse, MpesaCallbackData
+from app.schemas.payment import MpesaPaymentRequest, PaymentRequest, PaymentResponse, MpesaCallbackData
 
 router = APIRouter(prefix="/api/pay", tags=["Payments"])
 
@@ -244,18 +244,18 @@ async def pay_skrill(body: PaymentRequest, db: AsyncSession = Depends(get_db), u
     return payment
 
 
-# ── Card / Stripe ────────────────────────────────────────────
+# ── Paystack ─────────────────────────────────────────────────
 
-@router.post("/card", response_model=PaymentResponse)
-async def pay_card(body: CardPaymentRequest, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+@router.post("/paystack", response_model=PaymentResponse)
+async def pay_paystack(body: PaymentRequest, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     amount = await _resolve_amount(body, db)
-    reference = f"TT-CD-{uuid.uuid4().hex[:8].upper()}"
+    reference = f"TT-PS-{uuid.uuid4().hex[:8].upper()}"
 
     payment = Payment(
         user_id=user.id,
         amount=amount,
         currency="KES",
-        method="card",
+        method="paystack",
         status="pending",
         reference=reference,
         item_type=body.item_type,
@@ -267,27 +267,68 @@ async def pay_card(body: CardPaymentRequest, db: AsyncSession = Depends(get_db),
     await db.refresh(payment)
 
     if settings.PAYMENTS_LIVE:
-        # TODO: Create Stripe PaymentIntent
-        # import stripe
-        # stripe.api_key = settings.STRIPE_SECRET_KEY
-        # intent = stripe.PaymentIntent.create(
-        #     amount=amount * 100,  # Stripe uses cents
-        #     currency="kes",
-        #     payment_method=body.payment_method_id,
-        #     confirm=True,
-        # )
-        # payment.transaction_id = intent.id
-        # payment.status = "completed" if intent.status == "succeeded" else "failed"
-        pass
+        try:
+            from app.services.payment_gateway import initialize_paystack_transaction
+            paystack_res = await initialize_paystack_transaction(amount=amount, email=user.email, reference=reference)
+            # Add these properties directly so they can be returned in the response
+            # Note: auth_url and access_code are in our updated schema
+            payment.auth_url = paystack_res.get("authorization_url")
+            payment.access_code = paystack_res.get("access_code")
+        except Exception as e:
+            payment.status = "error"
+            payment.gateway_response = str(e)
+            await db.commit()
+            raise HTTPException(status_code=500, detail=str(e))
     else:
         await asyncio.sleep(1)
         payment.status = "completed"
-        payment.transaction_id = f"SIM-CD-{uuid.uuid4().hex[:10].upper()}"
+        payment.transaction_id = f"SIM-PS-{uuid.uuid4().hex[:10].upper()}"
         await db.commit()
         await _fulfill_payment(payment, user, db)
         await db.refresh(payment)
 
     return payment
+
+
+@router.post("/paystack/webhook")
+async def paystack_webhook(request: Request, db: AsyncSession = Depends(get_db)):
+    """Paystack Webhook for successful transactions."""
+    import hashlib
+    import hmac
+    
+    # Verify Paystack signature
+    payload = await request.body()
+    signature = request.headers.get("x-paystack-signature")
+    
+    if not signature:
+        raise HTTPException(status_code=400, detail="Missing signature")
+        
+    hash_value = hmac.new(settings.PAYSTACK_SECRET_KEY.encode('utf-8'), payload, hashlib.sha512).hexdigest()
+    if hash_value != signature:
+        raise HTTPException(status_code=400, detail="Invalid signature")
+
+    data = await request.json()
+    event = data.get("event")
+    
+    if event == "charge.success":
+        reference = data.get("data", {}).get("reference")
+        # Find payment by reference
+        result = await db.execute(select(Payment).where(Payment.reference == reference))
+        payment = result.scalar_one_or_none()
+        
+        if payment and payment.status != "completed":
+            payment.status = "completed"
+            payment.transaction_id = str(data.get("data", {}).get("id"))
+            
+            # Find user
+            user_result = await db.execute(select(User).where(User.id == payment.user_id))
+            user = user_result.scalar_one_or_none()
+            if user:
+                await _fulfill_payment(payment, user, db)
+                
+            await db.commit()
+            
+    return {"status": "success"}
 
 
 # ── Status Check ─────────────────────────────────────────────

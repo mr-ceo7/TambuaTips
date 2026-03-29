@@ -169,21 +169,30 @@ async def create_skrill_session(amount: int, reference: str, email: str) -> dict
 
 
 # ─────────────────────────────────────────────────────────────
-# Stripe (Card/Visa)
+# Paystack (Card/Visa/Mobile Money)
 # ─────────────────────────────────────────────────────────────
 
-async def create_stripe_payment_intent(amount: int, currency: str = "kes") -> dict:
-    """Create a Stripe PaymentIntent."""
-    url = "https://api.stripe.com/v1/payment_intents"
+async def initialize_paystack_transaction(amount: int, email: str, reference: str, currency: str = "KES") -> dict:
+    """Initialize a Paystack transaction."""
+    url = "https://api.paystack.co/transaction/initialize"
+
+    payload = {
+        "amount": amount * 100,  # Paystack uses smallest currency unit (kobo/cents)
+        "email": email,
+        "currency": currency,
+        "reference": reference,
+    }
 
     async with httpx.AsyncClient() as client:
         resp = await client.post(
             url,
-            data={
-                "amount": amount * 100,  # Stripe uses smallest currency unit
-                "currency": currency,
-                "payment_method_types[]": "card",
+            json=payload,
+            headers={
+                "Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}",
+                "Content-Type": "application/json"
             },
-            headers={"Authorization": f"Bearer {settings.STRIPE_SECRET_KEY}"},
         )
-        return resp.json()
+        resp_data = resp.json()
+        if not resp_data.get("status"):
+            raise ValueError(f"Paystack error: {resp_data.get('message')}")
+        return resp_data["data"]

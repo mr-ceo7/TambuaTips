@@ -17,11 +17,6 @@ class MpesaPaymentRequest(PaymentRequest):
     phone: str
 
 
-class CardPaymentRequest(PaymentRequest):
-    # Stripe token from frontend
-    payment_method_id: str
-
-
 class PaymentResponse(BaseModel):
     id: int
     amount: int
@@ -32,6 +27,8 @@ class PaymentResponse(BaseModel):
     item_type: str
     item_id: Optional[str] = None
     created_at: Optional[datetime] = None
+    auth_url: Optional[str] = None
+    access_code: Optional[str] = None
 
     model_config = {"from_attributes": True}
 

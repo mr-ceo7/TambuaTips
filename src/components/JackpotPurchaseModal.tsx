@@ -14,7 +14,7 @@ interface JackpotPurchaseModalProps {
 
 export function JackpotPurchaseModal({ isOpen, onClose, jackpot }: JackpotPurchaseModalProps) {
   const { user, refreshUser, setShowAuthModal } = useUser();
-  const [selectedMethod, setSelectedMethod] = useState<'mpesa' | 'paypal' | 'skrill' | null>(null);
+  const [selectedMethod, setSelectedMethod] = useState<'mpesa' | 'paypal' | 'skrill' | 'paystack' | null>(null);
   const [phone, setPhone] = useState('');
   const [processing, setProcessing] = useState(false);
   const [paymentView, setPaymentView] = useState<'selection' | 'waiting' | 'success'>('selection');
@@ -24,6 +24,15 @@ export function JackpotPurchaseModal({ isOpen, onClose, jackpot }: JackpotPurcha
     if (!isOpen) {
       setPaymentView('selection');
       setCurrentPaymentId(null);
+      return;
+    }
+    
+    if (!document.getElementById('paystack-script')) {
+      const script = document.createElement('script');
+      script.id = 'paystack-script';
+      script.src = 'https://js.paystack.co/v1/inline.js';
+      script.async = true;
+      document.body.appendChild(script);
     }
   }, [isOpen]);
 
@@ -85,8 +94,30 @@ export function JackpotPurchaseModal({ isOpen, onClose, jackpot }: JackpotPurcha
       let response;
       if (selectedMethod === 'mpesa') {
         response = await paymentService.payMpesa(payload);
-      } else {
+      } else if (selectedMethod === 'paypal') {
         response = await paymentService.payPaypal(payload);
+      } else if (selectedMethod === 'skrill') {
+        response = await paymentService.paySkrill(payload);
+      } else {
+        response = await paymentService.payPaystack(payload);
+      }
+
+      if (selectedMethod === 'paystack' && response.access_code) {
+        // Launch Paystack Inline
+        const paystack = new (window as any).PaystackPop();
+        paystack.newTransaction({
+          key: import.meta.env.VITE_PAYSTACK_PUBLIC_KEY,
+          accessCode: response.access_code,
+          onSuccess: (transaction: any) => {
+            setCurrentPaymentId(response.id);
+            setPaymentView('waiting');
+          },
+          onCancel: () => {
+            toast.error('Payment cancelled');
+            setProcessing(false);
+          }
+        });
+        return; // Keep modal in selection view until success
       }
 
       if (response.status === 'completed') {
@@ -152,6 +183,15 @@ export function JackpotPurchaseModal({ isOpen, onClose, jackpot }: JackpotPurcha
                           <button onClick={() => setSelectedMethod('mpesa')} className={`relative w-full flex items-center justify-center p-4 rounded-xl border-2 transition-all ${selectedMethod === 'mpesa' ? 'border-gold-500 bg-gold-500/10' : 'border-zinc-800 hover:border-zinc-700'}`}>
                             <img src="/mpesa.svg" alt="M-Pesa" className="h-9 object-contain" />
                             {selectedMethod === 'mpesa' && <Check className="absolute right-4 w-5 h-5 text-gold-500" />}
+                          </button>
+                        )}
+                        {(!selectedMethod || selectedMethod === 'paystack') && (
+                          <button onClick={() => setSelectedMethod('paystack')} className={`relative w-full flex items-center justify-center p-4 rounded-xl border-2 transition-all ${selectedMethod === 'paystack' ? 'border-gold-500 bg-gold-500/10' : 'border-zinc-800 hover:border-zinc-700'}`}>
+                            <div className="flex items-center gap-2">
+                              <CreditCard className="w-6 h-6 text-gold-500" />
+                              <span className="font-bold text-white">Card (Paystack)</span>
+                            </div>
+                            {selectedMethod === 'paystack' && <Check className="absolute right-4 w-5 h-5 text-gold-500" />}
                           </button>
                         )}
                         {(!selectedMethod || selectedMethod === 'paypal') && (

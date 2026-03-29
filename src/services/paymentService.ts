@@ -29,8 +29,8 @@ export const paymentService = {
     const response = await apiClient.post<PaymentResponse>('/pay/skrill', data);
     return response.data;
   },
-  payCard: async (data: PaymentRequest): Promise<PaymentResponse> => {
-    const response = await apiClient.post<PaymentResponse>('/pay/card', data);
+  payPaystack: async (data: PaymentRequest): Promise<PaymentResponse & { access_code?: string; auth_url?: string }> => {
+    const response = await apiClient.post<PaymentResponse & { access_code?: string; auth_url?: string }>('/pay/paystack', data);
     return response.data;
   },
   checkStatus: async (paymentId: number): Promise<PaymentResponse> => {
