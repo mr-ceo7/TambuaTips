@@ -287,7 +287,7 @@ export function TipsPage() {
       results.forEach(r => { newMap[r.cat] = r.tips; });
       setTipsByCategory(newMap);
     });
-  }, []);
+  }, [user?.subscription.tier, JSON.stringify(user?.purchasedJackpotIds)]);
 
   return (
     <div className="container mx-auto px-4 py-4 sm:py-8 max-w-5xl">

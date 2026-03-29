@@ -1,0 +1,27 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+fastapi = "==0.115.12"
+python-multipart = "==0.0.20"
+sqlalchemy = "==2.0.40"
+asyncmy = "==0.2.10"
+aiosqlite = "==0.20.0"
+alembic = "==1.15.2"
+bcrypt = "==4.0.1"
+httpx = "==0.28.1"
+cachetools = "==5.5.2"
+pydantic-settings = "==2.8.1"
+requests = "==2.32.3"
+pytest = "==8.3.5"
+pytest-asyncio = "==0.25.3"
+uvicorn = {extras = ["standard"], version = "==0.34.2"}
+python-jose = {extras = ["cryptography"], version = "==3.4.0"}
+passlib = {extras = ["bcrypt"], version = "==1.7.4"}
+
+[dev-packages]
+
+[requires]
+python_version = "3.13"
