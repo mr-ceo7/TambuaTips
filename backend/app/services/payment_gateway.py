@@ -91,10 +91,12 @@ async def get_paypal_access_token() -> str:
             data={"grant_type": "client_credentials"},
             headers={"Authorization": f"Basic {credentials}"},
         )
+        if resp.status_code != 200:
+            raise Exception(f"PayPal token error {resp.status_code}: {resp.text}")
         return resp.json()["access_token"]
 
 
-async def create_paypal_order(amount: int, reference: str, currency: str = "USD") -> dict:
+async def create_paypal_order(amount: float, reference: str, currency: str = "USD") -> dict:
     """Create a PayPal order."""
     token = await get_paypal_access_token()
 
@@ -107,8 +109,12 @@ async def create_paypal_order(amount: int, reference: str, currency: str = "USD"
         "intent": "CAPTURE",
         "purchase_units": [{
             "reference_id": reference,
-            "amount": {"currency_code": currency, "value": str(amount)},
+            "amount": {"currency_code": currency, "value": f"{float(amount):.2f}"},
         }],
+        "application_context": {
+            "return_url": "http://localhost:8000/api/pay/paypal/capture",
+            "cancel_url": "http://localhost:3000",
+        }
     }
 
     async with httpx.AsyncClient() as client:
@@ -120,6 +126,8 @@ async def create_paypal_order(amount: int, reference: str, currency: str = "USD"
                 "Content-Type": "application/json",
             },
         )
+        if resp.status_code not in (200, 201):
+            raise Exception(f"PayPal order error {resp.status_code}: {resp.text}")
         return resp.json()
 
 

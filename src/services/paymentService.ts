@@ -14,6 +14,7 @@ export interface PaymentResponse {
   status: string;
   reference: string;
   transaction_id?: string;
+  auth_url?: string;
 }
 
 export const paymentService = {

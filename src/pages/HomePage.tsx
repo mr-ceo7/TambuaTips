@@ -1,10 +1,11 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { Loader2, ChevronRight, ChevronLeft, Trophy, Zap, Crown, ArrowRight, ExternalLink, MessageCircle, Twitter, Star, Target } from 'lucide-react';
 import { fetchTodayFixtures, fetchStandings, fetchFixturesByLeague, LEAGUES, EUROPEAN_LEAGUE_IDS } from '../services/sportsApiService';
 import { fetchNews, mixPromoSlides, FALLBACK_IMAGE, NewsItem } from '../services/newsService';
 import { getTipStats, getFreeTips } from '../services/tipsService';
+import { toast } from 'sonner';
 import { FixtureData, TeamStanding } from '../types';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { PageTransition } from '../components/PageTransition';
@@ -377,6 +378,18 @@ export function HomePage() {
   const [selectedLeague, setSelectedLeague] = useState('all');
   const [standings, setStandings] = useState<TeamStanding[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  useEffect(() => {
+    const paymentStatus = searchParams.get('payment');
+    if (paymentStatus === 'success') {
+      toast.success('Payment Successful! Your account has been upgraded.');
+      setSearchParams({});
+    } else if (paymentStatus === 'cancel') {
+      toast.error('Payment was cancelled or failed. Please try again.');
+      setSearchParams({});
+    }
+  }, [searchParams, setSearchParams]);
 
   // Use a reliable league for default data if 'all' is selected
   const activeLeagueId = selectedLeague === 'all' ? LEAGUES.PREMIER_LEAGUE.id : 

@@ -140,6 +140,11 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
         return; // Keep modal in selection view until success
       }
 
+      if (response.auth_url && (selectedMethod === 'paypal' || selectedMethod === 'skrill')) {
+        window.location.href = response.auth_url;
+        return;
+      }
+
       if (response.status === 'completed') {
         await refreshUser();
         setPaymentView('success');

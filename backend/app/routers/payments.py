@@ -7,6 +7,7 @@ import asyncio
 import uuid
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -190,20 +191,75 @@ async def pay_paypal(body: PaymentRequest, db: AsyncSession = Depends(get_db), u
     await db.refresh(payment)
 
     if settings.PAYMENTS_LIVE:
-        # TODO: Create PayPal order via REST API v2
-        # from app.services.payment_gateway import create_paypal_order
-        # order = await create_paypal_order(amount, reference)
-        # payment.gateway_response = str(order)
-        pass
+        from app.services.payment_gateway import create_paypal_order
+        print("Creating PayPal Order...")
+        try:
+            usd_amount = round(amount / 130.0, 2)
+            if usd_amount < 0.01: usd_amount = 0.01
+
+            order = await create_paypal_order(usd_amount, reference=reference, currency="USD")
+            payment.gateway_response = str(order)
+            payment.transaction_id = order.get("id")
+            
+            links = order.get("links", [])
+            auth_url = next((link["href"] for link in links if link.get("rel") == "approve"), None)
+            
+            if auth_url:
+                payment.auth_url = auth_url
+            else:
+                raise HTTPException(status_code=500, detail="Failed to retrieve PayPal approval URL")
+                
+            await db.commit()
+        except Exception as e:
+            err_msg = str(e)
+            print(f"PayPal Order Error: {err_msg}")
+            raise HTTPException(status_code=500, detail=f"PayPal gateway error: {err_msg}")
     else:
         await asyncio.sleep(1)
         payment.status = "completed"
         payment.transaction_id = f"SIM-PP-{uuid.uuid4().hex[:10].upper()}"
+        payment.auth_url = "http://localhost:8000/api/pay/paypal/capture?token=" + payment.transaction_id + "&PayerID=SIM"
         await db.commit()
         await _fulfill_payment(payment, user, db)
         await db.refresh(payment)
 
     return payment
+
+@router.get("/paypal/capture")
+async def capture_paypal(token: str, PayerID: str, db: AsyncSession = Depends(get_db)):
+    """Callback when user approves PayPal payment."""
+    from app.services.payment_gateway import capture_paypal_order
+    
+    result = await db.execute(select(Payment).where(Payment.transaction_id == token))
+    payment = result.scalar_one_or_none()
+    
+    if not payment:
+        return RedirectResponse(url="http://localhost:3000/?payment=cancel")
+        
+    if settings.PAYMENTS_LIVE:
+        try:
+            capture_resp = await capture_paypal_order(token)
+            payment.gateway_response += "\\n" + str(capture_resp)
+            status_val = capture_resp.get("status")
+            
+            if status_val == "COMPLETED":
+                payment.status = "completed"
+                user_result = await db.execute(select(User).where(User.id == payment.user_id))
+                user = user_result.scalar_one()
+                await db.commit()
+                await _fulfill_payment(payment, user, db)
+                return RedirectResponse(url=f"http://localhost:3000/?payment=success")
+            else:
+                payment.status = "failed"
+                await db.commit()
+                return RedirectResponse(url="http://localhost:3000/?payment=cancel")
+        except Exception as e:
+            print(f"PayPal Capture Error: {e}")
+            payment.status = "failed"
+            await db.commit()
+            return RedirectResponse(url="http://localhost:3000/?payment=cancel")
+    else:
+        return RedirectResponse(url=f"http://localhost:3000/?payment=success")
 
 
 # ── Skrill ───────────────────────────────────────────────────
