@@ -5,23 +5,11 @@ import { fetchFixtureById } from '../services/sportsApiService';
 import { getTipByFixtureId, type Tip } from '../services/tipsService';
 import { FixtureData } from '../types';
 import { usePageTitle } from '../hooks/usePageTitle';
-import { useBetSlip } from '../context/BetSlipContext';
+// Detached: import { useBetSlip } from '../context/BetSlipContext';
 import { useUser } from '../context/UserContext';
 import { MatchDetailSkeleton } from '../components/skeletons/MatchDetailSkeleton';
 
-// MOCK DATA: Since free APIs don't provide deep bookmaker odds or form/H2H, we mock it for the UI/UX simulator demo.
-const MOCK_ODDS = {
-  'Match Winner (1X2)': [
-    { bookmaker: 'Betika', logo: 'B', home: 2.15, draw: 3.40, away: 3.20 },
-    { bookmaker: 'SportPesa', logo: 'S', home: 2.10, draw: 3.50, away: 3.10 },
-    { bookmaker: 'Betway', logo: 'W', home: 2.20, draw: 3.30, away: 3.15 },
-  ],
-  'Total Goals (O/U 2.5)': [
-    { bookmaker: 'Betika', logo: 'B', over: 1.85, under: 1.95 },
-    { bookmaker: 'SportPesa', logo: 'S', over: 1.80, under: 2.00 },
-    { bookmaker: 'Betway', logo: 'W', over: 1.90, under: 1.90 },
-  ]
-};
+/* Detached: MOCK_ODDS */
 
 const MOCK_STATS = {
   form: { home: ['W', 'D', 'W', 'W', 'L'], away: ['L', 'L', 'D', 'W', 'D'] },
@@ -41,7 +29,7 @@ export function MatchDetailPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'preview' | 'odds' | 'stats' | 'tip'>('preview');
   
-  const { addSelection, selections } = useBetSlip();
+  // Detached: const { addSelection, selections } = useBetSlip();
   const { user, setShowAuthModal, setShowPricingModal } = useUser();
 
   useEffect(() => {
@@ -78,21 +66,7 @@ export function MatchDetailPage() {
   const kickoff = new Date(fixture.matchDate);
   const matchName = `${fixture.homeTeam} vs ${fixture.awayTeam}`;
 
-  const handleAddOdd = (market: string, selection: string, odds: number, bookmaker: string) => {
-    addSelection({
-      id: `${fixture.id}-${market}-${selection}-${bookmaker}`,
-      fixtureId: fixture.id,
-      matchName,
-      market,
-      selection,
-      odds,
-      bookmaker
-    });
-  };
-
-  const isSelected = (market: string, selection: string, bookmaker: string) => {
-    return selections.some(s => s.fixtureId === fixture.id && s.market === market && s.selection === selection && s.bookmaker === bookmaker);
-  };
+  /* Detached: handleAddOdd and isSelected */
 
   return (
     <div className="container mx-auto px-4 py-4 sm:py-8 max-w-3xl">
@@ -163,7 +137,6 @@ export function MatchDetailPage() {
       <div className="flex gap-1 overflow-x-auto custom-scrollbar bg-zinc-900/60 border border-zinc-800 rounded-xl p-1.5 mb-6 shadow-lg">
         {[
           { key: 'preview', label: 'Preview' },
-          { key: 'odds', label: 'Compare Odds', badge: 'HOT' },
           { key: 'stats', label: 'H2H & Stats' },
           { key: 'tip', label: 'Expert Tip' },
         ].map(tab => (
@@ -177,11 +150,6 @@ export function MatchDetailPage() {
             }`}
           >
             {tab.label}
-            {tab.badge && (
-              <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider shadow-lg">
-                {tab.badge}
-              </span>
-            )}
           </button>
         ))}
       </div>
@@ -203,121 +171,11 @@ export function MatchDetailPage() {
                 {fixture.status === 'finished' && ` The final score was ${fixture.score}.`}
               </p>
             </div>
-            <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-5 flex items-start gap-3">
-              <Calculator className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
-              <div>
-                <h4 className="text-sm font-bold text-emerald-400 mb-1">Odds Simulator Available</h4>
-                <p className="text-xs text-zinc-400 leading-relaxed">Check out the <strong>"Compare Odds"</strong> tab to compare bookmakers and build a simulated accumulator slip to calculate your potential returns before placing real bets.</p>
-              </div>
-            </div>
+            {/* Detached: Odds Simulator Available block */}
           </div>
         )}
 
-        {/* ODDS COMPARISON TAB */}
-        {activeTab === 'odds' && (
-          <div className="space-y-6">
-            <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl overflow-hidden shadow-lg">
-              <div className="p-4 bg-zinc-800/50 border-b border-zinc-800 flex justify-between items-center">
-                <h4 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                  <Calculator className="w-4 h-4 text-emerald-500" /> Match Winner (1X2)
-                </h4>
-              </div>
-              <div className="p-1">
-                <table className="w-full text-sm text-left">
-                  <thead className="text-[10px] text-zinc-500 uppercase tracking-widest bg-zinc-950/30">
-                    <tr>
-                      <th className="px-4 py-3 font-semibold rounded-tl-lg">Bookmaker</th>
-                      <th className="px-2 py-3 text-center font-semibold">1 (Home)</th>
-                      <th className="px-2 py-3 text-center font-semibold">X (Draw)</th>
-                      <th className="px-2 py-3 text-center font-semibold rounded-tr-lg">2 (Away)</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-800/50">
-                    {MOCK_ODDS['Match Winner (1X2)'].map((row, i) => (
-                      <tr key={i} className="hover:bg-zinc-800/20 transition-colors">
-                        <td className="px-4 py-3 font-medium text-zinc-300 flex items-center gap-2">
-                          <div className="w-5 h-5 rounded bg-zinc-800 flex items-center justify-center text-[10px] font-black text-zinc-400">{row.logo}</div>
-                          {row.bookmaker}
-                        </td>
-                        <td className="px-2 py-3">
-                          <button 
-                            onClick={() => handleAddOdd('1X2', 'Home', row.home, row.bookmaker)}
-                            className={`w-full py-2 rounded font-mono font-bold text-sm transition-all shadow-sm ${isSelected('1X2', 'Home', row.bookmaker) ? 'bg-emerald-500 text-zinc-950 scale-105' : 'bg-zinc-800 text-emerald-400 hover:bg-zinc-700 hover:text-white border border-zinc-700'}`}
-                          >
-                            {row.home.toFixed(2)}
-                          </button>
-                        </td>
-                        <td className="px-2 py-3">
-                          <button 
-                            onClick={() => handleAddOdd('1X2', 'Draw', row.draw, row.bookmaker)}
-                            className={`w-full py-2 rounded font-mono font-bold text-sm transition-all shadow-sm ${isSelected('1X2', 'Draw', row.bookmaker) ? 'bg-emerald-500 text-zinc-950 scale-105' : 'bg-zinc-800 text-emerald-400 hover:bg-zinc-700 hover:text-white border border-zinc-700'}`}
-                          >
-                            {row.draw.toFixed(2)}
-                          </button>
-                        </td>
-                        <td className="px-2 py-3">
-                          <button 
-                            onClick={() => handleAddOdd('1X2', 'Away', row.away, row.bookmaker)}
-                            className={`w-full py-2 rounded font-mono font-bold text-sm transition-all shadow-sm ${isSelected('1X2', 'Away', row.bookmaker) ? 'bg-emerald-500 text-zinc-950 scale-105' : 'bg-zinc-800 text-emerald-400 hover:bg-zinc-700 hover:text-white border border-zinc-700'}`}
-                          >
-                            {row.away.toFixed(2)}
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl overflow-hidden shadow-lg">
-              <div className="p-4 bg-zinc-800/50 border-b border-zinc-800 flex justify-between items-center">
-                <h4 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                  <Calculator className="w-4 h-4 text-emerald-500" /> Total Goals (2.5)
-                </h4>
-              </div>
-              <div className="p-1">
-                <table className="w-full text-sm text-left">
-                  <thead className="text-[10px] text-zinc-500 uppercase tracking-widest bg-zinc-950/30">
-                    <tr>
-                      <th className="px-4 py-3 font-semibold rounded-tl-lg">Bookmaker</th>
-                      <th className="px-2 py-3 text-center font-semibold text-emerald-500">Over 2.5</th>
-                      <th className="px-2 py-3 text-center font-semibold text-red-400 rounded-tr-lg">Under 2.5</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-800/50">
-                    {MOCK_ODDS['Total Goals (O/U 2.5)'].map((row, i) => (
-                      <tr key={i} className="hover:bg-zinc-800/20 transition-colors">
-                        <td className="px-4 py-3 font-medium text-zinc-300 flex items-center gap-2">
-                          <div className="w-5 h-5 rounded bg-zinc-800 flex items-center justify-center text-[10px] font-black text-zinc-400">{row.logo}</div>
-                          {row.bookmaker}
-                        </td>
-                        <td className="px-2 py-3">
-                          <button 
-                            onClick={() => handleAddOdd('O/U 2.5', 'Over', row.over, row.bookmaker)}
-                            className={`w-full py-2 rounded font-mono font-bold text-sm transition-all shadow-sm ${isSelected('O/U 2.5', 'Over', row.bookmaker) ? 'bg-emerald-500 text-zinc-950 scale-105' : 'bg-zinc-800 text-emerald-400 hover:bg-zinc-700 hover:text-white border border-zinc-700'}`}
-                          >
-                            {row.over.toFixed(2)}
-                          </button>
-                        </td>
-                        <td className="px-2 py-3">
-                          <button 
-                            onClick={() => handleAddOdd('O/U 2.5', 'Under', row.under, row.bookmaker)}
-                            className={`w-full py-2 rounded font-mono font-bold text-sm transition-all shadow-sm ${isSelected('O/U 2.5', 'Under', row.bookmaker) ? 'bg-emerald-500 text-zinc-950 scale-105' : 'bg-zinc-800 text-red-400 hover:bg-zinc-700 hover:text-white border border-zinc-700'}`}
-                          >
-                            {row.under.toFixed(2)}
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-            
-            <p className="text-center text-xs text-zinc-600 italic">Tap odds to add them to your bet slip simulator.</p>
-          </div>
-        )}
+        {/* Detached: ODDS COMPARISON TAB */}
 
         {/* STATS & H2H TAB */}
         {activeTab === 'stats' && (
@@ -425,12 +283,8 @@ export function MatchDetailPage() {
                       <span className="text-[10px] sm:text-xs text-zinc-500 font-bold uppercase tracking-widest block mb-1">Official Prediction</span>
                       <p className="text-xl sm:text-2xl font-black text-emerald-400 leading-tight">{tip.prediction}</p>
                     </div>
-                    <div className="grid grid-cols-2 gap-4 mb-6">
-                      <div className="bg-zinc-950/50 p-4 rounded-xl border border-zinc-800/50">
-                        <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest block mb-1">Value Odds</span>
-                        <p className="text-lg font-mono font-bold text-zinc-200">@ {tip.odds}</p>
-                      </div>
-                      <div className="bg-zinc-950/50 p-4 rounded-xl border border-zinc-800/50">
+                    <div className="mb-6">
+                      <div className="bg-zinc-950/50 p-4 rounded-xl border border-zinc-800/50 w-full">
                         <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest block mb-1">Confidence</span>
                         <p className="text-lg font-bold text-gold-400 tracking-widest">{'⭐'.repeat(tip.confidence)}</p>
                       </div>

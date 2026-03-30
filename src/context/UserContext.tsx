@@ -18,6 +18,7 @@ export interface UserData {
   is_admin?: boolean;
   subscription: UserSubscription;
   purchasedJackpotIds?: string[];
+  favorite_teams?: string[];
 }
 
 interface UserContextType {
@@ -85,6 +86,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       try {
         const userData = await authService.me();
         setUser(userData);
+        if (userData.favorite_teams) {
+          setFavoriteTeams(userData.favorite_teams);
+          localStorage.setItem('tambua_fav_teams', JSON.stringify(userData.favorite_teams));
+        }
       } catch (error) {
         console.error('Failed to refresh user', error);
         // Don't logout on refresh error, just set user to null if it's a 401
@@ -131,6 +136,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       
       const userData = await authService.me();
       setUser(userData);
+      if (userData.favorite_teams) {
+        setFavoriteTeams(userData.favorite_teams);
+        localStorage.setItem('tambua_fav_teams', JSON.stringify(userData.favorite_teams));
+      }
       setShowAuthModal(false);
       return { success: true };
     } catch (error: any) {
@@ -149,6 +158,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       
       const userData = await authService.me();
       setUser(userData);
+      if (userData.favorite_teams) {
+        setFavoriteTeams(userData.favorite_teams);
+        localStorage.setItem('tambua_fav_teams', JSON.stringify(userData.favorite_teams));
+      }
       setShowAuthModal(false);
       return { success: true };
     } catch (error: any) {
@@ -208,13 +221,20 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     return hasAccessToCategory(user.subscription.tier, category);
   }, [user]);
 
-  const toggleFavoriteTeam = (team: string) => {
+  const toggleFavoriteTeam = useCallback((team: string) => {
     setFavoriteTeams(prev => {
       const next = prev.includes(team) ? prev.filter(t => t !== team) : [...prev, team];
       localStorage.setItem('tambua_fav_teams', JSON.stringify(next));
+      
+      // If logged in, sync with backend
+      if (user) {
+        authService.updateFavorites(next).catch(err => {
+          console.error("Failed to sync favorite teams", err);
+        });
+      }
       return next;
     });
-  };
+  }, [user]);
 
   const toggleFavoriteLeague = (leagueId: number) => {
     setFavoriteLeagues(prev => {
@@ -224,13 +244,43 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
-  const toggleMatchNotification = (matchId: string) => {
+  const toggleMatchNotification = useCallback(async (matchId: string) => {
     setNotifiedMatches(prev => {
       const next = prev.includes(matchId) ? prev.filter(id => id !== matchId) : [...prev, matchId];
       localStorage.setItem('tambua_notif_matches', JSON.stringify(next));
       return next;
     });
-  };
+
+    if (user && 'serviceWorker' in navigator && 'PushManager' in window) {
+      try {
+        const permission = await Notification.requestPermission();
+        if (permission === 'granted') {
+          const reg = await navigator.serviceWorker.register('/sw.js');
+          let sub = await reg.pushManager.getSubscription();
+          if (!sub) {
+            const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+            
+            // Format base64
+            const padding = '='.repeat((4 - vapidKey.length % 4) % 4);
+            const base64 = (vapidKey + padding).replace(/\-/g, '+').replace(/_/g, '/');
+            const rawData = window.atob(base64);
+            const outputArray = new Uint8Array(rawData.length);
+            for (let i = 0; i < rawData.length; ++i) {
+              outputArray[i] = rawData.charCodeAt(i);
+            }
+
+            sub = await reg.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: outputArray
+            });
+          }
+          await authService.pushSubscribe(sub);
+        }
+      } catch (err) {
+        console.error("WebPush Subscription Failed:", err);
+      }
+    }
+  }, [user]);
 
   const toggleLeagueNotification = (league: string) => {
     setNotifiedLeagues(prev => {

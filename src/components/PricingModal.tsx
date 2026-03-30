@@ -256,9 +256,11 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
                         )}
                         {(!selectedMethod || selectedMethod === 'paystack') && (
                           <button onClick={() => setSelectedMethod('paystack')} className={`relative w-full flex items-center justify-center p-4 rounded-xl border-2 transition-all ${selectedMethod === 'paystack' ? 'border-emerald-500 bg-emerald-500/10' : 'border-zinc-800 hover:border-zinc-700'}`}>
-                            <div className="flex items-center gap-2">
-                              <CreditCard className="w-6 h-6 text-emerald-500" />
-                              <span className="font-bold text-white">Card (Paystack)</span>
+                            <div className="flex items-center gap-3">
+                              <CreditCard className="w-5 h-5 text-emerald-500" />
+                              <span className="font-bold text-white">Pay with Card</span>
+                              <span className="text-zinc-500 text-sm">via</span>
+                              <img src="/paystack.svg" alt="Paystack" className="h-4 object-contain brightness-0 invert" />
                             </div>
                             {selectedMethod === 'paystack' && <Check className="absolute right-4 w-5 h-5 text-emerald-500" />}
                           </button>

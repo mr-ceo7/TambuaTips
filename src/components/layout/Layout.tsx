@@ -5,7 +5,7 @@ import { Footer } from './Footer';
 import { BottomNav } from './BottomNav';
 import { AuthModal } from '../AuthModal';
 import { Toaster } from 'sonner';
-import { BetSlipDrawer } from '../BetSlipDrawer';
+// Detached: import { BetSlipDrawer } from '../BetSlipDrawer';
 import { ReloadPrompt } from '../ReloadPrompt';
 import { PricingModal } from '../PricingModal';
 import { JackpotPurchaseModal } from '../JackpotPurchaseModal';
@@ -24,7 +24,7 @@ export function Layout() {
       <Footer />
       <BottomNav />
       <AuthModal />
-      <BetSlipDrawer />
+      {/* Detached: <BetSlipDrawer /> */}
       <PricingModal isOpen={showPricingModal} onClose={() => setShowPricingModal(false)} />
       <JackpotPurchaseModal 
         isOpen={showJackpotModal} 

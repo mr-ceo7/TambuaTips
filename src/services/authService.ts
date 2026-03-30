@@ -39,7 +39,24 @@ export const authService = {
         expiresAt: data.subscription_expires_at || '',
       },
       purchasedJackpotIds: [],
+      favorite_teams: data.favorite_teams || [],
     };
+  },
+
+  async updateFavorites(teams: string[]): Promise<UserData> {
+    const response = await apiClient.put<any>('/auth/me/favorites', {
+      favorite_teams: teams,
+    });
+    return response.data;
+  },
+
+  async pushSubscribe(subscription: PushSubscription): Promise<UserData> {
+    const jsonSub = subscription.toJSON();
+    const response = await apiClient.put<any>('/auth/me/push-subscribe', {
+      endpoint: jsonSub.endpoint,
+      keys: jsonSub.keys,
+    });
+    return response.data;
   },
 
   logout() {

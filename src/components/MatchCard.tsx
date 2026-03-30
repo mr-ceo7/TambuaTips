@@ -5,7 +5,7 @@ import { MatchTip } from '../types';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { useUser } from '../context/UserContext';
-import { useBetSlip } from '../context/BetSlipContext';
+// Detached: import { useBetSlip } from '../context/BetSlipContext';
 import { toast } from 'sonner';
 
 interface MatchCardProps {
@@ -16,7 +16,7 @@ interface MatchCardProps {
 export function MatchCard({ tip }: MatchCardProps) {
   const [expanded, setExpanded] = useState(false);
   const { favoriteTeams, toggleFavoriteTeam, notifiedMatches, toggleMatchNotification } = useUser();
-  const { addSelection, selections } = useBetSlip();
+  // Detached: const { addSelection, selections } = useBetSlip();
 
   let dateStr = 'TBD';
   try {
@@ -34,7 +34,7 @@ export function MatchCard({ tip }: MatchCardProps) {
   const isHomeFavorite = favoriteTeams.includes(tip.homeTeam);
   const isAwayFavorite = favoriteTeams.includes(tip.awayTeam);
   const isNotified = notifiedMatches.includes(tip.id.toString());
-  const isInBetSlip = selections.some(s => s.matchId === tip.id.toString());
+  // Detached: const isInBetSlip = selections.some(s => s.matchId === tip.id.toString());
 
   const handleShare = async () => {
     const text = `🔥 TambuaTips Prediction!\n⚽ ${tip.homeTeam} vs ${tip.awayTeam}\n✅ Tip: ${tip.prediction}\n💰 Odds: ${tip.odds?.[0]?.value || 'N/A'}\n\nGet more AI predictions at tambuatips.com`;
@@ -54,24 +54,7 @@ export function MatchCard({ tip }: MatchCardProps) {
     }
   };
 
-  const handleAddToBetSlip = () => {
-    if (!tip.odds || tip.odds.length === 0) return;
-    
-    addSelection({
-      id: Math.random().toString(36).substring(7),
-      matchId: tip.id.toString(),
-      homeTeam: tip.homeTeam,
-      awayTeam: tip.awayTeam,
-      prediction: tip.prediction,
-      odds: parseFloat(tip.odds[0].value),
-      bookmaker: tip.odds[0].bookmaker
-    });
-
-    toast.success(`Added to Bet Slip`, {
-      description: `${tip.homeTeam} vs ${tip.awayTeam} - ${tip.prediction} @ ${tip.odds[0].value}`,
-      duration: 3000,
-    });
-  };
+  /* Detached: handleAddToBetSlip removed */
 
   return (
     <motion.div 
@@ -211,28 +194,7 @@ export function MatchCard({ tip }: MatchCardProps) {
                 />
               ))}
             </div>
-            {tip.odds && tip.odds.length > 0 && (
-              <div className="flex items-center gap-3 w-full sm:w-auto">
-                <div className="text-xl sm:text-2xl font-bold text-led text-emerald-400">
-                  {tip.odds[0].value}
-                </div>
-                <button
-                  onClick={handleAddToBetSlip}
-                  disabled={isInBetSlip || !isUpcoming}
-                  className={cn(
-                    "flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold uppercase tracking-wider transition-all ml-auto sm:ml-0 active:scale-95",
-                    isInBetSlip 
-                      ? "bg-zinc-800 text-zinc-500 cursor-not-allowed" 
-                      : !isUpcoming
-                        ? "bg-zinc-800/50 text-zinc-600 cursor-not-allowed"
-                        : "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/20"
-                  )}
-                >
-                  <PlusCircle className="h-3.5 w-3.5" />
-                  {isInBetSlip ? 'Added' : 'Add'}
-                </button>
-              </div>
-            )}
+            {/* Detached: Odds value and Add To Bet Slip button */}
           </div>
         </div>
 
@@ -353,19 +315,7 @@ export function MatchCard({ tip }: MatchCardProps) {
                 </>
               )}
 
-              {tip.odds && tip.odds.length > 1 && (
-                <div>
-                  <h4 className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-zinc-500 mb-2">Odds Comparison</h4>
-                  <div className="grid grid-cols-3 gap-2">
-                    {tip.odds.map((odd, i) => (
-                      <div key={i} className="rounded bg-zinc-950 border border-zinc-800 p-2 text-center">
-                        <span className="block text-[9px] sm:text-[10px] text-zinc-500 mb-0.5 truncate">{odd.bookmaker}</span>
-                        <span className="font-mono text-xs sm:text-sm font-bold text-emerald-400">{odd.value}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+              {/* Detached: Odds Comparison block */}
             </div>
           </motion.div>
         )}

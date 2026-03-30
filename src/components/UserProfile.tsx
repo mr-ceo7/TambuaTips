@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useUser } from '../context/UserContext';
-import { X, User, Bell, Star, History, Trash2, CheckCircle2, XCircle, Shield } from 'lucide-react';
+import { X, User, Bell, Star, Trash2, Shield } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
@@ -11,43 +11,10 @@ interface UserProfileProps {
 }
 
 export function UserProfile({ isOpen, onClose }: UserProfileProps) {
-  const { user, favoriteTeams, toggleFavoriteTeam, notifiedMatches, toggleMatchNotification, notifiedLeagues, toggleLeagueNotification, bettingHistory, addBet } = useUser();
-  const [activeTab, setActiveTab] = useState<'history' | 'favorites' | 'notifications'>('history');
+  const { user, favoriteTeams, toggleFavoriteTeam, notifiedMatches, toggleMatchNotification, notifiedLeagues, toggleLeagueNotification } = useUser();
+  const [activeTab, setActiveTab] = useState<'favorites' | 'notifications'>('favorites');
 
-  const [newBet, setNewBet] = useState({
-    match: '',
-    prediction: '',
-    odds: '',
-    stake: '',
-    result: 'pending' as const
-  });
-
-  const handleAddBet = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newBet.match || !newBet.prediction || !newBet.odds || !newBet.stake) return;
-
-    addBet({
-      id: Date.now().toString(),
-      date: new Date().toISOString(),
-      match: newBet.match,
-      prediction: newBet.prediction,
-      odds: parseFloat(newBet.odds),
-      stake: parseFloat(newBet.stake),
-      result: newBet.result
-    });
-
-    setNewBet({ match: '', prediction: '', odds: '', stake: '', result: 'pending' });
-  };
-
-  const winRate = bettingHistory.length > 0 
-    ? (bettingHistory.filter(b => b.result === 'won').length / bettingHistory.filter(b => b.result !== 'pending').length) * 100 
-    : 0;
-
-  const totalProfit = bettingHistory.reduce((acc, bet) => {
-    if (bet.result === 'won') return acc + (bet.stake * bet.odds - bet.stake);
-    if (bet.result === 'lost') return acc - bet.stake;
-    return acc;
-  }, 0);
+  /* Detached: Add Bet logic and Stats */
 
   return (
     <AnimatePresence>
@@ -93,12 +60,7 @@ export function UserProfile({ isOpen, onClose }: UserProfileProps) {
             </div>
 
             <div className="flex border-b border-zinc-800 overflow-x-auto hide-scrollbar">
-              <button 
-                onClick={() => setActiveTab('history')}
-                className={`flex items-center gap-2 px-6 py-3 text-sm font-bold whitespace-nowrap transition-all active:scale-95 border-b-2 ${activeTab === 'history' ? 'border-emerald-500 text-emerald-400' : 'border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50'}`}
-              >
-                <History className="w-4 h-4" /> Betting History
-              </button>
+              {/* Detached: Betting History Tab Button */}
               <button 
                 onClick={() => setActiveTab('favorites')}
                 className={`flex items-center gap-2 px-6 py-3 text-sm font-bold whitespace-nowrap transition-all active:scale-95 border-b-2 ${activeTab === 'favorites' ? 'border-gold-500 text-gold-400' : 'border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50'}`}
@@ -114,100 +76,7 @@ export function UserProfile({ isOpen, onClose }: UserProfileProps) {
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 sm:p-6">
-              {activeTab === 'history' && (
-                <div className="space-y-6">
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 text-center">
-                      <p className="text-xs text-zinc-500 font-bold uppercase tracking-wider mb-1">Total Bets</p>
-                      <p className="text-2xl font-display font-bold text-white">{bettingHistory.length}</p>
-                    </div>
-                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 text-center">
-                      <p className="text-xs text-zinc-500 font-bold uppercase tracking-wider mb-1">Win Rate</p>
-                      <p className="text-2xl font-display font-bold text-emerald-400">{isNaN(winRate) ? '0' : winRate.toFixed(1)}%</p>
-                    </div>
-                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 text-center sm:col-span-2">
-                      <p className="text-xs text-zinc-500 font-bold uppercase tracking-wider mb-1">Net Profit</p>
-                      <p className={`text-2xl font-display font-bold ${totalProfit >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                        {totalProfit >= 0 ? '+' : ''}{totalProfit.toFixed(2)}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 sm:p-5">
-                    <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-4">Add Manual Bet</h3>
-                    <form onSubmit={handleAddBet} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <input 
-                        type="text" 
-                        placeholder="Match (e.g., Arsenal vs Chelsea)" 
-                        value={newBet.match}
-                        onChange={e => setNewBet({...newBet, match: e.target.value})}
-                        className="bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
-                      />
-                      <input 
-                        type="text" 
-                        placeholder="Prediction (e.g., Home Win)" 
-                        value={newBet.prediction}
-                        onChange={e => setNewBet({...newBet, prediction: e.target.value})}
-                        className="bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
-                      />
-                      <div className="grid grid-cols-2 gap-4">
-                        <input 
-                          type="number" 
-                          step="0.01"
-                          placeholder="Odds" 
-                          value={newBet.odds}
-                          onChange={e => setNewBet({...newBet, odds: e.target.value})}
-                          className="bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
-                        />
-                        <input 
-                          type="number" 
-                          step="0.01"
-                          placeholder="Stake" 
-                          value={newBet.stake}
-                          onChange={e => setNewBet({...newBet, stake: e.target.value})}
-                          className="bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
-                        />
-                      </div>
-                      <div className="flex gap-2">
-                        <select 
-                          value={newBet.result}
-                          onChange={e => setNewBet({...newBet, result: e.target.value as any})}
-                          className="flex-1 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
-                        >
-                          <option value="pending">Pending</option>
-                          <option value="won">Won</option>
-                          <option value="lost">Lost</option>
-                        </select>
-                        <button type="submit" className="bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold px-4 py-2 rounded-lg transition-all hover:scale-105 active:scale-95 text-sm">
-                          Add
-                        </button>
-                      </div>
-                    </form>
-                  </div>
-
-                  <div className="space-y-3">
-                    <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-2">Recent Bets</h3>
-                    {bettingHistory.length === 0 ? (
-                      <p className="text-sm text-zinc-500 text-center py-4">No bets recorded yet.</p>
-                    ) : (
-                      bettingHistory.slice().reverse().map(bet => (
-                        <div key={bet.id} className="flex items-center justify-between bg-zinc-900/50 border border-zinc-800 rounded-lg p-3">
-                          <div>
-                            <p className="text-sm font-bold text-white">{bet.match}</p>
-                            <p className="text-xs text-zinc-400">{bet.prediction} @ {bet.odds} • Stake: {bet.stake}</p>
-                            <p className="text-[10px] text-zinc-500 mt-1">{format(new Date(bet.date), 'MMM d, yyyy')}</p>
-                          </div>
-                          <div>
-                            {bet.result === 'won' && <span className="flex items-center gap-1 text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded"><CheckCircle2 className="w-3 h-3" /> WON</span>}
-                            {bet.result === 'lost' && <span className="flex items-center gap-1 text-xs font-bold text-red-400 bg-red-500/10 px-2 py-1 rounded"><XCircle className="w-3 h-3" /> LOST</span>}
-                            {bet.result === 'pending' && <span className="text-xs font-bold text-zinc-400 bg-zinc-800 px-2 py-1 rounded">PENDING</span>}
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              )}
+              {/* Detached: History Tab Content */}
 
               {activeTab === 'favorites' && (
                 <div className="space-y-4">

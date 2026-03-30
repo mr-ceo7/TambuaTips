@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { Loader2, ChevronRight, ChevronLeft, Trophy, Zap, ArrowRight, ExternalLink, MessageCircle, Twitter, Star, Target } from 'lucide-react';
+import { Loader2, ChevronRight, ChevronLeft, Trophy, Zap, Crown, ArrowRight, ExternalLink, MessageCircle, Twitter, Star, Target } from 'lucide-react';
 import { fetchTodayFixtures, fetchStandings, fetchFixturesByLeague, LEAGUES, EUROPEAN_LEAGUE_IDS } from '../services/sportsApiService';
 import { fetchNews, mixPromoSlides, FALLBACK_IMAGE, NewsItem } from '../services/newsService';
 import { getTipStats, getFreeTips } from '../services/tipsService';
@@ -425,7 +425,7 @@ export function HomePage() {
           <Link to="/tips" className="bg-gradient-to-r from-[#061f10] to-zinc-900 rounded-xl p-4 sm:p-5 flex items-center justify-between gap-4 shadow-lg border border-emerald-500/20 hover:border-emerald-500/40 transition-colors group">
             <div className="flex items-center gap-3 sm:gap-4">
               <div className="bg-emerald-500/10 p-2 sm:p-3 rounded-lg backdrop-blur-sm border border-emerald-500/20 group-hover:bg-emerald-500/20 transition-colors">
-                <Zap className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-400" fill="currentColor" />
+                <Crown className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-400" />
               </div>
               <div>
                 <h3 className="text-white font-bold tracking-wide text-sm sm:text-base">Get Premium Betting Tips</h3>

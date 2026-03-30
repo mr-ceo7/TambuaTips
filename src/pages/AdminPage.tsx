@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Plus, Trash2, Edit, Check, X, Bot, Star, TrendingUp, Trophy, Settings } from 'lucide-react';
+import { Shield, Plus, Trash2, Edit, Check, X, Bot, Star, TrendingUp, Trophy, Settings, Bell, Send } from 'lucide-react';
 import { getAllTips, addTip, updateTip, deleteTip, getTipStats, getAllJackpots, addJackpot, deleteJackpot, type Tip, type TipCategory, type JackpotType, type DCLevel, type JackpotMatch, type JackpotPrediction } from '../services/tipsService';
 import { getPricingTiers, updatePricingTier, addPricingTier, deletePricingTier, type TierConfig, CATEGORY_LABELS } from '../services/pricingService';
 import { toast } from 'sonner';
@@ -12,7 +12,7 @@ const DC_LEVELS: DCLevel[] = [3, 4, 5, 6, 7, 10];
 export function AdminPage() {
   usePageTitle('Admin Panel');
   const { user } = useUser();
-  const [activeTab, setActiveTab] = useState<'tips' | 'jackpot' | 'pricing'>('tips');
+  const [activeTab, setActiveTab] = useState<'tips' | 'jackpot' | 'pricing' | 'broadcast'>('tips');
 
   // ─── Tips State ──────────────────────────────────────────────
   const [tips, setTips] = useState<Tip[]>([]);
@@ -49,6 +49,32 @@ export function AdminPage() {
   // ─── Pricing State ───────────────────────────────────────────
   const [pricingTiers, setPricingTiers] = useState<TierConfig[]>([]);
   const [stats, setStats] = useState({ total: 0, won: 0, lost: 0, pending: 0, voided: 0, winRate: 0 });
+
+  // ─── Broadcast State ─────────────────────────────────────────
+  const [broadcastForm, setBroadcastForm] = useState({ title: '', body: '', url: '/', targetTier: 'all', targetCountry: '' });
+  const [isBroadcasting, setIsBroadcasting] = useState(false);
+
+  const handleBroadcastPush = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!broadcastForm.title || !broadcastForm.body) { toast.error('Fill in required fields'); return; }
+    setIsBroadcasting(true);
+    try {
+      const apiClient = (await import('../services/apiClient')).default;
+      const res = await apiClient.post('/admin/broadcast-push', {
+        title: broadcastForm.title,
+        body: broadcastForm.body,
+        url: broadcastForm.url,
+        target_tier: broadcastForm.targetTier,
+        target_country: broadcastForm.targetCountry || 'all'
+      });
+      toast.success(`Broadcast queued! Targeted users: ${res.data.targeted_users}`);
+      setBroadcastForm({ title: '', body: '', url: '/', targetTier: 'all', targetCountry: '' });
+    } catch (err: any) {
+      toast.error(err.response?.data?.detail || 'Broadcast failed');
+    } finally {
+      setIsBroadcasting(false);
+    }
+  };
 
   useEffect(() => {
     getAllJackpots().then(setJackpots);
@@ -290,6 +316,7 @@ export function AdminPage() {
           { key: 'tips' as const, label: 'Tips', icon: TrendingUp },
           { key: 'jackpot' as const, label: 'Jackpot', icon: Trophy },
           { key: 'pricing' as const, label: 'Pricing', icon: Settings },
+          { key: 'broadcast' as const, label: 'Broadcast', icon: Bell },
         ].map(tab => (
           <button
             key={tab.key}
@@ -345,23 +372,7 @@ export function AdminPage() {
                   <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">Prediction *</label>
                   <input value={tipForm.prediction} onChange={e => setTipForm({ ...tipForm, prediction: e.target.value })} placeholder="e.g. Home Win, Over 2.5" className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500" required />
                 </div>
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">Bookmaker Odds</label>
-                  <div className="grid grid-cols-3 gap-3">
-                    <div>
-                      <label className="block text-[10px] text-zinc-600 mb-1">Betika</label>
-                      <input value={tipForm.oddsBetika} onChange={e => setTipForm({ ...tipForm, oddsBetika: e.target.value, odds: tipForm.odds || e.target.value, bookmaker: tipForm.bookmaker || 'Betika' })} placeholder="e.g. 2.10" className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 font-mono" />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] text-zinc-600 mb-1">SportPesa</label>
-                      <input value={tipForm.oddsSportPesa} onChange={e => setTipForm({ ...tipForm, oddsSportPesa: e.target.value, odds: tipForm.odds || e.target.value })} placeholder="e.g. 2.15" className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 font-mono" />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] text-zinc-600 mb-1">Betway</label>
-                      <input value={tipForm.oddsBetway} onChange={e => setTipForm({ ...tipForm, oddsBetway: e.target.value, odds: tipForm.odds || e.target.value })} placeholder="e.g. 2.05" className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 font-mono" />
-                    </div>
-                  </div>
-                </div>
+                {/* Detached: Bookmaker Odds inputs removed */}
                 <div>
                   <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">Confidence (1-5)</label>
                   <div className="flex gap-1 mt-1">
@@ -407,7 +418,7 @@ export function AdminPage() {
                       }`}>{CATEGORY_LABELS[tip.category]?.label || tip.category}</span>
                     </div>
                     <p className="text-sm font-medium text-zinc-200 truncate">{tip.homeTeam} vs {tip.awayTeam}</p>
-                    <p className="text-xs text-emerald-400 font-bold">{tip.prediction} @ {tip.odds}</p>
+                    <p className="text-xs text-emerald-400 font-bold">{tip.prediction}</p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <span className={`px-2 py-1 rounded text-xs font-bold ${
@@ -651,6 +662,55 @@ export function AdminPage() {
           ))}
         </div>
       )}
+
+      {/* ═══ BROADCAST TAB ═══ */}
+      {activeTab === 'broadcast' && (
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 mb-6 max-w-2xl mx-auto">
+          <div className="flex items-center gap-3 mb-6 border-b border-zinc-800 pb-4">
+             <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-500">
+               <Bell className="w-5 h-5" /> 
+             </div>
+             <div>
+               <h3 className="text-xl font-bold text-zinc-200">Send Push Notification</h3>
+               <p className="text-sm text-zinc-400">Instantly notify targeted active app users</p>
+             </div>
+          </div>
+          <form onSubmit={handleBroadcastPush} className="grid grid-cols-1 gap-4">
+            <div>
+              <label className="block text-sm font-bold text-zinc-400 mb-1">Notification Title</label>
+              <input type="text" value={broadcastForm.title} onChange={e => setBroadcastForm({ ...broadcastForm, title: e.target.value })} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-emerald-500" placeholder="e.g. Goal Alert!" />
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-zinc-400 mb-1">Message Body</label>
+              <textarea value={broadcastForm.body} onChange={e => setBroadcastForm({ ...broadcastForm, body: e.target.value })} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-emerald-500 min-h-[100px]" placeholder="e.g. Manchester United just scored against Liverpool..." />
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-zinc-400 mb-1">Target URL on Click (Optional)</label>
+              <input type="text" value={broadcastForm.url} onChange={e => setBroadcastForm({ ...broadcastForm, url: e.target.value })} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-emerald-500" placeholder="/" />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-bold text-zinc-400 mb-1">Target Subscription Tier</label>
+                <select value={broadcastForm.targetTier} onChange={e => setBroadcastForm({ ...broadcastForm, targetTier: e.target.value })} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-emerald-500">
+                  <option value="all">Everyone</option>
+                  <option value="premium">Premium Only</option>
+                  <option value="free">Free Only</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-zinc-400 mb-1">Target Region Country (Optional)</label>
+                <input type="text" value={broadcastForm.targetCountry} onChange={e => setBroadcastForm({ ...broadcastForm, targetCountry: e.target.value.toUpperCase() })} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-emerald-500 uppercase" placeholder="e.g. KE, UG, NG" />
+              </div>
+            </div>
+            <div className="mt-4 pt-4 border-t border-zinc-800">
+              <button disabled={isBroadcasting} type="submit" className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-emerald-500 text-zinc-950 font-bold rounded-xl hover:bg-emerald-400 transition-all font-display disabled:opacity-50 disabled:cursor-not-allowed">
+                {isBroadcasting ? 'Sending Broadcast...' : <><Send className="w-5 h-5" /> Launch Broadcast</>}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
     </div>
   );
 }

@@ -23,6 +23,13 @@ class LoginRequest(BaseModel):
 class RefreshRequest(BaseModel):
     refresh_token: str
 
+class PushSubscribeRequest(BaseModel):
+    endpoint: str
+    keys: dict
+
+class UpdateFavoritesRequest(BaseModel):
+    favorite_teams: list[str] = Field(default_factory=list)
+
 
 # ── Responses ────────────────────────────────────────────────
 
@@ -40,6 +47,8 @@ class UserResponse(BaseModel):
     subscription_tier: str
     subscription_expires_at: Optional[datetime] = None
     is_subscription_active: bool
+    favorite_teams: list[str] = Field(default_factory=list)
+    country: Optional[str] = None
     created_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}

@@ -3,7 +3,7 @@ User ORM model — extends the existing MySQL `users` table.
 """
 
 from datetime import datetime
-from sqlalchemy import Column, Integer, BigInteger, String, DateTime, Boolean, Text
+from sqlalchemy import Column, Integer, BigInteger, String, DateTime, Boolean, Text, JSON
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -23,6 +23,10 @@ class User(Base):
     is_admin = Column(Boolean, default=False, nullable=False, server_default="0")
     subscription_tier = Column(String(20), default="free", nullable=False, server_default="free")
     subscription_expires_at = Column(DateTime, nullable=True)
+    favorite_teams = Column(JSON, default=list, server_default="[]")
+    
+    country = Column(String(2), nullable=True) # ISO country code
+    push_subscriptions = Column(JSON, default=list, server_default="[]")
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
