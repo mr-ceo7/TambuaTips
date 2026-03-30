@@ -20,6 +20,8 @@ class User(Base):
     remember_token = Column(String(100), nullable=True)
 
     # New fields (will be added via Alembic migration)
+    is_active = Column(Boolean, default=True, nullable=False, server_default="1")
+    last_seen = Column(DateTime, nullable=True)
     is_admin = Column(Boolean, default=False, nullable=False, server_default="0")
     subscription_tier = Column(String(20), default="free", nullable=False, server_default="free")
     subscription_expires_at = Column(DateTime, nullable=True)

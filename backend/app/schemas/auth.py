@@ -27,6 +27,10 @@ class PushSubscribeRequest(BaseModel):
     endpoint: str
     keys: dict
 
+class ActivityRequest(BaseModel):
+    path: str
+    time_spent: int
+
 class UpdateFavoritesRequest(BaseModel):
     favorite_teams: list[str] = Field(default_factory=list)
 
@@ -44,6 +48,7 @@ class UserResponse(BaseModel):
     name: str
     email: str
     is_admin: bool
+    is_active: bool
     subscription_tier: str
     subscription_expires_at: Optional[datetime] = None
     is_subscription_active: bool
@@ -52,3 +57,9 @@ class UserResponse(BaseModel):
     created_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
+
+class AdminUserResponse(UserResponse):
+    last_seen: Optional[datetime] = None
+    most_visited_page: Optional[str] = None
+    total_time_spent: int = 0
+    is_online: bool = False

@@ -10,9 +10,15 @@ import { ReloadPrompt } from '../ReloadPrompt';
 import { PricingModal } from '../PricingModal';
 import { JackpotPurchaseModal } from '../JackpotPurchaseModal';
 import { useUser } from '../../context/UserContext';
+import { usePageTracking } from '../../hooks/usePageTracking';
 
 export function Layout() {
-  const { showPricingModal, setShowPricingModal, showJackpotModal, setShowJackpotModal, selectedJackpot } = useUser();
+  const { showPricingModal, setShowPricingModal, showJackpotModal, setShowJackpotModal, selectedJackpot, user } = useUser();
+
+  // Initialize tracking only for logged-in users 
+  // Wait, usePageTracking handles token internally, but we can just mount it regardless or selectively.
+  // Actually, I'll mount it unconditionally. The hook handles auth.
+  usePageTracking();
 
   return (
     <div className="min-h-screen bg-pitch text-zinc-50 font-sans flex flex-col">

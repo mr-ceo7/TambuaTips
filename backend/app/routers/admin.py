@@ -12,19 +12,71 @@ from sqlalchemy import select
 from app.dependencies import get_db, require_admin
 from app.models.user import User
 from app.models.payment import Payment
-from app.schemas.auth import UserResponse
+from app.models.activity import UserActivity
+from app.schemas.auth import UserResponse, AdminUserResponse
 from app.schemas.payment import PaymentResponse
 from app.config import settings
 from pywebpush import webpush, WebPushException
-from sqlalchemy import and_
+from sqlalchemy import and_, func
+from datetime import datetime, timedelta
 
 router = APIRouter(prefix="/api/admin", tags=["Admin"])
 
 
-@router.get("/users", response_model=List[UserResponse])
+@router.get("/users", response_model=List[AdminUserResponse])
 async def list_users(db: AsyncSession = Depends(get_db), admin: User = Depends(require_admin)):
     result = await db.execute(select(User).order_by(User.created_at.desc()))
-    return result.scalars().all()
+    users = result.scalars().all()
+    
+    response = []
+    now = datetime.utcnow()
+    
+    for u in users:
+        is_online = u.last_seen and (now - u.last_seen) < timedelta(minutes=3)
+        
+        activity_res = await db.execute(
+            select(
+                UserActivity.path,
+                func.sum(UserActivity.time_spent_seconds).label("total")
+            )
+            .where(UserActivity.user_id == u.id)
+            .group_by(UserActivity.path)
+            .order_by(func.sum(UserActivity.time_spent_seconds).desc())
+        )
+        activities = activity_res.all()
+        
+        most_visited_page = activities[0].path if activities else None
+        total_time_spent = sum(act.total for act in activities) if activities else 0
+        
+        resp_obj = AdminUserResponse.model_validate(u)
+        resp_obj.most_visited_page = most_visited_page
+        resp_obj.total_time_spent = total_time_spent
+        resp_obj.is_online = bool(is_online)
+        response.append(resp_obj)
+        
+    return response
+
+@router.put("/users/{user_id}/revoke")
+async def revoke_subscription(user_id: int, db: AsyncSession = Depends(get_db), admin: User = Depends(require_admin)):
+    result = await db.execute(select(User).where(User.id == user_id))
+    u = result.scalar_one_or_none()
+    if not u: raise HTTPException(status_code=404, detail="User not found")
+    u.subscription_tier = "free"
+    u.subscription_expires_at = None
+    await db.commit()
+    return {"status": "success"}
+
+@router.put("/users/{user_id}/toggle-active")
+async def toggle_active(user_id: int, db: AsyncSession = Depends(get_db), admin: User = Depends(require_admin)):
+    result = await db.execute(select(User).where(User.id == user_id))
+    u = result.scalar_one_or_none()
+    if not u: raise HTTPException(status_code=404, detail="User not found")
+    if u.id == admin.id:
+        raise HTTPException(status_code=400, detail="Cannot ban yourself")
+        
+    u.is_active = not u.is_active
+    await db.commit()
+    return {"status": "success", "is_active": u.is_active}
 
 
 @router.get("/payments", response_model=List[PaymentResponse])

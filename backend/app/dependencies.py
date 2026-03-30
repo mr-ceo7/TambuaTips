@@ -60,6 +60,9 @@ async def get_current_user(
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
 
+    if not user.is_active:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account disabled")
+
     return user
 
 
@@ -85,7 +88,12 @@ async def get_current_user_optional(
     from app.models.user import User
 
     result = await db.execute(select(User).where(User.id == int(user_id)))
-    return result.scalar_one_or_none()
+    user = result.scalar_one_or_none()
+    
+    if user and not user.is_active:
+        return None
+        
+    return user
 
 
 async def require_admin(user=Depends(get_current_user)):

@@ -5,6 +5,7 @@ import { getPricingTiers, updatePricingTier, addPricingTier, deletePricingTier, 
 import { toast } from 'sonner';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useUser } from '../context/UserContext';
+import { adminService, type AdminUser } from '../services/adminService';
 
 const TIP_CATEGORIES: TipCategory[] = ['free', '2+', '4+', 'gg', '10+', 'vip'];
 const DC_LEVELS: DCLevel[] = [3, 4, 5, 6, 7, 10];
@@ -12,7 +13,16 @@ const DC_LEVELS: DCLevel[] = [3, 4, 5, 6, 7, 10];
 export function AdminPage() {
   usePageTitle('Admin Panel');
   const { user } = useUser();
-  const [activeTab, setActiveTab] = useState<'tips' | 'jackpot' | 'pricing' | 'broadcast'>('tips');
+  const [activeTab, setActiveTab] = useState<'tips' | 'jackpot' | 'pricing' | 'broadcast' | 'users'>('tips');
+
+  // ─── Users State ─────────────────────────────────────────────
+  const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
+
+  useEffect(() => {
+    if (activeTab === 'users' && user?.is_admin) {
+      adminService.getUsers().then(setAdminUsers).catch(() => toast.error('Failed to load users'));
+    }
+  }, [activeTab, user]);
 
   // ─── Tips State ──────────────────────────────────────────────
   const [tips, setTips] = useState<Tip[]>([]);
@@ -317,6 +327,7 @@ export function AdminPage() {
           { key: 'jackpot' as const, label: 'Jackpot', icon: Trophy },
           { key: 'pricing' as const, label: 'Pricing', icon: Settings },
           { key: 'broadcast' as const, label: 'Broadcast', icon: Bell },
+          { key: 'users' as const, label: 'Users', icon: Shield },
         ].map(tab => (
           <button
             key={tab.key}
@@ -708,6 +719,99 @@ export function AdminPage() {
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* ═══ USERS TAB ═══ */}
+      {activeTab === 'users' && (
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 mb-6">
+          <div className="flex items-center justify-between mb-6">
+             <h3 className="text-xl font-bold text-zinc-200">User Telemetry & Controls</h3>
+             <div className="text-sm font-medium text-zinc-400">Total Users: {adminUsers.length}</div>
+          </div>
+          
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-zinc-800 text-xs uppercase font-bold text-zinc-500">
+                  <th className="pb-3 pr-4 font-bold">Email</th>
+                  <th className="pb-3 px-4 font-bold text-center">Status</th>
+                  <th className="pb-3 px-4 font-bold">Subscription</th>
+                  <th className="pb-3 px-4 font-bold">Analytics</th>
+                  <th className="pb-3 pl-4 font-bold text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="text-sm">
+                {adminUsers.map(u => (
+                  <tr key={u.id} className="border-b border-zinc-800/50 hover:bg-zinc-800/20 transition-colors">
+                    <td className="py-4 pr-4">
+                      <div className="font-medium text-white">{u.email}</div>
+                      <div className="text-xs text-zinc-500">{u.name}</div>
+                    </td>
+                    <td className="py-4 px-4 text-center">
+                      {u.is_online ? (
+                        <span className="inline-flex items-center gap-1.5 px-2 py-1 bg-emerald-500/10 text-emerald-400 text-xs font-bold rounded-full border border-emerald-500/20">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Online
+                        </span>
+                      ) : (
+                        <span className="text-xs text-zinc-500">
+                          Offline
+                          <br/><span className="text-[10px]">Seen: {u.last_seen ? new Date(u.last_seen).toLocaleDateString() : 'Never'}</span>
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-4 px-4">
+                      <div className={`font-bold uppercase text-xs ${u.subscription_tier !== 'free' ? 'text-gold-400' : 'text-zinc-500'}`}>
+                        {u.subscription_tier}
+                      </div>
+                      {u.subscription_expires_at && (
+                        <div className="text-[10px] text-zinc-600">Until {new Date(u.subscription_expires_at).toLocaleDateString()}</div>
+                      )}
+                    </td>
+                    <td className="py-4 px-4">
+                      <div className="text-xs text-zinc-400">
+                        Top Page: <span className="text-zinc-200 break-all">{u.most_visited_page || 'None'}</span>
+                      </div>
+                      <div className="text-[10px] text-zinc-500">
+                        Total Time: {Math.floor(u.total_time_spent / 60)}m {u.total_time_spent % 60}s
+                      </div>
+                    </td>
+                    <td className="py-4 pl-4 text-right">
+                      <div className="flex flex-col gap-2 items-end">
+                        <button 
+                          onClick={() => {
+                            if (confirm('Revoke subscription and revert to FREE?')) {
+                              adminService.revokeSubscription(u.id).then(() => {
+                                toast.success('Subscription revoked');
+                                adminService.getUsers().then(setAdminUsers);
+                              });
+                            }
+                          }}
+                          disabled={u.subscription_tier === 'free'}
+                          className="px-3 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed w-[110px]"
+                        >
+                          Revoke Sub
+                        </button>
+                        <button 
+                          onClick={() => {
+                            if (confirm(u.is_active ? 'Ban this user?' : 'Unban this user?')) {
+                              adminService.toggleUserActive(u.id).then(() => {
+                                toast.success('User status toggled');
+                                adminService.getUsers().then(setAdminUsers);
+                              }).catch(() => toast.error('Cannot ban yourself'));
+                            }
+                          }}
+                          className={`px-3 py-1 text-xs rounded transition-colors w-[110px] ${u.is_active ? 'bg-red-500/10 hover:bg-red-500/20 text-red-400' : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400'}`}
+                        >
+                          {u.is_active ? 'Ban Account' : 'Unban Account'}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

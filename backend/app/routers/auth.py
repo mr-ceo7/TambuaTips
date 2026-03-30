@@ -6,11 +6,13 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, status, Request, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from datetime import datetime
 
 from app.database import AsyncSessionLocal
 from app.dependencies import get_db, get_current_user
 from app.models.user import User
-from app.schemas.auth import RegisterRequest, LoginRequest, RefreshRequest, TokenResponse, UserResponse, UpdateFavoritesRequest, PushSubscribeRequest
+from app.models.activity import UserActivity
+from app.schemas.auth import RegisterRequest, LoginRequest, RefreshRequest, TokenResponse, UserResponse, UpdateFavoritesRequest, PushSubscribeRequest, ActivityRequest
 from app.security import hash_password, verify_password, create_access_token, create_refresh_token, decode_token
 
 router = APIRouter(prefix="/api/auth", tags=["Auth"])
@@ -137,3 +139,25 @@ async def push_subscribe(
         await db.refresh(user)
         
     return user
+
+@router.post("/activity")
+async def track_activity(
+    body: ActivityRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    # 1. Update heartbeat
+    user.last_seen = datetime.utcnow()
+    db.add(user)
+    
+    # 2. Log activity
+    if body.time_spent > 0 and body.path:
+        act = UserActivity(
+            user_id=user.id,
+            path=body.path,
+            time_spent_seconds=body.time_spent
+        )
+        db.add(act)
+        
+    await db.commit()
+    return {"status": "ok"}

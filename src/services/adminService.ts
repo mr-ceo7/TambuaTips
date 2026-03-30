@@ -1,4 +1,38 @@
 import { FixtureData, PredictionData } from '../types';
+import apiClient from './apiClient';
+
+export interface AdminUser {
+  id: number;
+  name: string;
+  email: string;
+  is_admin: boolean;
+  is_active: boolean;
+  subscription_tier: string;
+  is_subscription_active: boolean;
+  subscription_expires_at: string | null;
+  country: string | null;
+  created_at: string;
+  last_seen: string | null;
+  most_visited_page: string | null;
+  total_time_spent: number;
+  is_online: boolean;
+}
+
+export const adminService = {
+  getUsers: async (): Promise<AdminUser[]> => {
+    const response = await apiClient.get<AdminUser[]>('/admin/users');
+    return response.data;
+  },
+  
+  revokeSubscription: async (userId: number): Promise<void> => {
+    await apiClient.put(`/admin/users/${userId}/revoke`);
+  },
+  
+  toggleUserActive: async (userId: number): Promise<{ is_active: boolean }> => {
+    const response = await apiClient.put(`/admin/users/${userId}/toggle-active`);
+    return response.data;
+  }
+};
 
 export async function getAdminPredictions(fixtures: FixtureData[]): Promise<PredictionData[]> {
   // Mocking predictions set by the admin
