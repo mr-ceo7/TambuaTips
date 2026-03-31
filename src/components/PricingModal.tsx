@@ -277,9 +277,9 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
                           </button>
                         )}
                         {(!selectedMethod || selectedMethod === 'skrill') && (
-                          <button onClick={() => setSelectedMethod('skrill')} className={`relative w-full flex items-center justify-center p-4 rounded-xl border-2 transition-all ${selectedMethod === 'skrill' ? 'border-purple-500 bg-purple-500/10' : 'border-zinc-800 hover:border-zinc-700'}`}>
+                          <button onClick={() => toast.info('Skrill integration is coming soon!')} className="relative w-full flex items-center justify-center p-4 rounded-xl border-2 transition-all border-zinc-800 hover:border-zinc-700 opacity-50 cursor-not-allowed">
                             <img src="/skrill.svg" alt="Skrill" className="h-9 object-contain" />
-                            {selectedMethod === 'skrill' && <Check className="absolute right-4 w-5 h-5 text-purple-500" />}
+                            <div className="absolute right-4 text-[9px] font-bold text-purple-400 bg-purple-500/10 border border-purple-500/20 px-2 py-1 rounded-full uppercase tracking-wider">Coming Soon</div>
                           </button>
                         )}
                       </div>
@@ -314,8 +314,12 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
                 {paymentView === 'waiting' && (
                   <motion.div key="waiting" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="flex flex-col items-center justify-center py-10">
                     <div className="w-16 h-16 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin mb-6" />
-                    <h3 className="text-xl font-bold text-white mb-2 text-center">Waiting for Payment...</h3>
-                    <p className="text-zinc-400 text-center text-sm max-w-xs mb-8">Please check your phone for the M-Pesa PIN prompt to complete your order.</p>
+                    <h3 className="text-xl font-bold text-white mb-2 text-center">Verifying Payment...</h3>
+                    <p className="text-zinc-400 text-center text-sm max-w-xs mb-8">
+                      {selectedMethod === 'mpesa' 
+                        ? 'Please check your phone for the M-Pesa PIN prompt to complete your order.' 
+                        : 'Verifying your payment with the provider. Please do not close this window.'}
+                    </p>
                   </motion.div>
                 )}
 
