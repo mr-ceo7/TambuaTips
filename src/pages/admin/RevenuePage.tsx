@@ -93,15 +93,15 @@ export function RevenuePage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 overflow-hidden">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-white font-display">Revenue & Transactions</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-white font-display">Revenue & Transactions</h1>
           <p className="text-sm text-zinc-500 mt-1">Financial analytics & payment history</p>
         </div>
         <button
           onClick={handleExportCSV}
-          className="flex items-center gap-2 px-4 py-2.5 bg-zinc-800 text-zinc-300 font-medium rounded-xl hover:bg-zinc-700 transition-all text-sm border border-zinc-700"
+          className="flex items-center gap-2 px-4 py-2.5 bg-zinc-800 text-zinc-300 font-medium rounded-xl hover:bg-zinc-700 transition-all text-sm border border-zinc-700 shrink-0"
         >
           <Download className="w-4 h-4" /> Export CSV
         </button>
@@ -110,7 +110,7 @@ export function RevenuePage() {
       {/* ─── Revenue KPI Cards ───────────────────────────── */}
       {stats && (
         <>
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
             <RevenueCard
               label="Total Revenue"
               amount={stats.revenue.total}
@@ -212,14 +212,14 @@ export function RevenuePage() {
           <h3 className="text-lg font-bold text-white font-display mb-4">Transaction Statements</h3>
 
           {/* Filters */}
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="relative flex-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="relative sm:col-span-2 lg:col-span-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
               <input
                 value={searchInput}
                 onChange={e => setSearchInput(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleSearch()}
-                placeholder="Search by email, reference, or transaction ID..."
+                placeholder="Search email, reference..."
                 className="w-full bg-zinc-900 border border-zinc-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-emerald-500/50"
               />
             </div>
@@ -257,7 +257,7 @@ export function RevenuePage() {
           </div>
 
           {/* Date range */}
-          <div className="flex gap-3 mt-3">
+          <div className="flex flex-wrap gap-3 mt-3 items-center">
             <div className="flex items-center gap-2">
               <span className="text-[10px] text-zinc-500 uppercase font-bold">From</span>
               <input
@@ -289,12 +289,15 @@ export function RevenuePage() {
         </div>
 
         {/* Transactions Table */}
-        <div className="overflow-x-auto">
-          {txnLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-            </div>
-          ) : (
+        {/* Transactions — mobile card view + desktop table */}
+        {txnLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : (
+          <>
+            {/* Desktop table */}
+            <div className="hidden sm:block overflow-x-auto">
             <table className="w-full text-left">
               <thead>
                 <tr className="border-b border-zinc-800/60">
@@ -348,8 +351,38 @@ export function RevenuePage() {
                 )}
               </tbody>
             </table>
-          )}
-        </div>
+            </div>
+
+            {/* Mobile card view */}
+            <div className="sm:hidden divide-y divide-zinc-800/40">
+              {transactions.map(txn => (
+                <div key={txn.id} className="p-4 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-white">{txn.user_name}</p>
+                      <p className="text-[10px] text-zinc-600">{txn.user_email}</p>
+                    </div>
+                    <span className={`inline-block px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase border ${STATUS_STYLES[txn.status] || STATUS_STYLES.pending}`}>
+                      {txn.status}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-bold text-white">{formatKES(txn.amount)}</span>
+                    <span className="text-[11px] font-bold capitalize" style={{ color: METHOD_COLORS[txn.method] || '#a1a1aa' }}>{txn.method}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-[10px] text-zinc-500">
+                    <span className="capitalize">{txn.item_type}{txn.item_id ? ` (${txn.item_id})` : ''}</span>
+                    <span>{txn.created_at ? new Date(txn.created_at).toLocaleDateString() : '—'}</span>
+                  </div>
+                  {txn.reference && <p className="text-[10px] text-zinc-600 font-mono truncate">{txn.reference}</p>}
+                </div>
+              ))}
+              {transactions.length === 0 && (
+                <div className="px-4 py-12 text-center text-zinc-500 text-sm">No transactions found</div>
+              )}
+            </div>
+          </>
+        )}
 
         {/* Pagination */}
         {totalPages > 1 && (
@@ -400,7 +433,7 @@ function RevenueCard({
           <Icon className={`w-3.5 h-3.5 ${c.icon}`} />
         </div>
       </div>
-      <p className="text-lg font-bold text-white font-display">{formatKES(amount)}</p>
+      <p className="text-base sm:text-lg font-bold text-white font-display">{formatKES(amount)}</p>
       <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider mt-0.5">{label}</p>
       {subtitle && <p className="text-[9px] text-zinc-600 mt-0.5">{subtitle}</p>}
     </div>

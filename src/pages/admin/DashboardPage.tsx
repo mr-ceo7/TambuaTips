@@ -91,10 +91,10 @@ export function DashboardPage() {
   }));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 overflow-hidden">
       {/* Page title */}
       <div>
-        <h1 className="text-2xl font-bold text-white font-display">Dashboard</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-white font-display">Dashboard</h1>
         <p className="text-sm text-zinc-500 mt-1">Platform overview & real-time analytics</p>
       </div>
 
@@ -159,12 +159,12 @@ export function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Revenue Trend */}
         <div className="lg:col-span-2 bg-zinc-900/60 border border-zinc-800/60 rounded-2xl p-5">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-3">
             <div>
               <h3 className="text-sm font-bold text-zinc-300">Revenue Trend</h3>
               <p className="text-xs text-zinc-500 mt-0.5">Last 30 days</p>
             </div>
-            <div className="flex gap-1 bg-zinc-800/60 rounded-xl p-1">
+            <div className="flex gap-1 bg-zinc-800/60 rounded-xl p-1 flex-wrap">
               {(['today', 'this_week', 'this_month', 'this_year'] as const).map(period => (
                 <button
                   key={period}
@@ -303,7 +303,7 @@ export function DashboardPage() {
               const pct = Math.round(page.total_time / maxTime * 100);
               return (
                 <div key={page.path} className="group">
-                  <div className="flex items-center justify-between mb-1">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-1 gap-1">
                     <div className="flex items-center gap-2">
                       <span className="w-5 h-5 rounded-md bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-zinc-500">{i + 1}</span>
                       <span className="text-xs text-zinc-300 font-medium">{page.path}</span>
@@ -349,7 +349,7 @@ export function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 bg-zinc-900/60 border border-zinc-800/60 rounded-2xl p-5">
           <h3 className="text-sm font-bold text-zinc-300 mb-4">Tip Performance Breakdown</h3>
-          <div className="grid grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
             <StatBlock label="Total" value={stats.tips.total} color="#a1a1aa" />
             <StatBlock label="Won" value={stats.tips.won} color={EMERALD} />
             <StatBlock label="Lost" value={stats.tips.lost} color={RED} />
@@ -428,7 +428,7 @@ function KPICard({ icon: Icon, label, value, change, badge, positive, color, pul
           </span>
         )}
       </div>
-      <p className="text-xl font-bold text-white font-display">{value}</p>
+      <p className="text-lg sm:text-xl font-bold text-white font-display">{value}</p>
       <p className="text-[10px] text-zinc-500 uppercase font-bold mt-1 tracking-wider">{label}</p>
       {change && (
         <p className={`text-[10px] mt-1.5 font-medium flex items-center gap-1 ${positive ? 'text-emerald-400' : 'text-zinc-500'}`}>
@@ -445,7 +445,7 @@ function KPICard({ icon: Icon, label, value, change, badge, positive, color, pul
 function StatBlock({ label, value, color }: { label: string; value: number; color: string }) {
   return (
     <div className="text-center">
-      <p className="text-2xl font-bold font-display" style={{ color }}>{value}</p>
+      <p className="text-xl sm:text-2xl font-bold font-display" style={{ color }}>{value}</p>
       <p className="text-[10px] text-zinc-500 uppercase font-bold mt-1">{label}</p>
     </div>
   );

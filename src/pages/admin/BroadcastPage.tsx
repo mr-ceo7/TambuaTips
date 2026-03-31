@@ -37,9 +37,9 @@ export function BroadcastPage() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="max-w-2xl mx-auto space-y-6 overflow-hidden">
       <div>
-        <h1 className="text-2xl font-bold text-white font-display">Push Broadcast</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-white font-display">Push Broadcast</h1>
         <p className="text-sm text-zinc-500 mt-1">Send notifications to targeted users</p>
       </div>
 
@@ -110,7 +110,7 @@ export function BroadcastPage() {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-1 tracking-wider">
                 Target Audience

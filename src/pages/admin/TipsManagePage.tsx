@@ -207,22 +207,22 @@ export function TipsManagePage() {
   });
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-center justify-between">
+    <div className="space-y-5 overflow-hidden">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-white font-display">Tips Management</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-white font-display">Tips Management</h1>
           <p className="text-sm text-zinc-500 mt-1">{stats.total} total • {stats.winRate}% win rate</p>
         </div>
         <button
           onClick={() => { resetForm(); setShowForm(true); }}
-          className="flex items-center gap-2 px-4 py-2.5 bg-emerald-500 text-zinc-950 font-bold rounded-xl hover:bg-emerald-400 transition-all text-sm"
+          className="flex items-center gap-2 px-4 py-2.5 bg-emerald-500 text-zinc-950 font-bold rounded-xl hover:bg-emerald-400 transition-all text-sm shrink-0"
         >
           <Plus className="w-4 h-4" /> Add Tip
         </button>
       </div>
 
       {/* ─── Stats Row ───────────────────────────────────── */}
-      <div className="grid grid-cols-5 gap-3">
+      <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 sm:gap-3">
         {[
           { label: 'Total', value: stats.total, color: 'text-white' },
           { label: 'Won', value: stats.won, color: 'text-emerald-400' },
@@ -231,7 +231,7 @@ export function TipsManagePage() {
           { label: 'Win Rate', value: `${stats.winRate}%`, color: 'text-emerald-400' },
         ].map(s => (
           <div key={s.label} className="bg-zinc-900/60 border border-zinc-800/60 rounded-xl p-3 text-center">
-            <p className={`text-xl font-bold font-display ${s.color}`}>{s.value}</p>
+            <p className={`text-base sm:text-xl font-bold font-display ${s.color}`}>{s.value}</p>
             <p className="text-[10px] text-zinc-500 uppercase font-bold">{s.label}</p>
           </div>
         ))}
@@ -251,7 +251,7 @@ export function TipsManagePage() {
                 <Zap className="w-4 h-4 text-yellow-400" />
                 <span className="text-xs font-bold text-zinc-300">Quick Fill — Search Fixture</span>
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <input
                   type="date"
                   value={searchDate}
@@ -369,7 +369,7 @@ export function TipsManagePage() {
 
       {/* ─── Filter Bar ──────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row gap-3">
-        <div className="flex gap-1 bg-zinc-900/60 border border-zinc-800/60 rounded-xl p-1 overflow-x-auto">
+        <div className="flex gap-1 bg-zinc-900/60 border border-zinc-800/60 rounded-xl p-1 overflow-x-auto shrink-0">
           <button
             onClick={() => setFilterCategory('all')}
             className={`px-3 py-1.5 rounded-lg text-[11px] font-bold whitespace-nowrap transition-all ${
@@ -401,7 +401,7 @@ export function TipsManagePage() {
 
       {/* ─── Bulk Actions ────────────────────────────────── */}
       {selectedTips.size > 0 && (
-        <div className="flex items-center gap-3 p-3 bg-zinc-900/60 border border-emerald-500/20 rounded-xl">
+        <div className="flex flex-wrap items-center gap-3 p-3 bg-zinc-900/60 border border-emerald-500/20 rounded-xl">
           <span className="text-xs text-zinc-400">{selectedTips.size} selected:</span>
           <button onClick={() => handleBulkResult('won')} className="px-3 py-1.5 bg-emerald-500/10 text-emerald-400 text-xs font-bold rounded-lg hover:bg-emerald-500/20 transition-all">
             Mark Won

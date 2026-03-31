@@ -334,10 +334,29 @@ async def export_transactions(
     item_type: Optional[str] = Query(None),
     date_from: Optional[str] = Query(None),
     date_to: Optional[str] = Query(None),
+    token: Optional[str] = Query(None, description="JWT token for direct browser downloads"),
     db: AsyncSession = Depends(get_db),
-    admin: User = Depends(require_admin),
 ):
-    """Export filtered transactions as CSV."""
+    """Export filtered transactions as CSV.
+    
+    Accepts auth via query param ?token=... since browser downloads
+    (window.open) cannot set Authorization headers.
+    """
+    # Manual auth — accept token from query param
+    from app.security import decode_token
+    if not token:
+        raise HTTPException(status_code=401, detail="Token required")
+    payload = decode_token(token)
+    if payload is None or payload.get("type") != "access":
+        raise HTTPException(status_code=401, detail="Invalid token")
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    admin_res = await db.execute(select(User).where(User.id == int(user_id)))
+    admin = admin_res.scalar_one_or_none()
+    if not admin or not admin.is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required")
+
     query = select(Payment)
     filters = []
 
@@ -612,8 +631,10 @@ async def broadcast_push(
     admin: User = Depends(require_admin)
 ):
     filters = []
-    if request.target_tier in ("free", "premium"):
-        filters.append(User.subscription_tier == request.target_tier)
+    if request.target_tier == "free":
+        filters.append(User.subscription_tier == "free")
+    elif request.target_tier == "premium":
+        filters.append(User.subscription_tier != "free")
     if request.target_country and request.target_country != "all":
         filters.append(User.country == request.target_country)
         

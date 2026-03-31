@@ -153,9 +153,9 @@ export function UsersPage() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 overflow-hidden">
       <div>
-        <h1 className="text-2xl font-bold text-white font-display">User Management</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-white font-display">User Management</h1>
         <p className="text-sm text-zinc-500 mt-1">{users.length} total users registered</p>
       </div>
 
@@ -195,28 +195,22 @@ export function UsersPage() {
         </div>
       </div>
 
-      {/* ─── Users Table ─────────────────────────────────── */}
+      {/* ─── Users: Desktop Table + Mobile Cards ───────── */}
       <div className="bg-zinc-900/40 border border-zinc-800/60 rounded-2xl overflow-hidden">
-        <div className="overflow-x-auto">
+        {/* Desktop Table */}
+        <div className="hidden sm:block overflow-x-auto">
           <table className="w-full text-left">
             <thead>
               <tr className="border-b border-zinc-800/60">
-                {[
-                  { field: 'name' as const, label: 'User' },
-                  { field: 'subscription_tier' as const, label: 'Tier' },
-                  { field: 'last_seen' as const, label: 'Status' },
-                  { field: 'total_time_spent' as const, label: 'Activity' },
-                  { field: 'created_at' as const, label: 'Joined' },
-                ].map(col => (
-                  <th
-                    key={col.field}
-                    onClick={() => handleSort(col.field)}
-                    className="px-4 py-3 text-[10px] font-bold text-zinc-500 uppercase tracking-wider cursor-pointer hover:text-zinc-300 transition-colors select-none"
-                  >
-                    <div className="flex items-center gap-1">
-                      {col.label}
-                      <ArrowUpDown className={`w-3 h-3 ${sortField === col.field ? 'text-emerald-400' : ''}`} />
-                    </div>
+                {([
+                  { field: 'name' as SortField, label: 'User' },
+                  { field: 'subscription_tier' as SortField, label: 'Tier' },
+                  { field: 'last_seen' as SortField, label: 'Status' },
+                  { field: 'total_time_spent' as SortField, label: 'Activity' },
+                  { field: 'created_at' as SortField, label: 'Joined' },
+                ]).map(col => (
+                  <th key={col.field} onClick={() => handleSort(col.field)} className="px-4 py-3 text-[10px] font-bold text-zinc-500 uppercase tracking-wider cursor-pointer hover:text-zinc-300 transition-colors select-none">
+                    <div className="flex items-center gap-1">{col.label}<ArrowUpDown className={`w-3 h-3 ${sortField === col.field ? 'text-emerald-400' : ''}`} /></div>
                   </th>
                 ))}
                 <th className="px-4 py-3 text-[10px] font-bold text-zinc-500 uppercase tracking-wider text-right">Actions</th>
@@ -225,182 +219,106 @@ export function UsersPage() {
             <tbody>
               {filteredUsers.map(u => (
                 <React.Fragment key={u.id}>
-                  <tr
-                    className={`border-b border-zinc-800/30 hover:bg-zinc-800/20 transition-colors cursor-pointer ${
-                      expandedUserId === u.id ? 'bg-zinc-800/20' : ''
-                    }`}
-                    onClick={() => handleExpandUser(u.id)}
-                  >
+                  <tr className={`border-b border-zinc-800/30 hover:bg-zinc-800/20 transition-colors cursor-pointer ${expandedUserId === u.id ? 'bg-zinc-800/20' : ''}`} onClick={() => handleExpandUser(u.id)}>
                     <td className="px-4 py-3.5">
                       <div className="flex items-center gap-3">
-                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold ${
-                          !u.is_active ? 'bg-red-500/10 text-red-400' : u.is_admin ? 'bg-emerald-500/10 text-emerald-400' : 'bg-zinc-800 text-zinc-400'
-                        }`}>
-                          {u.name.charAt(0).toUpperCase()}
-                        </div>
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold ${!u.is_active ? 'bg-red-500/10 text-red-400' : u.is_admin ? 'bg-emerald-500/10 text-emerald-400' : 'bg-zinc-800 text-zinc-400'}`}>{u.name.charAt(0).toUpperCase()}</div>
                         <div className="min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-sm font-medium text-white truncate">{u.name}</span>
-                            {u.is_admin && <Shield className="w-3 h-3 text-emerald-400" title="Admin" />}
-                            {!u.is_active && <Ban className="w-3 h-3 text-red-400" title="Banned" />}
-                          </div>
+                          <div className="flex items-center gap-1.5"><span className="text-sm font-medium text-white truncate">{u.name}</span>{u.is_admin && <Shield className="w-3 h-3 text-emerald-400" />}{!u.is_active && <Ban className="w-3 h-3 text-red-400" />}</div>
                           <p className="text-[11px] text-zinc-500 truncate">{u.email}</p>
                         </div>
                       </div>
                     </td>
+                    <td className="px-4 py-3.5"><TierBadge tier={u.subscription_tier} expiresAt={u.subscription_expires_at} /></td>
                     <td className="px-4 py-3.5">
-                      <TierBadge tier={u.subscription_tier} expiresAt={u.subscription_expires_at} />
+                      {u.is_online ? (<span className="inline-flex items-center gap-1.5 px-2 py-1 bg-emerald-500/10 text-emerald-400 text-[11px] font-bold rounded-full"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />Online</span>) : (<div><span className="text-[11px] text-zinc-500">Offline</span>{u.last_seen && <p className="text-[10px] text-zinc-600">{new Date(u.last_seen).toLocaleDateString()}</p>}</div>)}
                     </td>
+                    <td className="px-4 py-3.5"><div className="text-[11px] text-zinc-400"><p>{u.most_visited_page || '\u2014'}</p><p className="text-zinc-600">{Math.floor(u.total_time_spent / 60)}m total</p></div></td>
                     <td className="px-4 py-3.5">
-                      {u.is_online ? (
-                        <span className="inline-flex items-center gap-1.5 px-2 py-1 bg-emerald-500/10 text-emerald-400 text-[11px] font-bold rounded-full">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                          Online
-                        </span>
-                      ) : (
-                        <div>
-                          <span className="text-[11px] text-zinc-500">Offline</span>
-                          {u.last_seen && (
-                            <p className="text-[10px] text-zinc-600">{new Date(u.last_seen).toLocaleDateString()}</p>
-                          )}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <div className="text-[11px] text-zinc-400">
-                        <p>{u.most_visited_page || '—'}</p>
-                        <p className="text-zinc-600">{Math.floor(u.total_time_spent / 60)}m total</p>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <div className="flex items-center gap-1.5">
-                        {u.country && (
-                          <span className="text-[10px] text-zinc-500 bg-zinc-800 px-1.5 py-0.5 rounded">{u.country}</span>
-                        )}
-                        <span className="text-[11px] text-zinc-500">
-                          {u.created_at ? new Date(u.created_at).toLocaleDateString() : '—'}
-                        </span>
-                      </div>
+                      <div className="flex items-center gap-1.5">{u.country && <span className="text-[10px] text-zinc-500 bg-zinc-800 px-1.5 py-0.5 rounded">{u.country}</span>}<span className="text-[11px] text-zinc-500">{u.created_at ? new Date(u.created_at).toLocaleDateString() : '\u2014'}</span></div>
                     </td>
                     <td className="px-4 py-3.5 text-right" onClick={e => e.stopPropagation()}>
                       <div className="flex items-center gap-1.5 justify-end">
-                        <button
-                          onClick={() => handleExpandUser(u.id)}
-                          className="p-1.5 rounded-lg text-zinc-500 hover:text-white hover:bg-zinc-800 transition-all"
-                          title="View details"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                        </button>
-                        {u.subscription_tier !== 'free' && (
-                          <button
-                            onClick={() => handleRevoke(u.id)}
-                            className="p-1.5 rounded-lg text-zinc-500 hover:text-yellow-400 hover:bg-yellow-500/10 transition-all"
-                            title="Revoke subscription"
-                          >
-                            <Crown className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                        <button
-                          onClick={() => handleToggleActive(u)}
-                          className={`p-1.5 rounded-lg transition-all ${
-                            u.is_active
-                              ? 'text-zinc-500 hover:text-red-400 hover:bg-red-500/10'
-                              : 'text-zinc-500 hover:text-emerald-400 hover:bg-emerald-500/10'
-                          }`}
-                          title={u.is_active ? 'Ban user' : 'Unban user'}
-                        >
-                          {u.is_active ? <UserX className="w-3.5 h-3.5" /> : <UserCheck className="w-3.5 h-3.5" />}
-                        </button>
-                        {!u.is_admin && (
-                          <button
-                            onClick={() => handleMakeAdmin(u.id)}
-                            className="p-1.5 rounded-lg text-zinc-500 hover:text-emerald-400 hover:bg-emerald-500/10 transition-all"
-                            title="Make admin"
-                          >
-                            <Shield className="w-3.5 h-3.5" />
-                          </button>
-                        )}
+                        <button onClick={() => handleExpandUser(u.id)} className="p-1.5 rounded-lg text-zinc-500 hover:text-white hover:bg-zinc-800 transition-all"><Eye className="w-3.5 h-3.5" /></button>
+                        {u.subscription_tier !== 'free' && <button onClick={() => handleRevoke(u.id)} className="p-1.5 rounded-lg text-zinc-500 hover:text-yellow-400 hover:bg-yellow-500/10 transition-all"><Crown className="w-3.5 h-3.5" /></button>}
+                        <button onClick={() => handleToggleActive(u)} className={`p-1.5 rounded-lg transition-all ${u.is_active ? 'text-zinc-500 hover:text-red-400 hover:bg-red-500/10' : 'text-zinc-500 hover:text-emerald-400 hover:bg-emerald-500/10'}`}>{u.is_active ? <UserX className="w-3.5 h-3.5" /> : <UserCheck className="w-3.5 h-3.5" />}</button>
+                        {!u.is_admin && <button onClick={() => handleMakeAdmin(u.id)} className="p-1.5 rounded-lg text-zinc-500 hover:text-emerald-400 hover:bg-emerald-500/10 transition-all"><Shield className="w-3.5 h-3.5" /></button>}
                       </div>
                     </td>
                   </tr>
-
-                  {/* Expanded detail panel */}
                   {expandedUserId === u.id && (
-                    <tr>
-                      <td colSpan={6} className="px-4 py-0">
-                        <div className="bg-zinc-800/30 rounded-xl p-4 my-2 border border-zinc-800/40">
-                          {detailLoading ? (
-                            <div className="flex items-center justify-center py-8">
-                              <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-                            </div>
-                          ) : userDetail ? (
-                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                              {/* User info */}
-                              <div className="space-y-3">
-                                <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Summary</h4>
-                                <div className="space-y-2 text-xs">
-                                  <p className="text-zinc-300">Total Time: <span className="font-bold text-white">{Math.floor(userDetail.total_time_spent / 60)}m {userDetail.total_time_spent % 60}s</span></p>
-                                  <p className="text-zinc-300">Total Spent: <span className="font-bold text-emerald-400">KES {userDetail.total_spent.toLocaleString()}</span></p>
-                                  <p className="text-zinc-300">Jackpot Purchases: <span className="font-bold text-gold-400">{userDetail.jackpot_purchases}</span></p>
-                                  <p className="text-zinc-300">Country: <span className="font-bold text-white">{userDetail.user.country || 'Unknown'}</span></p>
-                                </div>
-                              </div>
-
-                              {/* Page activity */}
-                              <div className="space-y-3">
-                                <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Page Activity</h4>
-                                <div className="space-y-1.5 max-h-40 overflow-y-auto">
-                                  {userDetail.pages.map(p => (
-                                    <div key={p.path} className="flex items-center justify-between text-[11px]">
-                                      <span className="text-zinc-400 truncate mr-2">{p.path}</span>
-                                      <span className="text-zinc-500 shrink-0">{p.visits}x • {Math.floor(p.total_time / 60)}m</span>
-                                    </div>
-                                  ))}
-                                  {userDetail.pages.length === 0 && <p className="text-xs text-zinc-600">No activity recorded</p>}
-                                </div>
-                              </div>
-
-                              {/* Payment history */}
-                              <div className="space-y-3">
-                                <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Payment History</h4>
-                                <div className="space-y-1.5 max-h-40 overflow-y-auto">
-                                  {userDetail.payments.map(p => (
-                                    <div key={p.id} className="flex items-center justify-between text-[11px]">
-                                      <div className="flex items-center gap-2">
-                                        <span className={`w-1.5 h-1.5 rounded-full ${
-                                          p.status === 'completed' ? 'bg-emerald-500' : p.status === 'failed' ? 'bg-red-500' : 'bg-yellow-500'
-                                        }`} />
-                                        <span className="text-zinc-300">KES {p.amount.toLocaleString()}</span>
-                                      </div>
-                                      <span className="text-zinc-500 capitalize">{p.method}</span>
-                                    </div>
-                                  ))}
-                                  {userDetail.payments.length === 0 && <p className="text-xs text-zinc-600">No payments</p>}
-                                </div>
-                              </div>
-                            </div>
-                          ) : null}
-                        </div>
-                      </td>
-                    </tr>
+                    <tr><td colSpan={6} className="px-4 py-0">
+                      <div className="bg-zinc-800/30 rounded-xl p-4 my-2 border border-zinc-800/40">
+                        {detailLoading ? (<div className="flex items-center justify-center py-8"><div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" /></div>) : userDetail ? (
+                          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                            <div className="space-y-3"><h4 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Summary</h4><div className="space-y-2 text-xs"><p className="text-zinc-300">Total Time: <span className="font-bold text-white">{Math.floor(userDetail.total_time_spent / 60)}m {userDetail.total_time_spent % 60}s</span></p><p className="text-zinc-300">Total Spent: <span className="font-bold text-emerald-400">KES {userDetail.total_spent.toLocaleString()}</span></p><p className="text-zinc-300">Jackpot Purchases: <span className="font-bold">{userDetail.jackpot_purchases}</span></p><p className="text-zinc-300">Country: <span className="font-bold text-white">{userDetail.user.country || 'Unknown'}</span></p></div></div>
+                            <div className="space-y-3"><h4 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Page Activity</h4><div className="space-y-1.5 max-h-40 overflow-y-auto">{userDetail.pages.map(p => (<div key={p.path} className="flex items-center justify-between text-[11px]"><span className="text-zinc-400 truncate mr-2">{p.path}</span><span className="text-zinc-500 shrink-0">{p.visits}x &bull; {Math.floor(p.total_time / 60)}m</span></div>))}{userDetail.pages.length === 0 && <p className="text-xs text-zinc-600">No activity recorded</p>}</div></div>
+                            <div className="space-y-3"><h4 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Payment History</h4><div className="space-y-1.5 max-h-40 overflow-y-auto">{userDetail.payments.map(p => (<div key={p.id} className="flex items-center justify-between text-[11px]"><div className="flex items-center gap-2"><span className={`w-1.5 h-1.5 rounded-full ${p.status === 'completed' ? 'bg-emerald-500' : p.status === 'failed' ? 'bg-red-500' : 'bg-yellow-500'}`} /><span className="text-zinc-300">KES {p.amount.toLocaleString()}</span></div><span className="text-zinc-500 capitalize">{p.method}</span></div>))}{userDetail.payments.length === 0 && <p className="text-xs text-zinc-600">No payments</p>}</div></div>
+                          </div>
+                        ) : null}
+                      </div>
+                    </td></tr>
                   )}
                 </React.Fragment>
               ))}
-              {filteredUsers.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-4 py-12 text-center text-zinc-500 text-sm">
-                    No users found matching your criteria
-                  </td>
-                </tr>
-              )}
+              {filteredUsers.length === 0 && (<tr><td colSpan={6} className="px-4 py-12 text-center text-zinc-500 text-sm">No users found matching your criteria</td></tr>)}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile Card View */}
+        <div className="sm:hidden divide-y divide-zinc-800/40">
+          {filteredUsers.map(u => (
+            <div key={u.id}>
+              <div className={`p-4 active:bg-zinc-800/30 transition-colors ${expandedUserId === u.id ? 'bg-zinc-800/20' : ''}`} onClick={() => handleExpandUser(u.id)}>
+                <div className="flex items-center gap-3 mb-2.5">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold shrink-0 ${!u.is_active ? 'bg-red-500/10 text-red-400' : u.is_admin ? 'bg-emerald-500/10 text-emerald-400' : 'bg-zinc-800 text-zinc-400'}`}>{u.name.charAt(0).toUpperCase()}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5"><span className="text-sm font-medium text-white truncate">{u.name}</span>{u.is_admin && <Shield className="w-3 h-3 text-emerald-400 shrink-0" />}{!u.is_active && <Ban className="w-3 h-3 text-red-400 shrink-0" />}</div>
+                    <p className="text-[11px] text-zinc-500 truncate">{u.email}</p>
+                  </div>
+                  {u.is_online ? (<span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-500/10 text-emerald-400 text-[10px] font-bold rounded-full shrink-0"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Online</span>) : (<span className="text-[10px] text-zinc-600 shrink-0">{u.last_seen ? new Date(u.last_seen).toLocaleDateString() : ''}</span>)}
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <TierBadge tier={u.subscription_tier} expiresAt={u.subscription_expires_at} />
+                    {u.country && <span className="text-[9px] text-zinc-600 bg-zinc-800 px-1.5 py-0.5 rounded">{u.country}</span>}
+                    <span className="text-[10px] text-zinc-600">{Math.floor(u.total_time_spent / 60)}m</span>
+                  </div>
+                  <div className="flex items-center gap-0.5" onClick={e => e.stopPropagation()}>
+                    {u.subscription_tier !== 'free' && (<button onClick={() => handleRevoke(u.id)} className="p-1.5 rounded-lg text-zinc-600 active:text-yellow-400 transition-all"><Crown className="w-3.5 h-3.5" /></button>)}
+                    <button onClick={() => handleToggleActive(u)} className="p-1.5 rounded-lg text-zinc-600 transition-all">{u.is_active ? <UserX className="w-3.5 h-3.5" /> : <UserCheck className="w-3.5 h-3.5" />}</button>
+                    {!u.is_admin && (<button onClick={() => handleMakeAdmin(u.id)} className="p-1.5 rounded-lg text-zinc-600 transition-all"><Shield className="w-3.5 h-3.5" /></button>)}
+                    <ChevronDown className={`w-3.5 h-3.5 text-zinc-600 transition-transform ${expandedUserId === u.id ? 'rotate-180' : ''}`} />
+                  </div>
+                </div>
+              </div>
+              {expandedUserId === u.id && (
+                <div className="px-4 pb-4">
+                  <div className="bg-zinc-800/30 rounded-xl p-3.5 border border-zinc-800/40">
+                    {detailLoading ? (<div className="flex items-center justify-center py-6"><div className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" /></div>) : userDetail ? (
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <p className="text-zinc-400">Time: <span className="font-bold text-white">{Math.floor(userDetail.total_time_spent / 60)}m</span></p>
+                          <p className="text-zinc-400">Spent: <span className="font-bold text-emerald-400">KES {userDetail.total_spent.toLocaleString()}</span></p>
+                          <p className="text-zinc-400">Jackpots: <span className="font-bold text-white">{userDetail.jackpot_purchases}</span></p>
+                          <p className="text-zinc-400">Joined: <span className="font-bold text-white">{userDetail.user.created_at ? new Date(userDetail.user.created_at).toLocaleDateString() : '\u2014'}</span></p>
+                        </div>
+                        {userDetail.pages.length > 0 && (<div><h4 className="text-[10px] font-bold text-zinc-500 uppercase mb-1">Top Pages</h4>{userDetail.pages.slice(0, 3).map(p => (<div key={p.path} className="flex justify-between text-[11px]"><span className="text-zinc-400 truncate mr-2">{p.path}</span><span className="text-zinc-500 shrink-0">{p.visits}x</span></div>))}</div>)}
+                        {userDetail.payments.length > 0 && (<div><h4 className="text-[10px] font-bold text-zinc-500 uppercase mb-1">Recent Payments</h4>{userDetail.payments.slice(0, 3).map(p => (<div key={p.id} className="flex justify-between text-[11px]"><div className="flex items-center gap-1.5"><span className={`w-1.5 h-1.5 rounded-full ${p.status === 'completed' ? 'bg-emerald-500' : 'bg-yellow-500'}`} /><span className="text-zinc-300">KES {p.amount.toLocaleString()}</span></div><span className="text-zinc-500 capitalize">{p.method}</span></div>))}</div>)}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+          {filteredUsers.length === 0 && (<div className="px-4 py-12 text-center text-zinc-500 text-sm">No users found matching your criteria</div>)}
         </div>
       </div>
     </div>
   );
 }
-
 function TierBadge({ tier, expiresAt }: { tier: string; expiresAt: string | null }) {
   const colors: Record<string, string> = {
     free: 'bg-zinc-800 text-zinc-500',

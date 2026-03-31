@@ -69,15 +69,15 @@ export function PricingManagePage() {
   };
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-center justify-between">
+    <div className="space-y-5 overflow-hidden">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-white font-display">Pricing Plans</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-white font-display">Pricing Plans</h1>
           <p className="text-sm text-zinc-500 mt-1">Manage subscription pricing. Changes reflect immediately.</p>
         </div>
         <button
           onClick={() => setShowNewForm(true)}
-          className="flex items-center gap-2 px-4 py-2.5 bg-emerald-500 text-zinc-950 font-bold rounded-xl hover:bg-emerald-400 transition-all text-sm"
+          className="flex items-center gap-2 px-4 py-2.5 bg-emerald-500 text-zinc-950 font-bold rounded-xl hover:bg-emerald-400 transition-all text-sm shrink-0"
         >
           <Plus className="w-4 h-4" /> New Plan
         </button>
@@ -195,11 +195,11 @@ export function PricingManagePage() {
                   <div className="flex items-end justify-between">
                     <div>
                       <span className="text-[10px] text-zinc-500">2 Weeks</span>
-                      <p className="text-xl font-bold text-white font-display">KES {tier.price2wk.toLocaleString()}</p>
+                      <p className="text-base sm:text-xl font-bold text-white font-display">KES {tier.price2wk.toLocaleString()}</p>
                     </div>
                     <div className="text-right">
                       <span className="text-[10px] text-zinc-500">4 Weeks</span>
-                      <p className="text-xl font-bold text-white font-display">KES {tier.price4wk.toLocaleString()}</p>
+                      <p className="text-base sm:text-xl font-bold text-white font-display">KES {tier.price4wk.toLocaleString()}</p>
                     </div>
                   </div>
                 </div>

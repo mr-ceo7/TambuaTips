@@ -68,15 +68,15 @@ export function JackpotsManagePage() {
   };
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-center justify-between">
+    <div className="space-y-5 overflow-hidden">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-white font-display">Jackpot Management</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-white font-display">Jackpot Management</h1>
           <p className="text-sm text-zinc-500 mt-1">{jackpots.length} jackpot predictions</p>
         </div>
         <button
           onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 px-4 py-2.5 bg-yellow-500 text-zinc-950 font-bold rounded-xl hover:bg-yellow-400 transition-all text-sm"
+          className="flex items-center gap-2 px-4 py-2.5 bg-yellow-500 text-zinc-950 font-bold rounded-xl hover:bg-yellow-400 transition-all text-sm shrink-0"
         >
           <Plus className="w-4 h-4" /> New Jackpot
         </button>
@@ -112,7 +112,7 @@ export function JackpotsManagePage() {
               <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-2 tracking-wider">
                 Matches ({form.matches.length}/{form.type === 'midweek' ? 13 : 17})
               </label>
-              <div className="flex gap-2 mb-3">
+              <div className="flex flex-col sm:flex-row gap-2 mb-3">
                 <input value={matchInput.homeTeam} onChange={e => setMatchInput({ ...matchInput, homeTeam: e.target.value })} placeholder="Home team" className="admin-input flex-1" />
                 <input value={matchInput.awayTeam} onChange={e => setMatchInput({ ...matchInput, awayTeam: e.target.value })} placeholder="Away team" className="admin-input flex-1" />
                 <select value={matchInput.pick} onChange={e => setMatchInput({ ...matchInput, pick: e.target.value })} className="admin-input w-20">
@@ -161,7 +161,7 @@ export function JackpotsManagePage() {
         ) : (
           jackpots.map(j => (
             <div key={j.id} className="bg-zinc-900/40 border border-zinc-800/60 rounded-xl p-4">
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-2 gap-2">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-yellow-500/10 flex items-center justify-center">
                     <Trophy className="w-5 h-5 text-yellow-400" />
