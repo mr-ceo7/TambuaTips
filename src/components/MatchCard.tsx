@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useUser } from '../context/UserContext';
 // Detached: import { useBetSlip } from '../context/BetSlipContext';
 import { toast } from 'sonner';
+import { TeamLogo } from './TeamLogo';
 
 interface MatchCardProps {
   tip: MatchTip;
@@ -116,6 +117,8 @@ export function MatchCard({ tip }: MatchCardProps) {
                 <Star className={cn("w-3 h-3 sm:w-4 sm:h-4 transition-colors", isHomeFavorite ? "fill-gold-400 text-gold-400" : "text-zinc-600 hover:text-gold-400")} />
               </button>
               <h3 className="text-sm sm:text-xl font-display font-bold text-white uppercase tracking-wide truncate" title={tip.homeTeam}>{tip.homeTeam}</h3>
+              <TeamLogo teamName={tip.homeTeam} size={28} className="hidden sm:inline-flex" />
+              <TeamLogo teamName={tip.homeTeam} size={20} className="sm:hidden" />
             </div>
             <div className="mt-1.5 flex justify-end gap-1">
               {tip.form?.home.split('-').map((res, i) => (
@@ -144,6 +147,8 @@ export function MatchCard({ tip }: MatchCardProps) {
           
           <div className="flex-1 text-left min-w-0">
             <div className="flex items-center justify-start gap-2 mb-1">
+              <TeamLogo teamName={tip.awayTeam} size={28} className="hidden sm:inline-flex" />
+              <TeamLogo teamName={tip.awayTeam} size={20} className="sm:hidden" />
               <h3 className="text-sm sm:text-xl font-display font-bold text-white uppercase tracking-wide truncate" title={tip.awayTeam}>{tip.awayTeam}</h3>
               <button onClick={() => toggleFavoriteTeam(tip.awayTeam)} className="focus:outline-none hover:scale-110 active:scale-95 transition-transform">
                 <Star className={cn("w-3 h-3 sm:w-4 sm:h-4 transition-colors", isAwayFavorite ? "fill-gold-400 text-gold-400" : "text-zinc-600 hover:text-gold-400")} />

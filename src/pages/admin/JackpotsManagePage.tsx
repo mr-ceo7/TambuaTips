@@ -5,6 +5,7 @@ import {
   type JackpotPrediction, type JackpotType, type DCLevel, type JackpotMatch
 } from '../../services/tipsService';
 import { toast } from 'sonner';
+import { TeamWithLogo } from '../../components/TeamLogo';
 
 const DC_LEVELS: DCLevel[] = [3, 4, 5, 6, 7, 10];
 
@@ -128,7 +129,11 @@ export function JackpotsManagePage() {
                   {form.matches.map((m, i) => (
                     <div key={i} className="flex items-center px-3 py-2 text-sm border-b border-zinc-800/30 last:border-b-0 hover:bg-zinc-800/20 transition-colors">
                       <span className="w-6 text-zinc-500 text-xs">{i + 1}.</span>
-                      <span className="flex-1 text-zinc-300">{m.homeTeam} vs {m.awayTeam}</span>
+                      <span className="flex-1 text-zinc-300 inline-flex items-center gap-1 flex-wrap">
+                        <TeamWithLogo teamName={m.homeTeam} size={14} textClassName="text-sm" />
+                        <span className="text-zinc-500">vs</span>
+                        <TeamWithLogo teamName={m.awayTeam} size={14} textClassName="text-sm" />
+                      </span>
                       <span className="text-emerald-400 font-bold text-xs w-12 text-center">{m.pick}</span>
                       <button type="button" onClick={() => removeMatch(i)} className="p-1 text-zinc-500 hover:text-red-400 transition-colors">
                         <X className="w-3.5 h-3.5" />

@@ -10,6 +10,7 @@ import { FixtureData, TeamStanding } from '../types';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { PageTransition } from '../components/PageTransition';
 import { HomePageSkeleton } from '../components/skeletons/HomePageSkeleton';
+import { TeamLogo } from '../components/TeamLogo';
 
 function LiveScoreCard({ f }: { f: FixtureData }) {
   return (
@@ -20,8 +21,8 @@ function LiveScoreCard({ f }: { f: FixtureData }) {
       <div className="text-[10px] text-zinc-500 mb-2 truncate">{f.league}</div>
       <div className="flex items-center justify-between gap-3">
         <div className="flex-1">
-          <div className="text-xs font-medium text-zinc-200 truncate">{f.homeTeam}</div>
-          <div className="text-xs font-medium text-zinc-200 truncate">{f.awayTeam}</div>
+          <div className="text-xs font-medium text-zinc-200 truncate inline-flex items-center gap-1.5"><TeamLogo teamName={f.homeTeam} size={14} />{f.homeTeam}</div>
+          <div className="text-xs font-medium text-zinc-200 truncate inline-flex items-center gap-1.5"><TeamLogo teamName={f.awayTeam} size={14} />{f.awayTeam}</div>
         </div>
         <div className="text-right">
           <div className="text-sm font-display font-bold text-led text-emerald-400">{f.score || '0 - 0'}</div>
@@ -66,11 +67,11 @@ function LiveScoreboard({ fixtures, selectedLeague }: { fixtures: FixtureData[];
               <div className="flex items-center justify-between gap-3">
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
-                    {f.homeLogo && <img src={f.homeLogo} alt="" className="w-3.5 h-3.5 object-contain" />}
+                    <TeamLogo teamName={f.homeTeam} size={14} />
                     <div className="text-xs font-medium text-zinc-200 truncate">{f.homeTeam}</div>
                   </div>
                   <div className="flex items-center gap-2">
-                    {f.awayLogo && <img src={f.awayLogo} alt="" className="w-3.5 h-3.5 object-contain" />}
+                    <TeamLogo teamName={f.awayTeam} size={14} />
                     <div className="text-xs font-medium text-zinc-200 truncate">{f.awayTeam}</div>
                   </div>
                 </div>
@@ -268,11 +269,11 @@ function QuickFixtures({ fixtures, selectedLeague }: { fixtures: FixtureData[]; 
               <Link key={f.id} to={`/match/${f.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-zinc-800/30 transition-colors">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5">
-                    {f.homeLogo && <img src={f.homeLogo} alt="" className="w-4 h-4 object-contain" />}
+                    <TeamLogo teamName={f.homeTeam} size={16} />
                     <div className="text-sm text-zinc-200 truncate">{f.homeTeam}</div>
                   </div>
                   <div className="flex items-center gap-2">
-                    {f.awayLogo && <img src={f.awayLogo} alt="" className="w-4 h-4 object-contain" />}
+                    <TeamLogo teamName={f.awayTeam} size={16} />
                     <div className="text-sm text-zinc-200 truncate">{f.awayTeam}</div>
                   </div>
                 </div>
@@ -489,7 +490,13 @@ export function HomePage() {
                 <Link key={f.id} to={`/match/${f.id}`} className="block bg-zinc-950/50 border border-zinc-800 rounded-xl p-3 hover:border-orange-500/30 transition-all">
                   <div className="text-xs text-zinc-500 mb-1">{f.league}</div>
                   <div className="flex justify-between items-center text-sm font-medium text-zinc-200">
-                    <span>{f.homeTeam} vs {f.awayTeam}</span>
+                    <span className="inline-flex items-center gap-1">
+                      <TeamLogo teamName={f.homeTeam} size={14} />
+                      {f.homeTeam}
+                      <span className="text-zinc-600 mx-0.5">vs</span>
+                      <TeamLogo teamName={f.awayTeam} size={14} />
+                      {f.awayTeam}
+                    </span>
                     <span className="text-xs text-zinc-500">
                       {f.status === 'live' ? <span className="text-emerald-400 animate-pulse">{f.score || 'LIVE'}</span> : new Date(f.matchDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </span>

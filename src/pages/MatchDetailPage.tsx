@@ -8,6 +8,7 @@ import { usePageTitle } from '../hooks/usePageTitle';
 // Detached: import { useBetSlip } from '../context/BetSlipContext';
 import { useUser } from '../context/UserContext';
 import { MatchDetailSkeleton } from '../components/skeletons/MatchDetailSkeleton';
+import { TeamLogo } from '../components/TeamLogo';
 
 /* Detached: MOCK_ODDS */
 
@@ -97,9 +98,8 @@ export function MatchDetailPage() {
         <div className="flex items-center justify-center gap-4 sm:gap-10">
           <div className="flex-1 text-center group">
             <div className="w-16 h-16 sm:w-24 sm:h-24 mx-auto mb-3 bg-zinc-800/50 rounded-full flex items-center justify-center p-3 border border-zinc-700/50 group-hover:border-emerald-500/30 transition-colors">
-              {fixture.homeLogo ? (
-                <img src={fixture.homeLogo} alt={fixture.homeTeam} className="w-full h-full object-contain drop-shadow-lg" />
-              ) : <Target className="w-8 h-8 text-zinc-600" />}
+              <TeamLogo teamName={fixture.homeTeam} size={56} className="sm:hidden" />
+              <TeamLogo teamName={fixture.homeTeam} size={72} className="hidden sm:inline-flex" />
             </div>
             <h3 className="text-sm sm:text-lg font-bold text-zinc-200 leading-tight">{fixture.homeTeam}</h3>
             <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest mt-1 block">Home</span>
@@ -117,9 +117,8 @@ export function MatchDetailPage() {
 
           <div className="flex-1 text-center group">
             <div className="w-16 h-16 sm:w-24 sm:h-24 mx-auto mb-3 bg-zinc-800/50 rounded-full flex items-center justify-center p-3 border border-zinc-700/50 group-hover:border-emerald-500/30 transition-colors">
-              {fixture.awayLogo ? (
-                <img src={fixture.awayLogo} alt={fixture.awayTeam} className="w-full h-full object-contain drop-shadow-lg" />
-              ) : <Target className="w-8 h-8 text-zinc-600" />}
+              <TeamLogo teamName={fixture.awayTeam} size={56} className="sm:hidden" />
+              <TeamLogo teamName={fixture.awayTeam} size={72} className="hidden sm:inline-flex" />
             </div>
             <h3 className="text-sm sm:text-lg font-bold text-zinc-200 leading-tight">{fixture.awayTeam}</h3>
             <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest mt-1 block">Away</span>
@@ -187,7 +186,7 @@ export function MatchDetailPage() {
               </h4>
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-bold text-zinc-300">{fixture.homeTeam}</span>
+                  <span className="text-sm font-bold text-zinc-300 inline-flex items-center gap-1.5"><TeamLogo teamName={fixture.homeTeam} size={18} />{fixture.homeTeam}</span>
                   <div className="flex gap-1.5">
                     {MOCK_STATS.form.home.map((f, i) => (
                       <span key={i} className={`w-6 h-6 rounded flex items-center justify-center text-[10px] font-black text-white ${f==='W'?'bg-emerald-500':f==='D'?'bg-zinc-600':'bg-red-500'}`}>{f}</span>
@@ -195,7 +194,7 @@ export function MatchDetailPage() {
                   </div>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-bold text-zinc-300">{fixture.awayTeam}</span>
+                  <span className="text-sm font-bold text-zinc-300 inline-flex items-center gap-1.5"><TeamLogo teamName={fixture.awayTeam} size={18} />{fixture.awayTeam}</span>
                   <div className="flex gap-1.5">
                     {MOCK_STATS.form.away.map((f, i) => (
                       <span key={i} className={`w-6 h-6 rounded flex items-center justify-center text-[10px] font-black text-white ${f==='W'?'bg-emerald-500':f==='D'?'bg-zinc-600':'bg-red-500'}`}>{f}</span>

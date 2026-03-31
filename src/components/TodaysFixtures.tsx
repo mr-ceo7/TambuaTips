@@ -3,6 +3,7 @@ import { FixtureData } from '../types';
 import { format, parseISO } from 'date-fns';
 import { Calendar, Clock, ChevronDown, ChevronUp } from 'lucide-react';
 import { FixtureRowSkeleton } from './skeletons/FixtureRowSkeleton';
+import { TeamLogo } from './TeamLogo';
 
 interface TodaysFixturesProps {
   fixtures: FixtureData[];
@@ -60,13 +61,13 @@ export function TodaysFixtures({ fixtures, loading }: TodaysFixturesProps) {
                     </div>
                     <div className="space-y-1">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-xs sm:text-sm font-bold text-zinc-200 truncate">{fixture.homeTeam}</span>
+                        <span className="text-xs sm:text-sm font-bold text-zinc-200 truncate inline-flex items-center gap-1.5"><TeamLogo teamName={fixture.homeTeam} size={16} />{fixture.homeTeam}</span>
                         {(isLive || isFinished) && fixture.score && (
                           <span className="text-xs sm:text-sm font-mono font-bold text-emerald-400 shrink-0">{fixture.score.split(' - ')[0]}</span>
                         )}
                       </div>
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-xs sm:text-sm font-bold text-zinc-200 truncate">{fixture.awayTeam}</span>
+                        <span className="text-xs sm:text-sm font-bold text-zinc-200 truncate inline-flex items-center gap-1.5"><TeamLogo teamName={fixture.awayTeam} size={16} />{fixture.awayTeam}</span>
                         {(isLive || isFinished) && fixture.score && (
                           <span className="text-xs sm:text-sm font-mono font-bold text-emerald-400 shrink-0">{fixture.score.split(' - ')[1]}</span>
                         )}

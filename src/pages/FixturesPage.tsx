@@ -5,6 +5,7 @@ import { fetchFixturesByDate, LEAGUES } from '../services/sportsApiService';
 import { FixtureData } from '../types';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { FixtureRowSkeleton } from '../components/skeletons/FixtureRowSkeleton';
+import { TeamLogo } from '../components/TeamLogo';
 
 function getDateStr(offset: number): string {
   const d = new Date();
@@ -170,11 +171,11 @@ export function FixturesPage() {
                     {/* Teams */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        {f.homeLogo && <img src={f.homeLogo} alt="" className="w-4 h-4 object-contain" />}
+                        <TeamLogo teamName={f.homeTeam} size={18} />
                         <span className="text-sm font-medium text-zinc-200 truncate">{f.homeTeam}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        {f.awayLogo && <img src={f.awayLogo} alt="" className="w-4 h-4 object-contain" />}
+                        <TeamLogo teamName={f.awayTeam} size={18} />
                         <span className="text-sm font-medium text-zinc-200 truncate">{f.awayTeam}</span>
                       </div>
                     </div>

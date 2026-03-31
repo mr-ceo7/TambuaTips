@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Zap, Lock, Star, Trophy, Crown, ChevronRight, Target, Plus, Check, Eye } from 'lucide-react';
+import { TeamWithLogo } from '../components/TeamLogo';
 import { getFreeTips, getPremiumTips, getTipsByCategory, getTipStats, getAllJackpots, type Tip, type TipCategory, type JackpotPrediction } from '../services/tipsService';
 import { CATEGORY_LABELS } from '../services/pricingService';
 import { usePageTitle } from '../hooks/usePageTitle';
@@ -54,9 +55,11 @@ function TipCard({ tip, locked = false }: { tip: Tip; locked?: boolean; key?: Re
 
       {/* Teams */}
       <Link to={`/match/${tip.fixtureId}`} className="block mb-3 group">
-        <p className="text-base font-bold text-zinc-200 group-hover:text-emerald-400 transition-colors">
-          {tip.homeTeam} vs {tip.awayTeam}
-        </p>
+        <div className="flex items-center gap-2 text-base font-bold text-zinc-200 group-hover:text-emerald-400 transition-colors">
+          <TeamWithLogo teamName={tip.homeTeam} size={22} textClassName="font-bold" />
+          <span className="text-zinc-500 text-sm">vs</span>
+          <TeamWithLogo teamName={tip.awayTeam} size={22} textClassName="font-bold" />
+        </div>
         <p className="text-xs text-zinc-500">{new Date(tip.matchDate).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
       </Link>
 
@@ -173,8 +176,10 @@ function JackpotCard({ jackpot }: { jackpot: JackpotPrediction; key?: React.Key 
             <div className="max-h-48 overflow-y-auto px-4 py-2 space-y-2">
               {jackpot.matches.map((m, idx) => (
                 <div key={idx} className="flex items-center justify-between py-1 border-b border-zinc-800 last:border-0">
-                  <span className="text-[10px] text-zinc-400 truncate mr-2">
-                    {m.homeTeam} vs {m.awayTeam}
+                  <span className="text-[10px] text-zinc-400 truncate mr-2 inline-flex items-center gap-1">
+                    <TeamWithLogo teamName={m.homeTeam} size={14} textClassName="text-[10px]" />
+                    <span className="text-zinc-600">vs</span>
+                    <TeamWithLogo teamName={m.awayTeam} size={14} textClassName="text-[10px]" />
                   </span>
                   <span className="text-xs font-mono font-bold text-emerald-400 shrink-0">
                     {m.pick}

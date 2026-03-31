@@ -3,6 +3,7 @@ import {
   Plus, Search, Trash2, Edit, Check, X, Star, Filter,
   Zap, ChevronDown, Loader
 } from 'lucide-react';
+import { TeamWithLogo } from '../../components/TeamLogo';
 import {
   getAllTips, addTip, updateTip, deleteTip, getTipStats,
   type Tip, type TipCategory
@@ -288,7 +289,11 @@ export function TipsManagePage() {
                     >
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-sm font-medium text-white">{f.homeTeam} vs {f.awayTeam}</p>
+                          <div className="flex items-center gap-1.5 text-sm font-medium text-white">
+                            <TeamWithLogo teamName={f.homeTeam} size={16} textClassName="text-sm font-medium" />
+                            <span className="text-zinc-500">vs</span>
+                            <TeamWithLogo teamName={f.awayTeam} size={16} textClassName="text-sm font-medium" />
+                          </div>
                           <p className="text-[11px] text-zinc-500">{f.league}</p>
                         </div>
                         <div className="text-right">
@@ -451,7 +456,11 @@ export function TipsManagePage() {
                   }`}>{CATEGORY_LABELS[tip.category]?.label || tip.category}</span>
                   <span className="text-[10px] text-zinc-600">{tip.matchDate.split('T')[0]}</span>
                 </div>
-                <p className="text-sm font-medium text-zinc-200 truncate">{tip.homeTeam} vs {tip.awayTeam}</p>
+                <div className="flex items-center gap-1.5 text-sm font-medium text-zinc-200 truncate">
+                  <TeamWithLogo teamName={tip.homeTeam} size={16} textClassName="text-sm" />
+                  <span className="text-zinc-500">vs</span>
+                  <TeamWithLogo teamName={tip.awayTeam} size={16} textClassName="text-sm" />
+                </div>
                 <p className="text-xs text-emerald-400 font-bold">{tip.prediction} {tip.odds && `@ ${tip.odds}`}</p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
