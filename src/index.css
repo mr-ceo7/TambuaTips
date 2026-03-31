@@ -82,3 +82,22 @@ body {
   0% { transform: translateX(0); }
   100% { transform: translateX(-50%); }
 }
+
+/* ── Admin Panel Utilities ─────────────────────────────── */
+.admin-input {
+  width: 100%;
+  background-color: #09090b;
+  border: 1px solid #27272a;
+  border-radius: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  color: #fafafa;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+.admin-input:focus {
+  border-color: rgba(16, 185, 129, 0.5);
+}
+.admin-input::placeholder {
+  color: #52525b;
+}

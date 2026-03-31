@@ -1,27 +1,511 @@
 """
-Admin routes — privileged operations.
+Admin routes — privileged operations + analytics dashboard.
 """
 
-from typing import List, Optional
+import csv
+import io
 import json
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from typing import List, Optional
+from datetime import datetime, timedelta
+
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func, and_
 
 from app.dependencies import get_db, require_admin
 from app.models.user import User
 from app.models.payment import Payment
+from app.models.tip import Tip
+from app.models.jackpot import Jackpot, JackpotPurchase
+from app.models.subscription import SubscriptionTier
 from app.models.activity import UserActivity
 from app.schemas.auth import UserResponse, AdminUserResponse
 from app.schemas.payment import PaymentResponse
 from app.config import settings
-from pywebpush import webpush, WebPushException
-from sqlalchemy import and_, func
-from datetime import datetime, timedelta
 
 router = APIRouter(prefix="/api/admin", tags=["Admin"])
 
+
+# ═══════════════════════════════════════════════════════════════
+#  DASHBOARD STATS
+# ═══════════════════════════════════════════════════════════════
+
+@router.get("/dashboard")
+async def dashboard_stats(db: AsyncSession = Depends(get_db), admin: User = Depends(require_admin)):
+    """Aggregated dashboard stats for the admin overview."""
+    now = datetime.utcnow()
+    three_min_ago = now - timedelta(minutes=3)
+
+    # ── User Stats ─────────────────────────────────────────
+    user_result = await db.execute(select(User))
+    all_users = user_result.scalars().all()
+
+    total_users = len(all_users)
+    online_users = sum(1 for u in all_users if u.last_seen and u.last_seen > three_min_ago)
+
+    # Subscribers by tier
+    tier_counts = {}
+    active_subscribers = 0
+    for u in all_users:
+        tier = u.subscription_tier or "free"
+        tier_counts[tier] = tier_counts.get(tier, 0) + 1
+        if u.is_subscription_active:
+            active_subscribers += 1
+
+    conversion_rate = round((active_subscribers / total_users * 100), 1) if total_users > 0 else 0
+
+    # User growth — signups per day for last 30 days
+    thirty_days_ago = now - timedelta(days=30)
+    growth_result = await db.execute(
+        select(
+            func.date(User.created_at).label("day"),
+            func.count(User.id).label("count")
+        )
+        .where(User.created_at >= thirty_days_ago)
+        .group_by(func.date(User.created_at))
+        .order_by(func.date(User.created_at))
+    )
+    user_growth = [{"date": str(row.day), "count": row.count} for row in growth_result.all()]
+
+    # ── Revenue Stats ──────────────────────────────────────
+    completed_payments = await db.execute(
+        select(Payment).where(Payment.status == "completed")
+    )
+    all_payments = completed_payments.scalars().all()
+
+    total_revenue = sum(p.amount for p in all_payments)
+
+    # Revenue by method
+    revenue_by_method = {}
+    for p in all_payments:
+        method = p.method or "unknown"
+        revenue_by_method[method] = revenue_by_method.get(method, 0) + p.amount
+
+    # Revenue by period
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    week_start = today_start - timedelta(days=today_start.weekday())
+    month_start = today_start.replace(day=1)
+    year_start = today_start.replace(month=1, day=1)
+
+    revenue_today = sum(p.amount for p in all_payments if p.created_at and p.created_at >= today_start)
+    revenue_week = sum(p.amount for p in all_payments if p.created_at and p.created_at >= week_start)
+    revenue_month = sum(p.amount for p in all_payments if p.created_at and p.created_at >= month_start)
+    revenue_year = sum(p.amount for p in all_payments if p.created_at and p.created_at >= year_start)
+
+    # Revenue trend — per day for last 30 days
+    revenue_trend_result = await db.execute(
+        select(
+            func.date(Payment.created_at).label("day"),
+            func.sum(Payment.amount).label("total")
+        )
+        .where(and_(Payment.status == "completed", Payment.created_at >= thirty_days_ago))
+        .group_by(func.date(Payment.created_at))
+        .order_by(func.date(Payment.created_at))
+    )
+    revenue_trend = [{"date": str(row.day), "amount": int(row.total)} for row in revenue_trend_result.all()]
+
+    # ── Tip Stats ──────────────────────────────────────────
+    tip_result = await db.execute(select(Tip))
+    all_tips = tip_result.scalars().all()
+
+    tips_total = len(all_tips)
+    tips_won = sum(1 for t in all_tips if t.result == "won")
+    tips_lost = sum(1 for t in all_tips if t.result == "lost")
+    tips_pending = sum(1 for t in all_tips if t.result == "pending")
+    tips_voided = sum(1 for t in all_tips if t.result == "void")
+    decided = tips_won + tips_lost
+    win_rate = round((tips_won / decided * 100), 1) if decided > 0 else 0
+
+    # ── Page Analytics ─────────────────────────────────────
+    top_pages_result = await db.execute(
+        select(
+            UserActivity.path,
+            func.count(UserActivity.id).label("visits"),
+            func.sum(UserActivity.time_spent_seconds).label("total_time")
+        )
+        .group_by(UserActivity.path)
+        .order_by(func.sum(UserActivity.time_spent_seconds).desc())
+        .limit(10)
+    )
+    top_pages = [
+        {"path": row.path, "visits": row.visits, "total_time": int(row.total_time)}
+        for row in top_pages_result.all()
+    ]
+
+    # ── Recent Activity Feed ───────────────────────────────
+    # Combine recent signups + recent payments
+    recent_signups_result = await db.execute(
+        select(User.id, User.name, User.email, User.created_at)
+        .order_by(User.created_at.desc())
+        .limit(10)
+    )
+    recent_payments_result = await db.execute(
+        select(Payment.id, Payment.amount, Payment.method, Payment.status, Payment.item_type, Payment.created_at, Payment.user_id)
+        .order_by(Payment.created_at.desc())
+        .limit(10)
+    )
+
+    activity_feed = []
+    for row in recent_signups_result.all():
+        activity_feed.append({
+            "type": "signup",
+            "user_name": row.name,
+            "user_email": row.email,
+            "timestamp": row.created_at.isoformat() if row.created_at else None,
+        })
+    for row in recent_payments_result.all():
+        # Look up user name
+        user_res = await db.execute(select(User.name, User.email).where(User.id == row.user_id))
+        user_info = user_res.first()
+        activity_feed.append({
+            "type": "payment",
+            "user_name": user_info.name if user_info else "Unknown",
+            "user_email": user_info.email if user_info else "",
+            "amount": row.amount,
+            "method": row.method,
+            "status": row.status,
+            "item_type": row.item_type,
+            "timestamp": row.created_at.isoformat() if row.created_at else None,
+        })
+
+    # Sort feed by timestamp desc
+    activity_feed.sort(key=lambda x: x.get("timestamp") or "", reverse=True)
+    activity_feed = activity_feed[:20]
+
+    # ── Jackpot Stats ──────────────────────────────────────
+    jackpot_count_res = await db.execute(select(func.count(Jackpot.id)))
+    total_jackpots = jackpot_count_res.scalar() or 0
+
+    jackpot_purchases_res = await db.execute(select(func.count(JackpotPurchase.id)))
+    total_jackpot_purchases = jackpot_purchases_res.scalar() or 0
+
+    return {
+        "users": {
+            "total": total_users,
+            "online": online_users,
+            "subscribers_by_tier": tier_counts,
+            "active_subscribers": active_subscribers,
+            "conversion_rate": conversion_rate,
+            "growth": user_growth,
+        },
+        "revenue": {
+            "total": total_revenue,
+            "by_method": revenue_by_method,
+            "today": revenue_today,
+            "this_week": revenue_week,
+            "this_month": revenue_month,
+            "this_year": revenue_year,
+            "trend": revenue_trend,
+        },
+        "tips": {
+            "total": tips_total,
+            "won": tips_won,
+            "lost": tips_lost,
+            "pending": tips_pending,
+            "voided": tips_voided,
+            "win_rate": win_rate,
+        },
+        "pages": top_pages,
+        "activity_feed": activity_feed,
+        "jackpots": {
+            "total": total_jackpots,
+            "total_purchases": total_jackpot_purchases,
+        },
+    }
+
+
+# ═══════════════════════════════════════════════════════════════
+#  TRANSACTION HISTORY WITH FILTERING
+# ═══════════════════════════════════════════════════════════════
+
+@router.get("/transactions")
+async def list_transactions(
+    status: Optional[str] = Query(None, description="Filter by status: pending, completed, failed, refunded"),
+    method: Optional[str] = Query(None, description="Filter by payment method"),
+    item_type: Optional[str] = Query(None, description="Filter by item type: subscription, jackpot"),
+    date_from: Optional[str] = Query(None, description="Start date (YYYY-MM-DD)"),
+    date_to: Optional[str] = Query(None, description="End date (YYYY-MM-DD)"),
+    search: Optional[str] = Query(None, description="Search by user email or reference"),
+    page: int = Query(1, ge=1),
+    per_page: int = Query(25, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Paginated, filterable transaction history."""
+    query = select(Payment)
+    count_query = select(func.count(Payment.id))
+
+    filters = []
+
+    if status:
+        filters.append(Payment.status == status)
+    if method:
+        filters.append(Payment.method == method)
+    if item_type:
+        filters.append(Payment.item_type == item_type)
+    if date_from:
+        try:
+            dt_from = datetime.strptime(date_from, "%Y-%m-%d")
+            filters.append(Payment.created_at >= dt_from)
+        except ValueError:
+            pass
+    if date_to:
+        try:
+            dt_to = datetime.strptime(date_to, "%Y-%m-%d") + timedelta(days=1)
+            filters.append(Payment.created_at < dt_to)
+        except ValueError:
+            pass
+    if search:
+        # Search by email or reference — need to join User
+        search_lower = f"%{search.lower()}%"
+        # We'll filter after fetching for now due to join complexity
+        pass
+
+    if filters:
+        query = query.where(and_(*filters))
+        count_query = count_query.where(and_(*filters))
+
+    # Get total count
+    total_result = await db.execute(count_query)
+    total = total_result.scalar() or 0
+
+    # Get paginated data
+    offset = (page - 1) * per_page
+    query = query.order_by(Payment.created_at.desc()).offset(offset).limit(per_page)
+    result = await db.execute(query)
+    payments = result.scalars().all()
+
+    # Enrich with user info
+    enriched = []
+    for p in payments:
+        user_res = await db.execute(select(User.name, User.email).where(User.id == p.user_id))
+        user_info = user_res.first()
+
+        # If searching by email/reference, filter here
+        if search:
+            search_lower = search.lower()
+            match = False
+            if user_info and search_lower in (user_info.email or "").lower():
+                match = True
+            if search_lower in (p.reference or "").lower():
+                match = True
+            if search_lower in (p.transaction_id or "").lower():
+                match = True
+            if not match:
+                continue
+
+        enriched.append({
+            "id": p.id,
+            "user_id": p.user_id,
+            "user_name": user_info.name if user_info else "Unknown",
+            "user_email": user_info.email if user_info else "",
+            "amount": p.amount,
+            "currency": p.currency,
+            "method": p.method,
+            "status": p.status,
+            "reference": p.reference,
+            "transaction_id": p.transaction_id,
+            "item_type": p.item_type,
+            "item_id": p.item_id,
+            "phone": p.phone,
+            "email": p.email,
+            "created_at": p.created_at.isoformat() if p.created_at else None,
+        })
+
+    return {
+        "transactions": enriched,
+        "total": total,
+        "page": page,
+        "per_page": per_page,
+        "total_pages": (total + per_page - 1) // per_page if per_page > 0 else 0,
+    }
+
+
+# ═══════════════════════════════════════════════════════════════
+#  TRANSACTION CSV EXPORT
+# ═══════════════════════════════════════════════════════════════
+
+@router.get("/transactions/export")
+async def export_transactions(
+    status: Optional[str] = Query(None),
+    method: Optional[str] = Query(None),
+    item_type: Optional[str] = Query(None),
+    date_from: Optional[str] = Query(None),
+    date_to: Optional[str] = Query(None),
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Export filtered transactions as CSV."""
+    query = select(Payment)
+    filters = []
+
+    if status:
+        filters.append(Payment.status == status)
+    if method:
+        filters.append(Payment.method == method)
+    if item_type:
+        filters.append(Payment.item_type == item_type)
+    if date_from:
+        try:
+            filters.append(Payment.created_at >= datetime.strptime(date_from, "%Y-%m-%d"))
+        except ValueError:
+            pass
+    if date_to:
+        try:
+            filters.append(Payment.created_at < datetime.strptime(date_to, "%Y-%m-%d") + timedelta(days=1))
+        except ValueError:
+            pass
+
+    if filters:
+        query = query.where(and_(*filters))
+
+    query = query.order_by(Payment.created_at.desc())
+    result = await db.execute(query)
+    payments = result.scalars().all()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["ID", "Date", "User Email", "Amount", "Currency", "Method", "Status", "Reference", "Item Type", "Item ID"])
+
+    for p in payments:
+        user_res = await db.execute(select(User.email).where(User.id == p.user_id))
+        user_email = user_res.scalar() or ""
+        writer.writerow([
+            p.id,
+            p.created_at.isoformat() if p.created_at else "",
+            user_email,
+            p.amount,
+            p.currency,
+            p.method,
+            p.status,
+            p.reference or "",
+            p.item_type,
+            p.item_id or "",
+        ])
+
+    output.seek(0)
+    return StreamingResponse(
+        output,
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=tambuatips_transactions_{datetime.utcnow().strftime('%Y%m%d')}.csv"}
+    )
+
+
+# ═══════════════════════════════════════════════════════════════
+#  PER-USER ACTIVITY
+# ═══════════════════════════════════════════════════════════════
+
+@router.get("/users/{user_id}/activity")
+async def user_activity_detail(user_id: int, db: AsyncSession = Depends(get_db), admin: User = Depends(require_admin)):
+    """Detailed activity breakdown for a specific user."""
+    # Check user exists
+    user_res = await db.execute(select(User).where(User.id == user_id))
+    u = user_res.scalar_one_or_none()
+    if not u:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Page activity breakdown
+    activity_res = await db.execute(
+        select(
+            UserActivity.path,
+            func.count(UserActivity.id).label("visits"),
+            func.sum(UserActivity.time_spent_seconds).label("total_time")
+        )
+        .where(UserActivity.user_id == user_id)
+        .group_by(UserActivity.path)
+        .order_by(func.sum(UserActivity.time_spent_seconds).desc())
+    )
+    pages = [
+        {"path": row.path, "visits": row.visits, "total_time": int(row.total_time)}
+        for row in activity_res.all()
+    ]
+
+    # Payment history
+    payment_res = await db.execute(
+        select(Payment).where(Payment.user_id == user_id).order_by(Payment.created_at.desc())
+    )
+    payments = payment_res.scalars().all()
+    payment_list = [
+        {
+            "id": p.id,
+            "amount": p.amount,
+            "currency": p.currency,
+            "method": p.method,
+            "status": p.status,
+            "item_type": p.item_type,
+            "item_id": p.item_id,
+            "reference": p.reference,
+            "created_at": p.created_at.isoformat() if p.created_at else None,
+        }
+        for p in payments
+    ]
+
+    # Jackpot purchases
+    jp_res = await db.execute(
+        select(JackpotPurchase).where(JackpotPurchase.user_id == user_id).order_by(JackpotPurchase.created_at.desc())
+    )
+    jackpot_purchases = jp_res.scalars().all()
+
+    return {
+        "user": {
+            "id": u.id,
+            "name": u.name,
+            "email": u.email,
+            "subscription_tier": u.subscription_tier,
+            "subscription_expires_at": u.subscription_expires_at.isoformat() if u.subscription_expires_at else None,
+            "is_active": u.is_active,
+            "is_admin": u.is_admin,
+            "country": u.country,
+            "created_at": u.created_at.isoformat() if u.created_at else None,
+            "last_seen": u.last_seen.isoformat() if u.last_seen else None,
+        },
+        "pages": pages,
+        "payments": payment_list,
+        "total_time_spent": sum(p["total_time"] for p in pages),
+        "total_spent": sum(p.amount for p in payments if p.status == "completed"),
+        "jackpot_purchases": len(jackpot_purchases),
+    }
+
+
+# ═══════════════════════════════════════════════════════════════
+#  FIXTURE SEARCH (for quick-add tips)
+# ═══════════════════════════════════════════════════════════════
+
+@router.get("/fixtures/search")
+async def search_fixtures(
+    q: str = Query(..., description="Search query (team name)"),
+    date: Optional[str] = Query(None, description="Date (YYYY-MM-DD), defaults to today"),
+    admin: User = Depends(require_admin),
+):
+    """Search upcoming fixtures by team name via API-Football."""
+    from app.services.sports_api import fetch_fixtures_by_date
+    from datetime import date as date_type
+
+    search_date = date or date_type.today().isoformat()
+    
+    try:
+        fixtures = await fetch_fixtures_by_date(search_date)
+    except Exception as e:
+        # API might be unavailable — return empty gracefully 
+        return {"fixtures": [], "error": str(e)}
+
+    # Filter by query
+    q_lower = q.lower()
+    matched = [
+        f for f in fixtures
+        if q_lower in f.get("homeTeam", "").lower()
+        or q_lower in f.get("awayTeam", "").lower()
+        or q_lower in f.get("league", "").lower()
+    ]
+
+    return {"fixtures": matched[:20]}
+
+
+# ═══════════════════════════════════════════════════════════════
+#  EXISTING ENDPOINTS (preserved)
+# ═══════════════════════════════════════════════════════════════
 
 @router.get("/users", response_model=List[AdminUserResponse])
 async def list_users(db: AsyncSession = Depends(get_db), admin: User = Depends(require_admin)):
@@ -104,6 +588,7 @@ class BroadcastPushRequest(BaseModel):
     target_country: Optional[str] = None
 
 def send_webpush_task(subscriptions: list, payload: str):
+    from pywebpush import webpush, WebPushException
     success, fail = 0, 0
     for sub in subscriptions:
         try:
