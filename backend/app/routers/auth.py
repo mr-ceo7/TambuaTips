@@ -9,9 +9,9 @@ from sqlalchemy import select
 from datetime import datetime
 
 from app.database import AsyncSessionLocal
-from app.dependencies import get_db, get_current_user
+from app.dependencies import get_db, get_current_user, get_current_user_optional
 from app.models.user import User
-from app.models.activity import UserActivity
+from app.models.activity import UserActivity, AnonymousVisitor, AnonymousActivity
 from app.schemas.auth import RegisterRequest, LoginRequest, RefreshRequest, TokenResponse, UserResponse, UpdateFavoritesRequest, PushSubscribeRequest, ActivityRequest
 from app.security import hash_password, verify_password, create_access_token, create_refresh_token, decode_token
 
@@ -140,24 +140,62 @@ async def push_subscribe(
         
     return user
 
+async def cleanup_old_visitors_task():
+    try:
+        from sqlalchemy import delete
+        import datetime as dt
+        async with AsyncSessionLocal() as session:
+            cutoff = dt.datetime.utcnow() - dt.timedelta(days=30)
+            await session.execute(delete(AnonymousVisitor).where(AnonymousVisitor.last_seen < cutoff))
+            await session.commit()
+    except Exception as e:
+        print(f"Cleanup error: {e}")
+
 @router.post("/activity")
 async def track_activity(
     body: ActivityRequest,
-    user: User = Depends(get_current_user),
+    background_tasks: BackgroundTasks,
+    user: User = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db)
 ):
-    # 1. Update heartbeat
-    user.last_seen = datetime.utcnow()
-    db.add(user)
-    
-    # 2. Log activity
-    if body.time_spent > 0 and body.path:
-        act = UserActivity(
-            user_id=user.id,
-            path=body.path,
-            time_spent_seconds=body.time_spent
-        )
-        db.add(act)
+    import random
+    if random.random() < 0.05:  # 5% chance to trigger cleanup to avoid cron dependency
+        background_tasks.add_task(cleanup_old_visitors_task)
+
+    if user:
+        # 1. Update heartbeat
+        user.last_seen = datetime.utcnow()
+        db.add(user)
+        
+        # 2. Log activity
+        if body.time_spent > 0 and body.path:
+            act = UserActivity(
+                user_id=user.id,
+                path=body.path,
+                time_spent_seconds=body.time_spent
+            )
+            db.add(act)
+    elif body.session_id:
+        # Handle anonymous visitor
+        res = await db.execute(select(AnonymousVisitor).where(AnonymousVisitor.session_id == body.session_id))
+        visitor = res.scalar_one_or_none()
+        
+        if not visitor:
+            visitor = AnonymousVisitor(session_id=body.session_id)
+            db.add(visitor)
+            await db.commit()
+            await db.refresh(visitor)
+            
+        visitor.last_seen = datetime.utcnow()
+        db.add(visitor)
+        
+        if body.time_spent > 0 and body.path:
+            act = AnonymousActivity(
+                visitor_id=visitor.id,
+                path=body.path,
+                time_spent_seconds=body.time_spent
+            )
+            db.add(act)
         
     await db.commit()
     return {"status": "ok"}

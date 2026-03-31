@@ -51,10 +51,17 @@ export function DashboardPage() {
   const [revenuePeriod, setRevenuePeriod] = useState<'today' | 'this_week' | 'this_month' | 'this_year'>('this_month');
 
   useEffect(() => {
-    adminService.getDashboardStats()
-      .then(setStats)
-      .catch(() => toast.error('Failed to load dashboard'))
-      .finally(() => setLoading(false));
+    const fetchStats = () => {
+      adminService.getDashboardStats()
+        .then(setStats)
+        .catch(() => toast.error('Failed to load dashboard'))
+        .finally(() => setLoading(false));
+    };
+
+    fetchStats();
+    const intervalId = setInterval(fetchStats, 15000); // Poll every 15s
+
+    return () => clearInterval(intervalId);
   }, []);
 
   if (loading) {
@@ -103,9 +110,13 @@ export function DashboardPage() {
         {/* Total Users */}
         <KPICard
           icon={Users}
-          label="Total Users"
-          value={stats.users.total.toLocaleString()}
-          change={stats.users.growth.length > 1 ? `+${stats.users.growth[stats.users.growth.length - 1]?.count ?? 0} today` : null}
+          label="Total Visitors"
+          value={(stats.users.total_registered + stats.users.total_guests).toLocaleString()}
+          change={stats.users.growth.length > 1 ? `+${stats.users.growth[stats.users.growth.length - 1]?.count ?? 0} signups today` : null}
+          breakdowns={[
+            { label: 'Registered', value: stats.users.total_registered.toLocaleString(), color: EMERALD },
+            { label: 'Guests', value: stats.users.total_guests.toLocaleString(), color: BLUE }
+          ]}
           positive
           color="emerald"
         />
@@ -113,7 +124,11 @@ export function DashboardPage() {
         <KPICard
           icon={Wifi}
           label="Online Now"
-          value={stats.users.online.toString()}
+          value={(stats.users.online_registered + stats.users.online_guests).toString()}
+          breakdowns={[
+            { label: 'Users', value: stats.users.online_registered.toString(), color: EMERALD },
+            { label: 'Guests', value: stats.users.online_guests.toString(), color: BLUE }
+          ]}
           badge="LIVE"
           color="emerald"
           pulse
@@ -270,7 +285,7 @@ export function DashboardPage() {
           <p className="text-xs text-zinc-500 mb-4">Current distribution</p>
           <div className="space-y-3 mt-6">
             {Object.entries(stats.users.subscribers_by_tier).map(([tier, count]) => {
-              const pct = stats.users.total > 0 ? Math.round(Number(count) / stats.users.total * 100) : 0;
+              const pct = stats.users.total_registered > 0 ? Math.round(Number(count) / stats.users.total_registered * 100) : 0;
               const tierColor = tier === 'free' ? '#71717a' : tier === 'basic' ? BLUE : tier === 'standard' ? PURPLE : GOLD;
               return (
                 <div key={tier}>
@@ -404,9 +419,10 @@ interface KPICardProps {
   positive?: boolean;
   color: string;
   pulse?: boolean;
+  breakdowns?: { label: string; value: string; color?: string }[];
 }
 
-function KPICard({ icon: Icon, label, value, change, badge, positive, color, pulse }: KPICardProps) {
+function KPICard({ icon: Icon, label, value, change, badge, positive, color, pulse, breakdowns }: KPICardProps) {
   const colorMap: Record<string, { bg: string; text: string; icon: string; border: string }> = {
     emerald: { bg: 'bg-emerald-500/10', text: 'text-emerald-400', icon: 'text-emerald-500', border: 'border-emerald-500/10' },
     gold: { bg: 'bg-yellow-500/10', text: 'text-yellow-400', icon: 'text-yellow-500', border: 'border-yellow-500/10' },
@@ -417,27 +433,48 @@ function KPICard({ icon: Icon, label, value, change, badge, positive, color, pul
   const c = colorMap[color] || colorMap.emerald;
 
   return (
-    <div className={`bg-zinc-900/60 border border-zinc-800/60 rounded-2xl p-4 relative overflow-hidden group hover:border-zinc-700/60 transition-all`}>
-      <div className="flex items-center gap-2 mb-3">
-        <div className={`w-8 h-8 rounded-xl ${c.bg} flex items-center justify-center`}>
-          <Icon className={`w-4 h-4 ${c.icon}`} />
+    <div className={`bg-zinc-900/60 border border-zinc-800/60 rounded-2xl p-4 sm:p-5 relative overflow-hidden group hover:border-zinc-700/60 transition-all flex flex-col justify-between`}>
+      <div className="flex justify-between items-start gap-4">
+        {/* Left column: Icon & Label */}
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-2">
+            <div className={`w-9 h-9 rounded-xl ${c.bg} flex items-center justify-center shrink-0`}>
+              <Icon className={`w-4 h-4 ${c.icon}`} />
+            </div>
+            {badge && (
+              <span className={`px-2 py-0.5 text-[9px] font-black uppercase rounded-full ${c.bg} ${c.text} ${pulse ? 'animate-pulse' : ''}`}>
+                {badge}
+              </span>
+            )}
+          </div>
+          <p className="text-[10px] sm:text-[11px] text-zinc-400 uppercase font-bold tracking-wider mt-1">{label}</p>
         </div>
-        {badge && (
-          <span className={`px-1.5 py-0.5 text-[9px] font-black uppercase rounded-full ${c.bg} ${c.text} ${pulse ? 'animate-pulse' : ''}`}>
-            {badge}
-          </span>
-        )}
+
+        {/* Right column: Value & Change */}
+        <div className="text-right shrink-0">
+          <p className="text-2xl sm:text-3xl font-bold text-white font-display leading-none pb-1">{value}</p>
+          {change && (
+            <p className={`text-[11px] font-medium flex items-center justify-end gap-1 ${positive ? 'text-emerald-400' : 'text-zinc-500'}`}>
+              {positive && <ArrowUpRight className="w-3.5 h-3.5" />}
+              {change}
+            </p>
+          )}
+        </div>
       </div>
-      <p className="text-lg sm:text-xl font-bold text-white font-display">{value}</p>
-      <p className="text-[10px] text-zinc-500 uppercase font-bold mt-1 tracking-wider">{label}</p>
-      {change && (
-        <p className={`text-[10px] mt-1.5 font-medium flex items-center gap-1 ${positive ? 'text-emerald-400' : 'text-zinc-500'}`}>
-          {positive && <ArrowUpRight className="w-3 h-3" />}
-          {change}
-        </p>
+      
+      {/* Breakdowns Row */}
+      {breakdowns && breakdowns.length > 0 && (
+        <div className="mt-4 pt-3 border-t border-zinc-800/50 flex flex-wrap gap-2 text-[10px] uppercase font-bold tracking-widest">
+          {breakdowns.map((b, i) => (
+            <span key={i} className="flex items-center gap-1.5 bg-zinc-800/60 border border-zinc-700/40 px-2 py-1 rounded-md shadow-[0_2px_4px_rgba(0,0,0,0.2)]" style={{ color: b.color || '#a1a1aa' }}>
+              {b.label}: <span className="text-white relative top-[0.5px]">{b.value}</span>
+            </span>
+          ))}
+        </div>
       )}
+
       {/* Decorative glow */}
-      <div className={`absolute -top-12 -right-12 w-24 h-24 rounded-full ${c.bg} opacity-0 group-hover:opacity-50 transition-opacity blur-2xl`} />
+      <div className={`absolute -top-12 -right-12 w-28 h-28 rounded-full ${c.bg} opacity-0 group-hover:opacity-60 transition-opacity blur-3xl pointer-events-none`} />
     </div>
   );
 }

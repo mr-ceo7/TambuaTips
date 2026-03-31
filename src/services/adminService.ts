@@ -21,8 +21,10 @@ export interface AdminUser {
 
 export interface DashboardStats {
   users: {
-    total: number;
-    online: number;
+    total_registered: number;
+    total_guests: number;
+    online_registered: number;
+    online_guests: number;
     subscribers_by_tier: Record<string, number>;
     active_subscribers: number;
     conversion_rate: number;

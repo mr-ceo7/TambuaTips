@@ -30,6 +30,7 @@ class PushSubscribeRequest(BaseModel):
 class ActivityRequest(BaseModel):
     path: str
     time_spent: int
+    session_id: Optional[str] = None
 
 class UpdateFavoritesRequest(BaseModel):
     favorite_teams: list[str] = Field(default_factory=list)

@@ -20,7 +20,7 @@ from app.models.payment import Payment
 from app.models.tip import Tip
 from app.models.jackpot import Jackpot, JackpotPurchase
 from app.models.subscription import SubscriptionTier
-from app.models.activity import UserActivity
+from app.models.activity import UserActivity, AnonymousVisitor
 from app.schemas.auth import UserResponse, AdminUserResponse
 from app.schemas.payment import PaymentResponse
 from app.config import settings
@@ -44,6 +44,12 @@ async def dashboard_stats(db: AsyncSession = Depends(get_db), admin: User = Depe
 
     total_users = len(all_users)
     online_users = sum(1 for u in all_users if u.last_seen and u.last_seen > three_min_ago)
+
+    visitor_res = await db.execute(select(AnonymousVisitor))
+    all_visitors = visitor_res.scalars().all()
+    
+    total_guests = len(all_visitors)
+    online_guests = sum(1 for v in all_visitors if v.last_seen and v.last_seen > three_min_ago)
 
     # Subscribers by tier
     tier_counts = {}
@@ -183,8 +189,10 @@ async def dashboard_stats(db: AsyncSession = Depends(get_db), admin: User = Depe
 
     return {
         "users": {
-            "total": total_users,
-            "online": online_users,
+            "total_registered": total_users,
+            "total_guests": total_guests,
+            "online_registered": online_users,
+            "online_guests": online_guests,
             "subscribers_by_tier": tier_counts,
             "active_subscribers": active_subscribers,
             "conversion_rate": conversion_rate,
