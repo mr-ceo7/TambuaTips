@@ -69,8 +69,24 @@ async def list_tips(
     tips = result.scalars().all()
 
     response = []
+    
+    # Pre-calculate if the user is Premium/Admin to bypass the marketing filters
+    is_premium_or_admin = user and TIER_RANK.get(user.subscription_tier, 0) == 3
+    lost_counter = 0
+
     for tip in tips:
-        if user_has_access(user, tip.category):
+        has_normal_access = user_has_access(user, tip.category)
+        is_decided = tip.result in ["won", "lost", "void"]
+
+        # CONVERSION BOOST: If a non-premium user is looking at historical tips,
+        # we purposely drop 3 out of every 4 "lost" tips to curate an overwhelming "won" feed.
+        if is_decided and not is_premium_or_admin and tip.result == "lost":
+            lost_counter += 1
+            if lost_counter % 4 != 0:
+                continue
+
+        # Always unlock perfectly if they bought it OR if the tip is historically decided
+        if has_normal_access or is_decided:
             response.append(TipResponse.model_validate(tip))
         else:
             response.append(TipLockedResponse(

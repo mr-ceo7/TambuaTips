@@ -220,6 +220,11 @@ export function TipsPage() {
   const [stats, setStats] = useState({ total: 0, won: 0, lost: 0, pending: 0, voided: 0, winRate: 0 });
   const [jackpots, setJackpots] = useState<JackpotPrediction[]>([]);
   const [tipsByCategory, setTipsByCategory] = useState<Record<string, Tip[]>>({});
+  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
+
+  const toggleCategory = (cat: string) => {
+    setExpandedCategories(prev => ({ ...prev, [cat]: !prev[cat] }));
+  };
 
   useEffect(() => {
     // Detached: getTipStats().then(setStats);
@@ -286,11 +291,40 @@ export function TipsPage() {
                     </span>
                   )}
                 </div>
+                
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {tips.map(tip => (
-                    <TipCard key={tip.id} tip={tip} locked={!userHasAccess} />
-                  ))}
+                  {(() => {
+                    // Split strictly between upcoming/live and historical
+                    const pendingTips = tips.filter(t => t.result === 'pending');
+                    const historyTips = tips.filter(t => t.result !== 'pending');
+                    const isExpanded = expandedCategories[cat];
+                    
+                    // Show maximum 2 historical matches by default to prevent huge scrolling blocks
+                    const displayedHistory = isExpanded ? historyTips : historyTips.slice(0, 2);
+                    const displayedTips = [...pendingTips, ...displayedHistory];
+
+                    return displayedTips.map(tip => (
+                      <TipCard 
+                        key={tip.id} 
+                        tip={tip} 
+                        // It is ONLY locked if they dont have access AND the match hasnt finished yet
+                        locked={!userHasAccess && tip.result === 'pending'} 
+                      />
+                    ));
+                  })()}
                 </div>
+                
+                {tips.filter(t => t.result !== 'pending').length > 2 && (
+                  <div className="mt-4 text-center">
+                    <button 
+                      onClick={() => toggleCategory(cat)}
+                      className="text-[10px] font-bold text-zinc-500 hover:text-white uppercase tracking-wider transition-colors inline-flex items-center gap-1 bg-zinc-900/50 px-3 py-1.5 rounded-full border border-zinc-800 hover:border-zinc-700"
+                    >
+                      {expandedCategories[cat] ? 'Hide Past History' : 'View More History'} 
+                      <ChevronRight className={`w-3 h-3 transition-transform ${expandedCategories[cat] ? '-rotate-90' : 'rotate-90'}`} />
+                    </button>
+                  </div>
+                )}
               </section>
             );
           })}
