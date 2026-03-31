@@ -51,7 +51,7 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
     if (!document.getElementById('paystack-script')) {
       const script = document.createElement('script');
       script.id = 'paystack-script';
-      script.src = 'https://js.paystack.co/v1/inline.js';
+      script.src = 'https://js.paystack.co/v2/inline.js';
       script.async = true;
       document.body.appendChild(script);
     }

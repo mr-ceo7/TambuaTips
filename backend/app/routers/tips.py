@@ -51,16 +51,19 @@ async def list_tips(
     if category:
         query = query.where(Tip.category == category)
 
-    if date_str:
+    if date_str == "all":
+        pass  # Admin fetching everything
+    elif date_str:
         target_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+        query = query.where(func.date(Tip.match_date) == target_date)
     else:
-        target_date = date.today()
-
-    query = query.where(func.date(Tip.match_date) == target_date)
+        # If no date string is provided, show recent and upcoming tips (no strict equality)
+        # We'll just limit to the latest 50 tips per request instead of hiding perfectly good tips
+        pass
 
     if fixture_id:
         query = query.where(Tip.fixture_id == fixture_id)
-    query = query.order_by(Tip.created_at.desc())
+    query = query.order_by(Tip.match_date.desc(), Tip.created_at.desc()).limit(100)
 
     result = await db.execute(query)
     tips = result.scalars().all()

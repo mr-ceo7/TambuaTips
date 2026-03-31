@@ -85,19 +85,17 @@ function mapJackpot(data: any): JackpotPrediction {
 // ─── Tips Fetching ───────────────────────────────────────────
 
 export async function getAllTips(): Promise<Tip[]> {
-  const res = await apiClient.get('/tips');
+  const res = await apiClient.get('/tips', { params: { date: 'all' } });
   return res.data.map(mapTip);
 }
 
 export async function getTodayTips(): Promise<Tip[]> {
-  const dateStr = new Date().toISOString().split('T')[0];
-  const res = await apiClient.get('/tips', { params: { date: dateStr } });
+  const res = await apiClient.get('/tips');
   return res.data.map(mapTip);
 }
 
 export async function getFreeTips(): Promise<Tip[]> {
-  const dateStr = new Date().toISOString().split('T')[0];
-  const res = await apiClient.get('/tips', { params: { category: 'free', date: dateStr } });
+  const res = await apiClient.get('/tips', { params: { category: 'free' } });
   return res.data.map(mapTip);
 }
 
@@ -107,8 +105,7 @@ export async function getPremiumTips(): Promise<Tip[]> {
 }
 
 export async function getTipsByCategory(category: TipCategory): Promise<Tip[]> {
-  const dateStr = new Date().toISOString().split('T')[0];
-  const res = await apiClient.get('/tips', { params: { category, date: dateStr } });
+  const res = await apiClient.get('/tips', { params: { category } });
   return res.data.map(mapTip);
 }
 
