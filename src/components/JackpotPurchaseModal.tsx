@@ -108,6 +108,7 @@ export function JackpotPurchaseModal({ isOpen, onClose, jackpot }: JackpotPurcha
         paystack.newTransaction({
           key: import.meta.env.VITE_PAYSTACK_PUBLIC_KEY,
           accessCode: response.access_code,
+          channels: ['card'],
           onSuccess: (transaction: any) => {
             setCurrentPaymentId(response.id);
             setPaymentView('waiting');
@@ -193,10 +194,21 @@ export function JackpotPurchaseModal({ isOpen, onClose, jackpot }: JackpotPurcha
                         {(!selectedMethod || selectedMethod === 'paystack') && (
                           <button onClick={() => setSelectedMethod('paystack')} className={`relative w-full flex items-center justify-center p-4 rounded-xl border-2 transition-all ${selectedMethod === 'paystack' ? 'border-gold-500 bg-gold-500/10' : 'border-zinc-800 hover:border-zinc-700'}`}>
                             <div className="flex items-center gap-3">
-                              <CreditCard className="w-5 h-5 text-gold-500" />
-                              <span className="font-bold text-white">Pay with Card</span>
-                              <span className="text-zinc-500 text-sm">via</span>
-                              <img src="/paystack.svg" alt="Paystack" className="h-4 object-contain brightness-0 invert" />
+                              <div className="flex gap-2">
+                                <div className="bg-linear-to-r from-blue-700 to-blue-900 rounded-[4px] px-2 py-0.5 shadow-xs border border-blue-600 flex items-center justify-center">
+                                  <span className="text-[10px] font-black italic text-white tracking-widest leading-none">VISA</span>
+                                </div>
+                                <div className="bg-zinc-100 rounded-[4px] px-1.5 py-0.5 flex items-center justify-center shadow-xs border border-zinc-200">
+                                  <svg width="22" height="14" viewBox="0 0 32 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <circle cx="10" cy="10" r="10" fill="#EB001B" />
+                                    <circle cx="22" cy="10" r="10" fill="#F79E1B" fillOpacity="0.8" />
+                                  </svg>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 opacity-50 ml-1">
+                                <span className="text-zinc-500 text-[9px] uppercase font-bold tracking-widest">via</span>
+                                <img src="/paystack.svg" alt="Paystack" className="h-2.5 object-contain brightness-0 invert" />
+                              </div>
                             </div>
                             {selectedMethod === 'paystack' && <Check className="absolute right-4 w-5 h-5 text-gold-500" />}
                           </button>

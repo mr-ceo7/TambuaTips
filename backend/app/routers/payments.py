@@ -123,8 +123,11 @@ async def pay_mpesa(body: MpesaPaymentRequest, db: AsyncSession = Depends(get_db
 
 
 @router.post("/mpesa/callback")
-async def mpesa_callback(request: Request, db: AsyncSession = Depends(get_db)):
+async def mpesa_callback(request: Request, secret: str = None, db: AsyncSession = Depends(get_db)):
     """M-Pesa STK Push callback webhook (Daraja API)."""
+    if settings.MPESA_CALLBACK_SECRET and secret != settings.MPESA_CALLBACK_SECRET:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
     data = await request.json()
     stk_callback = data.get("Body", {}).get("stkCallback", {})
     
@@ -135,9 +138,9 @@ async def mpesa_callback(request: Request, db: AsyncSession = Depends(get_db)):
     if not checkout_request_id:
         return {"ResultCode": 1, "ResultDesc": "Invalid Callback"}
 
-    # Find the matching payment
+    # Find the matching payment securely with row lock
     result = await db.execute(
-        select(Payment).where(Payment.transaction_id == checkout_request_id)
+        select(Payment).where(Payment.transaction_id == checkout_request_id).with_for_update()
     )
     payment = result.scalar_one_or_none()
     
@@ -149,20 +152,22 @@ async def mpesa_callback(request: Request, db: AsyncSession = Depends(get_db)):
     user = user_result.scalar_one_or_none()
 
     if result_code == 0:
-        # Success
-        payment.status = "completed"
-        # Extract MpesaReceiptNumber if available
-        meta = stk_callback.get("CallbackMetadata", {}).get("Item", [])
-        receipt = next((item["Value"] for item in meta if item["Name"] == "MpesaReceiptNumber"), None)
-        if receipt:
-            payment.reference = receipt
-        
-        if user:
-            await _fulfill_payment(payment, user, db)
+        if payment.status != "completed":
+            # Success
+            payment.status = "completed"
+            # Extract MpesaReceiptNumber if available
+            meta = stk_callback.get("CallbackMetadata", {}).get("Item", [])
+            receipt = next((item["Value"] for item in meta if item["Name"] == "MpesaReceiptNumber"), None)
+            if receipt:
+                payment.reference = receipt
+            
+            if user:
+                await _fulfill_payment(payment, user, db)
     else:
         # Error/Canceled
-        payment.status = "failed"
-        payment.gateway_response = result_desc
+        if payment.status != "completed":
+            payment.status = "failed"
+            payment.gateway_response = result_desc
 
     await db.commit()
     return {"ResultCode": 0, "ResultDesc": "Success"}
@@ -192,9 +197,11 @@ async def pay_paypal(body: PaymentRequest, db: AsyncSession = Depends(get_db), u
 
     if settings.PAYMENTS_LIVE:
         from app.services.payment_gateway import create_paypal_order
+        from app.services.exchange_rate import get_kes_to_usd_rate
         print("Creating PayPal Order...")
         try:
-            usd_amount = round(amount / 130.0, 2)
+            live_rate = await get_kes_to_usd_rate()
+            usd_amount = round(amount / live_rate, 2)
             if usd_amount < 0.01: usd_amount = 0.01
 
             order = await create_paypal_order(usd_amount, reference=reference, currency="USD")
@@ -368,11 +375,19 @@ async def paystack_webhook(request: Request, db: AsyncSession = Depends(get_db))
     
     if event == "charge.success":
         reference = data.get("data", {}).get("reference")
-        # Find payment by reference
-        result = await db.execute(select(Payment).where(Payment.reference == reference))
+        # Find payment by reference with row lock
+        result = await db.execute(select(Payment).where(Payment.reference == reference).with_for_update())
         payment = result.scalar_one_or_none()
         
         if payment and payment.status != "completed":
+            # Strict amount validation to prevent partial payment bypass
+            paystack_amount = data.get("data", {}).get("amount", 0) / 100
+            if float(payment.amount) != float(paystack_amount):
+                payment.status = "failed"
+                payment.gateway_response = f"Amount mismatch: Expected {payment.amount}, received {paystack_amount}"
+                await db.commit()
+                return {"status": "error", "message": "Amount mismatch"}
+
             payment.status = "completed"
             payment.transaction_id = str(data.get("data", {}).get("id"))
             

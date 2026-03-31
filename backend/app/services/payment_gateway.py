@@ -57,7 +57,7 @@ async def initiate_mpesa_stk(phone: str, amount: int, reference: str) -> dict:
         "PartyA": phone,
         "PartyB": settings.MPESA_SHORTCODE,
         "PhoneNumber": phone,
-        "CallBackURL": settings.MPESA_CALLBACK_URL,
+        "CallBackURL": f"{settings.MPESA_CALLBACK_URL}?secret={settings.MPESA_CALLBACK_SECRET}" if settings.MPESA_CALLBACK_SECRET else settings.MPESA_CALLBACK_URL,
         "AccountReference": reference,
         "TransactionDesc": f"TambuaTips Payment {reference}",
     }

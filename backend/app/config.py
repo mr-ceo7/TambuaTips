@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     MPESA_SHORTCODE: str = ""
     MPESA_PASSKEY: str = ""
     MPESA_CALLBACK_URL: str = ""
+    MPESA_CALLBACK_SECRET: str = ""
     MPESA_ENV: str = "sandbox"
 
     # PayPal
