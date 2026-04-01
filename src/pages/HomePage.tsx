@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { Loader2, ChevronRight, ChevronLeft, Trophy, Zap, Crown, ArrowRight, ExternalLink, MessageCircle, Twitter, Star, Target } from 'lucide-react';
 import { fetchTodayFixtures, fetchStandings, fetchFixturesByLeague, LEAGUES, EUROPEAN_LEAGUE_IDS } from '../services/sportsApiService';
-import { fetchNews, mixPromoSlides, FALLBACK_IMAGE, NewsItem } from '../services/newsService';
+import { fetchNews, fetchActiveAds, mixPromoSlides, FALLBACK_IMAGE, NewsItem } from '../services/newsService';
 import { getTipStats, getFreeTips } from '../services/tipsService';
 import { toast } from 'sonner';
 import { FixtureData, TeamStanding } from '../types';
@@ -400,13 +400,14 @@ export function HomePage() {
     const load = async () => {
       setLoading(true);
       try {
-        const [fixturesData, newsData, standingsData] = await Promise.all([
+        const [fixturesData, newsData, standingsData, activeAds] = await Promise.all([
           fetchTodayFixtures().catch(() => []),
           fetchNews(1).catch(() => ({ articles: [], hasMore: false })),
-          fetchStandings(activeLeagueId).catch(() => [])
+          fetchStandings(activeLeagueId).catch(() => []),
+          fetchActiveAds().catch(() => [])
         ]);
         setFixtures(fixturesData);
-        setNewsArticles(mixPromoSlides(newsData.articles));
+        setNewsArticles(mixPromoSlides(newsData.articles, activeAds));
         setStandings(standingsData || []);
       } catch (err) {
         console.error('Failed to load home data:', err);

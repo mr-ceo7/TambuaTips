@@ -216,7 +216,6 @@ export const adminService = {
     return response.data.fixtures || [];
   },
 
-  // Broadcast
   broadcastPush: async (data: {
     title: string;
     body: string;
@@ -233,4 +232,34 @@ export const adminService = {
     });
     return response.data;
   },
+
+  // Ads
+  getAds: async (): Promise<AdPost[]> => {
+    const response = await apiClient.get<AdPost[]>('/admin/ads');
+    return response.data;
+  },
+
+  createAd: async (data: Omit<AdPost, 'id' | 'created_at'>): Promise<AdPost> => {
+    const response = await apiClient.post<AdPost>('/admin/ads', data);
+    return response.data;
+  },
+
+  updateAd: async (id: number, data: Partial<AdPost>): Promise<AdPost> => {
+    const response = await apiClient.put<AdPost>(`/admin/ads/${id}`, data);
+    return response.data;
+  },
+
+  deleteAd: async (id: number): Promise<void> => {
+    await apiClient.delete(`/admin/ads/${id}`);
+  },
 };
+
+export interface AdPost {
+  id: number;
+  title: string;
+  image_url: string | null;
+  link_url: string | null;
+  category: string;
+  is_active: boolean;
+  created_at: string;
+}

@@ -74,14 +74,33 @@ export async function fetchNews(page: number = 1): Promise<{ articles: NewsItem[
   }
 }
 
-export function mixPromoSlides(articles: NewsItem[]): NewsItem[] {
+export async function fetchActiveAds(): Promise<NewsItem[]> {
+  try {
+    const response = await apiClient.get('/news/ads');
+    return response.data.map((ad: any) => ({
+      id: `ad-${ad.id}`,
+      title: ad.title,
+      source: 'Sponsored',
+      time: 'Ad',
+      image: ad.image_url || FALLBACK_IMAGE,
+      category: ad.category || 'Promo',
+      link: ad.link_url || '#',
+    }));
+  } catch (err) {
+    console.error('Failed to fetch ads:', err);
+    return [];
+  }
+}
+
+export function mixPromoSlides(articles: NewsItem[], dynamicAds: NewsItem[] = []): NewsItem[] {
   const result: NewsItem[] = [];
+  const adsToUse = dynamicAds.length > 0 ? dynamicAds : PROMO_SLIDES;
   let promoIndex = 0;
   
   for (let i = 0; i < articles.length; i++) {
     result.push(articles[i]);
-    if ((i + 1) % 3 === 0 && promoIndex < PROMO_SLIDES.length) {
-      result.push(PROMO_SLIDES[promoIndex]);
+    if ((i + 1) % 3 === 0 && promoIndex < adsToUse.length) {
+      result.push(adsToUse[promoIndex]);
       promoIndex++;
     }
   }

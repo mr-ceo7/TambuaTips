@@ -21,8 +21,10 @@ from app.models.tip import Tip
 from app.models.jackpot import Jackpot, JackpotPurchase
 from app.models.subscription import SubscriptionTier
 from app.models.activity import UserActivity, AnonymousVisitor
+from app.models.ad import AdPost
 from app.schemas.auth import UserResponse, AdminUserResponse
 from app.schemas.payment import PaymentResponse
+from app.schemas.ad import AdPostCreate, AdPostUpdate, AdPostResponse
 from app.config import settings
 
 router = APIRouter(prefix="/api/admin", tags=["Admin"])
@@ -668,3 +670,46 @@ async def broadcast_push(
     background_tasks.add_task(send_webpush_task, all_subs, payload)
     
     return {"message": "Broadcast queued", "targeted_users": len(users), "total_subscriptions": len(all_subs)}
+
+
+# ═══════════════════════════════════════════════════════════════
+#  AD POSTS (Custom Promo Slides)
+# ═══════════════════════════════════════════════════════════════
+
+@router.get("/ads", response_model=List[AdPostResponse])
+async def list_admin_ads(db: AsyncSession = Depends(get_db), admin: User = Depends(require_admin)):
+    result = await db.execute(select(AdPost).order_by(AdPost.created_at.desc()))
+    return result.scalars().all()
+
+@router.post("/ads", response_model=AdPostResponse)
+async def create_admin_ad(data: AdPostCreate, db: AsyncSession = Depends(get_db), admin: User = Depends(require_admin)):
+    new_ad = AdPost(**data.model_dump())
+    db.add(new_ad)
+    await db.commit()
+    await db.refresh(new_ad)
+    return new_ad
+
+@router.put("/ads/{ad_id}", response_model=AdPostResponse)
+async def update_admin_ad(ad_id: int, data: AdPostUpdate, db: AsyncSession = Depends(get_db), admin: User = Depends(require_admin)):
+    result = await db.execute(select(AdPost).where(AdPost.id == ad_id))
+    ad = result.scalar_one_or_none()
+    if not ad:
+        raise HTTPException(status_code=404, detail="Ad Post not found")
+        
+    for k, v in data.model_dump(exclude_unset=True).items():
+        setattr(ad, k, v)
+        
+    await db.commit()
+    await db.refresh(ad)
+    return ad
+
+@router.delete("/ads/{ad_id}")
+async def delete_admin_ad(ad_id: int, db: AsyncSession = Depends(get_db), admin: User = Depends(require_admin)):
+    result = await db.execute(select(AdPost).where(AdPost.id == ad_id))
+    ad = result.scalar_one_or_none()
+    if not ad:
+        raise HTTPException(status_code=404, detail="Ad Post not found")
+        
+    await db.delete(ad)
+    await db.commit()
+    return {"status": "success"}

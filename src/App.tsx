@@ -24,6 +24,7 @@ import { JackpotsManagePage } from './pages/admin/JackpotsManagePage';
 import { RevenuePage } from './pages/admin/RevenuePage';
 import { PricingManagePage } from './pages/admin/PricingManagePage';
 import { BroadcastPage } from './pages/admin/BroadcastPage';
+import { AdsManagePage } from './pages/admin/AdsManagePage';
 
 export default function App() {
   const [showSplash, setShowSplash] = useState(true);
@@ -54,6 +55,7 @@ export default function App() {
             <Route path="revenue" element={<RevenuePage />} />
             <Route path="pricing" element={<PricingManagePage />} />
             <Route path="broadcast" element={<BroadcastPage />} />
+            <Route path="ads" element={<AdsManagePage />} />
           </Route>
         </Routes>
       </BrowserRouter>
