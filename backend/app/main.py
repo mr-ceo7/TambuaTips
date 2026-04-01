@@ -14,10 +14,10 @@ from app.database import engine, Base
 logger = logging.getLogger(__name__)
 
 # Import all models so SQLAlchemy registers them
-from app.models import user, tip, jackpot, subscription, payment, ad  # noqa: F401
+from app.models import user, tip, jackpot, subscription, payment, ad, notification  # noqa: F401
 
 # Import routers
-from app.routers import auth, tips, jackpots, payments, subscriptions, sports, news, admin
+from app.routers import auth, tips, jackpots, payments, subscriptions, sports, news, admin, notifications
 
 
 async def seed_default_ads():
@@ -64,6 +64,9 @@ async def seed_default_ads():
             session.add(AdPost(**val))
         await session.commit()
 
+import asyncio
+from app.services.match_poller import poll_live_matches
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup and shutdown events."""
@@ -73,8 +76,13 @@ async def lifespan(app: FastAPI):
         
     await seed_default_ads()
     
+    # Start the background match poller task
+    poller_task = asyncio.create_task(poll_live_matches())
+    
     yield
+    
     # Shutdown: dispose connection pool
+    poller_task.cancel()
     await engine.dispose()
 
 
@@ -103,6 +111,7 @@ app.include_router(subscriptions.router)
 app.include_router(sports.router)
 app.include_router(news.router)
 app.include_router(admin.router)
+app.include_router(notifications.router)
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):

@@ -59,6 +59,14 @@ export const authService = {
     return response.data;
   },
 
+  async toggleMatchSubscription(matchId: number, homeTeam?: string, awayTeam?: string): Promise<{status: string, match_id: number}> {
+    const response = await apiClient.post(`/notifications/match/${matchId}/toggle`, {
+      home_team: homeTeam,
+      away_team: awayTeam
+    });
+    return response.data;
+  },
+
   logout() {
     localStorage.removeItem('tambuatips_access_token');
     localStorage.removeItem('tambuatips_refresh_token');

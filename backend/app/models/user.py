@@ -36,6 +36,7 @@ class User(Base):
     # Relationships
     payments = relationship("Payment", back_populates="user", lazy="selectin")
     jackpot_purchases = relationship("JackpotPurchase", back_populates="user", lazy="selectin")
+    match_subscriptions = relationship("MatchSubscription", back_populates="user", cascade="all, delete-orphan")
 
     @property
     def is_subscription_active(self) -> bool:

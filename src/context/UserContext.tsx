@@ -52,7 +52,7 @@ interface UserContextType {
   favoriteLeagues: number[];
   toggleFavoriteLeague: (leagueId: number) => void;
   notifiedMatches: string[];
-  toggleMatchNotification: (matchId: string) => void;
+  toggleMatchNotification: (matchId: string, homeTeam?: string, awayTeam?: string) => void;
   notifiedLeagues: string[];
   toggleLeagueNotification: (league: string) => void;
   bettingHistory: any[];
@@ -285,7 +285,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user]);
 
-  const toggleMatchNotification = useCallback(async (matchId: string) => {
+  const toggleMatchNotification = useCallback(async (matchId: string, homeTeam?: string, awayTeam?: string) => {
     setNotifiedMatches(prev => {
       const next = prev.includes(matchId) ? prev.filter(id => id !== matchId) : [...prev, matchId];
       localStorage.setItem('tambua_notif_matches', JSON.stringify(next));
@@ -293,6 +293,11 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     });
 
     if (user) {
+      try {
+        await authService.toggleMatchSubscription(parseInt(matchId, 10), homeTeam, awayTeam);
+      } catch (err) {
+        console.error("Failed to sync match subscription with server", err);
+      }
       await enablePushNotifications();
     }
   }, [user]);

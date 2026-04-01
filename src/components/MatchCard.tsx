@@ -91,7 +91,7 @@ export function MatchCard({ tip }: MatchCardProps) {
           )}
           {isUpcoming && (
             <button 
-              onClick={() => toggleMatchNotification(tip.id.toString())}
+              onClick={() => toggleMatchNotification(tip.id.toString(), tip.homeTeam, tip.awayTeam)}
               className={cn("ml-1 sm:ml-2 transition-all p-1 hover:scale-110 active:scale-95", isNotified ? "text-emerald-400" : "text-zinc-500 hover:text-emerald-400")}
               title={isNotified ? "Remove Notification" : "Notify Me"}
             >
