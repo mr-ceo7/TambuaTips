@@ -59,6 +59,38 @@ interface UserContextType {
   addBet: (bet: any) => void;
 }
 
+export const enablePushNotifications = async () => {
+  if ('serviceWorker' in navigator && 'PushManager' in window) {
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission === 'granted') {
+        const reg = await navigator.serviceWorker.register('/sw.js');
+        let sub = await reg.pushManager.getSubscription();
+        if (!sub) {
+          const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+          
+          // Format base64
+          const padding = '='.repeat((4 - vapidKey.length % 4) % 4);
+          const base64 = (vapidKey + padding).replace(/\-/g, '+').replace(/_/g, '/');
+          const rawData = window.atob(base64);
+          const outputArray = new Uint8Array(rawData.length);
+          for (let i = 0; i < rawData.length; ++i) {
+            outputArray[i] = rawData.charCodeAt(i);
+          }
+
+          sub = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: outputArray
+          });
+        }
+        await authService.pushSubscribe(sub);
+      }
+    } catch (err) {
+      console.error("WebPush Subscription Failed:", err);
+    }
+  }
+};
+
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
@@ -141,6 +173,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem('tambua_fav_teams', JSON.stringify(userData.favorite_teams));
       }
       setShowAuthModal(false);
+      enablePushNotifications();
       return { success: true };
     } catch (error: any) {
       return { 
@@ -163,6 +196,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem('tambua_fav_teams', JSON.stringify(userData.favorite_teams));
       }
       setShowAuthModal(false);
+      enablePushNotifications();
       return { success: true };
     } catch (error: any) {
       return { 
@@ -244,6 +278,13 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
+  // Call silently for returning users who already granted permission
+  useEffect(() => {
+    if (user && 'Notification' in window && Notification.permission === 'granted') {
+      enablePushNotifications();
+    }
+  }, [user]);
+
   const toggleMatchNotification = useCallback(async (matchId: string) => {
     setNotifiedMatches(prev => {
       const next = prev.includes(matchId) ? prev.filter(id => id !== matchId) : [...prev, matchId];
@@ -251,34 +292,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       return next;
     });
 
-    if (user && 'serviceWorker' in navigator && 'PushManager' in window) {
-      try {
-        const permission = await Notification.requestPermission();
-        if (permission === 'granted') {
-          const reg = await navigator.serviceWorker.register('/sw.js');
-          let sub = await reg.pushManager.getSubscription();
-          if (!sub) {
-            const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
-            
-            // Format base64
-            const padding = '='.repeat((4 - vapidKey.length % 4) % 4);
-            const base64 = (vapidKey + padding).replace(/\-/g, '+').replace(/_/g, '/');
-            const rawData = window.atob(base64);
-            const outputArray = new Uint8Array(rawData.length);
-            for (let i = 0; i < rawData.length; ++i) {
-              outputArray[i] = rawData.charCodeAt(i);
-            }
-
-            sub = await reg.pushManager.subscribe({
-              userVisibleOnly: true,
-              applicationServerKey: outputArray
-            });
-          }
-          await authService.pushSubscribe(sub);
-        }
-      } catch (err) {
-        console.error("WebPush Subscription Failed:", err);
-      }
+    if (user) {
+      await enablePushNotifications();
     }
   }, [user]);
 

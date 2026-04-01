@@ -14,11 +14,55 @@ from app.database import engine, Base
 logger = logging.getLogger(__name__)
 
 # Import all models so SQLAlchemy registers them
-from app.models import user, tip, jackpot, subscription, payment  # noqa: F401
+from app.models import user, tip, jackpot, subscription, payment, ad  # noqa: F401
 
 # Import routers
 from app.routers import auth, tips, jackpots, payments, subscriptions, sports, news, admin
 
+
+async def seed_default_ads():
+    from sqlalchemy import select
+    from app.database import AsyncSessionLocal
+    from app.models.ad import AdPost
+    
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(select(AdPost).limit(1))
+        if result.scalar_one_or_none() is not None:
+            return  # Already seeded or has data
+
+        ads_data = [
+            {
+                "title": "TAMBUA TIPS - KEEP YOUR TIPS UP",
+                "image_url": "/brand-ad.jpeg",
+                "link_url": "/tips",
+                "category": "Promo",
+                "is_active": True,
+            },
+            {
+                "title": "🎁 Invite Friends & Get Free Daily Tips! Share your referral link and unlock exclusive predictions.",
+                "image_url": "https://images.unsplash.com/photo-1577223625816-7546f13df25d?q=80&w=800&auto=format&fit=crop",
+                "link_url": "/tips",
+                "category": "Promo",
+                "is_active": True,
+            },
+            {
+                "title": "🏆 Go Premium — Get Exclusive Expert Tips with 75%+ Win Rate. Join the winning team today!",
+                "image_url": "https://images.unsplash.com/photo-1560272564-c83b66b1ad12?q=80&w=800&auto=format&fit=crop",
+                "link_url": "/tips",
+                "category": "Promo",
+                "is_active": True,
+            },
+            {
+                "title": "🔔 Never Miss a Winning Tip! Subscribe for daily free picks and premium alerts delivered straight to you.",
+                "image_url": "https://images.unsplash.com/photo-1431324155629-1a6deb1dec8d?q=80&w=800&auto=format&fit=crop",
+                "link_url": "/tips",
+                "category": "Promo",
+                "is_active": True,
+            }
+        ]
+        for val in ads_data:
+            session.add(AdPost(**val))
+        await session.commit()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -26,6 +70,9 @@ async def lifespan(app: FastAPI):
     # Startup: Create tables if they don't exist (dev convenience)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        
+    await seed_default_ads()
+    
     yield
     # Shutdown: dispose connection pool
     await engine.dispose()

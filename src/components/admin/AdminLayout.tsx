@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { Toaster } from 'sonner';
 import {
   LayoutDashboard, Users, TrendingUp, Trophy, DollarSign, Settings,
   Bell, ChevronLeft, ChevronRight, LogOut, Shield, Menu, X, Megaphone
@@ -46,7 +47,8 @@ export function AdminLayout() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 flex">
+    <div className="min-h-screen bg-zinc-950 flex font-sans text-zinc-50">
+      <Toaster theme="dark" position="top-center" />
       {/* ─── Mobile overlay ──────────────────────────────── */}
       {mobileOpen && (
         <div className="fixed inset-0 bg-black/60 z-40 lg:hidden" onClick={() => setMobileOpen(false)} />
