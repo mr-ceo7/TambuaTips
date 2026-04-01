@@ -49,10 +49,11 @@ function timeAgo(timestamp: string | null): string {
 export function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [days, setDays] = useState(30);
 
   useEffect(() => {
     const fetchStats = () => {
-      adminService.getDashboardStats()
+      adminService.getDashboardStats(days)
         .then(setStats)
         .catch(() => toast.error('Failed to load dashboard'))
         .finally(() => setLoading(false));
@@ -62,7 +63,7 @@ export function DashboardPage() {
     const intervalId = setInterval(fetchStats, 15000); // Poll every 15s
 
     return () => clearInterval(intervalId);
-  }, []);
+  }, [days]);
 
   if (loading) {
     return (
@@ -82,8 +83,21 @@ export function DashboardPage() {
 
   if (!stats) return <p className="text-zinc-500 text-center py-12">No data</p>;
 
-  // Calculate last 30 days revenue from the trend array
-  const last30DaysRevenue = stats.revenue.trend.reduce((sum, item) => sum + item.amount, 0);
+  // Format chart ticks intelligently based on timeframe (daily vs monthly)
+  const formatChartTick = (val: string) => {
+    if (!val) return '';
+    if (val.length === 7) {
+      // Yearly (YYYY-MM) -> "Mar"
+      const parts = val.split('-');
+      const date = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, 1);
+      return date.toLocaleDateString('en-US', { month: 'short' });
+    }
+    // Daily (YYYY-MM-DD) -> "03-31"
+    return val.slice(5);
+  };
+
+  // Calculate selected timeframe revenue from the trend array
+  const trendRevenue = stats.revenue.trend.reduce((sum, item) => sum + item.amount, 0);
 
   // Prepare pie chart data
   const pieData = Object.entries(stats.revenue.by_method).map(([method, amount]) => ({
@@ -229,13 +243,28 @@ export function DashboardPage() {
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-3">
             <div>
               <h3 className="text-sm font-bold text-zinc-300">Revenue Trend</h3>
-              <p className="text-xs text-zinc-500 mt-0.5">Last 30 days</p>
+              <p className="text-xs text-zinc-500 mt-0.5">Last {days === 365 ? '12 months' : `${days} days`}</p>
             </div>
-            {/* The toggles were here causing confusion because they didn't filter the actual graph data. Removing them syncs the UX perfectly. */}
+            {/* Dynamic time frame toggles */}
+            <div className="flex bg-zinc-950/50 rounded-lg p-1 border border-zinc-800">
+              {[7, 30, 90, 365].map(d => (
+                <button
+                  key={d}
+                  onClick={() => setDays(d)}
+                  className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
+                    days === d
+                      ? 'bg-emerald-500/20 text-emerald-400 shadow-[0_2px_4px_rgba(0,0,0,0.2)]'
+                      : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50'
+                  }`}
+                >
+                  {d === 365 ? '1Y' : `${d}D`}
+                </button>
+              ))}
+            </div>
           </div>
           <div className="flex items-baseline gap-2 mb-4">
-            <span className="text-2xl font-bold text-white font-display">{formatKES(last30DaysRevenue)}</span>
-            <span className="text-xs text-zinc-500">Last 30 Days</span>
+            <span className="text-2xl font-bold text-white font-display">{formatKES(trendRevenue)}</span>
+            <span className="text-xs text-zinc-500">Collected in {days === 365 ? '1 year' : `${days} days`}</span>
           </div>
           <ResponsiveContainer width="100%" height={220}>
             <AreaChart data={stats.revenue.trend}>
@@ -246,7 +275,7 @@ export function DashboardPage() {
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-              <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#71717a' }} tickFormatter={d => d?.slice(5)} />
+              <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#71717a' }} tickFormatter={formatChartTick} />
               <YAxis tick={{ fontSize: 10, fill: '#71717a' }} tickFormatter={v => `${(v / 1000).toFixed(0)}K`} />
               <Tooltip
                 contentStyle={{ backgroundColor: '#18181b', border: '1px solid #3f3f46', borderRadius: '12px', fontSize: '12px' }}
@@ -302,11 +331,11 @@ export function DashboardPage() {
         {/* User Growth */}
         <div className="bg-zinc-900/60 border border-zinc-800/60 rounded-2xl p-5">
           <h3 className="text-sm font-bold text-zinc-300 mb-1">User Growth</h3>
-          <p className="text-xs text-zinc-500 mb-4">New signups per day (last 30 days)</p>
+          <p className="text-xs text-zinc-500 mb-4">New signups {days === 365 ? 'per month' : 'per day'}</p>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={stats.users.growth}>
               <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-              <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#71717a' }} tickFormatter={d => d?.slice(5)} />
+              <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#71717a' }} tickFormatter={formatChartTick} />
               <YAxis tick={{ fontSize: 10, fill: '#71717a' }} allowDecimals={false} />
               <Tooltip
                 contentStyle={{ backgroundColor: '#18181b', border: '1px solid #3f3f46', borderRadius: '12px', fontSize: '12px' }}

@@ -61,7 +61,11 @@ async def clear_dashboard_stats(db: AsyncSession = Depends(get_db), admin: User 
         raise HTTPException(status_code=500, detail=f"Failed: {str(e)}\n\n{error_details}")
 
 @router.get("/dashboard")
-async def dashboard_stats(db: AsyncSession = Depends(get_db), admin: User = Depends(require_admin)):
+async def dashboard_stats(
+    days: int = Query(30, ge=1, le=365, description="Number of days to track history"),
+    db: AsyncSession = Depends(get_db), 
+    admin: User = Depends(require_admin)
+):
     """Aggregated dashboard stats for the admin overview."""
     now = datetime.utcnow()
     three_min_ago = now - timedelta(minutes=3)
@@ -90,18 +94,37 @@ async def dashboard_stats(db: AsyncSession = Depends(get_db), admin: User = Depe
 
     conversion_rate = round((active_subscribers / total_users * 100), 1) if total_users > 0 else 0
 
-    # User growth — signups per day for last 30 days
-    thirty_days_ago = now - timedelta(days=30)
+    # User growth — signups per day for selected timeframe
+    target_date = now - timedelta(days=days)
     growth_result = await db.execute(
         select(
             func.date(User.created_at).label("day"),
             func.count(User.id).label("count")
         )
-        .where(User.created_at >= thirty_days_ago)
+        .where(User.created_at >= target_date)
         .group_by(func.date(User.created_at))
         .order_by(func.date(User.created_at))
     )
-    user_growth = [{"date": str(row.day), "count": row.count} for row in growth_result.all()]
+    is_yearly = days >= 365
+    if is_yearly:
+        date_list = []
+        for i in range(11, -1, -1):
+            m = now.month - i
+            y = now.year
+            while m <= 0:
+                m += 12
+                y -= 1
+            date_list.append(f"{y}-{m:02d}")
+    else:
+        date_list = [str((now - timedelta(days=d)).date()) for d in range(days-1, -1, -1)]
+
+    # Aggregate User Growth
+    user_growth_map = {}
+    for row in growth_result.all():
+        key = str(row.day)[:7] if is_yearly else str(row.day)
+        user_growth_map[key] = user_growth_map.get(key, 0) + row.count
+        
+    user_growth = [{"date": d, "count": user_growth_map.get(d, 0)} for d in date_list]
 
     # ── Revenue Stats ──────────────────────────────────────
     completed_payments = await db.execute(
@@ -128,17 +151,23 @@ async def dashboard_stats(db: AsyncSession = Depends(get_db), admin: User = Depe
     revenue_month = sum(p.amount for p in all_payments if p.created_at and p.created_at >= month_start)
     revenue_year = sum(p.amount for p in all_payments if p.created_at and p.created_at >= year_start)
 
-    # Revenue trend — per day for last 30 days
+    # Revenue trend — per day for selected timeframe
     revenue_trend_result = await db.execute(
         select(
             func.date(Payment.created_at).label("day"),
             func.sum(Payment.amount).label("total")
         )
-        .where(and_(Payment.status == "completed", Payment.created_at >= thirty_days_ago))
+        .where(and_(Payment.status == "completed", Payment.created_at >= target_date))
         .group_by(func.date(Payment.created_at))
         .order_by(func.date(Payment.created_at))
     )
-    revenue_trend = [{"date": str(row.day), "amount": int(row.total)} for row in revenue_trend_result.all()]
+    # Aggregate Revenue Trend
+    revenue_trend_map = {}
+    for row in revenue_trend_result.all():
+        key = str(row.day)[:7] if is_yearly else str(row.day)
+        revenue_trend_map[key] = revenue_trend_map.get(key, 0) + int(row.total)
+        
+    revenue_trend = [{"date": d, "amount": revenue_trend_map.get(d, 0)} for d in date_list]
 
     # ── Tip Stats ──────────────────────────────────────────
     tip_result = await db.execute(select(Tip))

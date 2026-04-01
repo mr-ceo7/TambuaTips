@@ -10,6 +10,15 @@ import { toast } from 'sonner';
 type SortField = 'name' | 'email' | 'subscription_tier' | 'last_seen' | 'total_time_spent' | 'created_at';
 type SortDir = 'asc' | 'desc';
 
+const getFlagEmoji = (countryCode: string) => {
+  if (!countryCode || countryCode.length !== 2) return '';
+  const codePoints = countryCode
+    .toUpperCase()
+    .split('')
+    .map(char => 127397 + char.charCodeAt(0));
+  return String.fromCodePoint(...codePoints);
+};
+
 export function UsersPage() {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
@@ -235,7 +244,7 @@ export function UsersPage() {
                     </td>
                     <td className="px-4 py-3.5"><div className="text-[11px] text-zinc-400"><p>{u.most_visited_page || '\u2014'}</p><p className="text-zinc-600">{Math.floor(u.total_time_spent / 60)}m total</p></div></td>
                     <td className="px-4 py-3.5">
-                      <div className="flex items-center gap-1.5">{u.country && <span className="text-[10px] text-zinc-500 bg-zinc-800 px-1.5 py-0.5 rounded">{u.country}</span>}<span className="text-[11px] text-zinc-500">{u.created_at ? new Date(u.created_at).toLocaleDateString() : '\u2014'}</span></div>
+                      <div className="flex items-center gap-1.5">{u.country && <span className="text-[10px] text-zinc-500 bg-zinc-800 px-1.5 py-0.5 rounded inline-flex items-center gap-1"><span className="text-[11px] leading-none">{getFlagEmoji(u.country)}</span>{u.country}</span>}<span className="text-[11px] text-zinc-500">{u.created_at ? new Date(u.created_at).toLocaleDateString() : '\u2014'}</span></div>
                     </td>
                     <td className="px-4 py-3.5 text-right" onClick={e => e.stopPropagation()}>
                       <div className="flex items-center gap-1.5 justify-end">
@@ -251,7 +260,7 @@ export function UsersPage() {
                       <div className="bg-zinc-800/30 rounded-xl p-4 my-2 border border-zinc-800/40">
                         {detailLoading ? (<div className="flex items-center justify-center py-8"><div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" /></div>) : userDetail ? (
                           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                            <div className="space-y-3"><h4 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Summary</h4><div className="space-y-2 text-xs"><p className="text-zinc-300">Total Time: <span className="font-bold text-white">{Math.floor(userDetail.total_time_spent / 60)}m {userDetail.total_time_spent % 60}s</span></p><p className="text-zinc-300">Total Spent: <span className="font-bold text-emerald-400">KES {userDetail.total_spent.toLocaleString()}</span></p><p className="text-zinc-300">Jackpot Purchases: <span className="font-bold">{userDetail.jackpot_purchases}</span></p><p className="text-zinc-300">Country: <span className="font-bold text-white">{userDetail.user.country || 'Unknown'}</span></p></div></div>
+                            <div className="space-y-3"><h4 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Summary</h4><div className="space-y-2 text-xs"><p className="text-zinc-300">Total Time: <span className="font-bold text-white">{Math.floor(userDetail.total_time_spent / 60)}m {userDetail.total_time_spent % 60}s</span></p><p className="text-zinc-300">Total Spent: <span className="font-bold text-emerald-400">KES {userDetail.total_spent.toLocaleString()}</span></p><p className="text-zinc-300">Jackpot Purchases: <span className="font-bold">{userDetail.jackpot_purchases}</span></p><div className="text-zinc-300 flex items-center gap-1">Country: <span className="font-bold text-white">{userDetail.user.country ? <span className="inline-flex items-center gap-1"><span className="text-[13px] leading-none">{getFlagEmoji(userDetail.user.country)}</span>{userDetail.user.country}</span> : 'Unknown'}</span></div></div></div>
                             <div className="space-y-3"><h4 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Page Activity</h4><div className="space-y-1.5 max-h-40 overflow-y-auto">{userDetail.pages.map(p => (<div key={p.path} className="flex items-center justify-between text-[11px]"><span className="text-zinc-400 truncate mr-2">{p.path}</span><span className="text-zinc-500 shrink-0">{p.visits}x &bull; {Math.floor(p.total_time / 60)}m</span></div>))}{userDetail.pages.length === 0 && <p className="text-xs text-zinc-600">No activity recorded</p>}</div></div>
                             <div className="space-y-3"><h4 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Payment History</h4><div className="space-y-1.5 max-h-40 overflow-y-auto">{userDetail.payments.map(p => (<div key={p.id} className="flex items-center justify-between text-[11px]"><div className="flex items-center gap-2"><span className={`w-1.5 h-1.5 rounded-full ${p.status === 'completed' ? 'bg-emerald-500' : p.status === 'failed' ? 'bg-red-500' : 'bg-yellow-500'}`} /><span className="text-zinc-300">KES {p.amount.toLocaleString()}</span></div><span className="text-zinc-500 capitalize">{p.method}</span></div>))}{userDetail.payments.length === 0 && <p className="text-xs text-zinc-600">No payments</p>}</div></div>
                           </div>
@@ -282,7 +291,7 @@ export function UsersPage() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <TierBadge tier={u.subscription_tier} expiresAt={u.subscription_expires_at} />
-                    {u.country && <span className="text-[9px] text-zinc-600 bg-zinc-800 px-1.5 py-0.5 rounded">{u.country}</span>}
+                    {u.country && <span className="text-[9px] text-zinc-600 bg-zinc-800 px-1.5 py-0.5 rounded inline-flex items-center gap-1"><span className="text-[10px] leading-none">{getFlagEmoji(u.country)}</span>{u.country}</span>}
                     <span className="text-[10px] text-zinc-600">{Math.floor(u.total_time_spent / 60)}m</span>
                   </div>
                   <div className="flex items-center gap-0.5" onClick={e => e.stopPropagation()}>

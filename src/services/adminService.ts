@@ -150,8 +150,8 @@ export interface FixtureSearchResult {
 
 export const adminService = {
   // Dashboard
-  getDashboardStats: async (): Promise<DashboardStats> => {
-    const response = await apiClient.get<DashboardStats>('/admin/dashboard');
+  getDashboardStats: async (days: number = 30): Promise<DashboardStats> => {
+    const response = await apiClient.get<DashboardStats>('/admin/dashboard', { params: { days } });
     return response.data;
   },
 

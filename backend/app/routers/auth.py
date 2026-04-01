@@ -15,11 +15,30 @@ from app.models.activity import UserActivity, AnonymousVisitor, AnonymousActivit
 from app.schemas.auth import RegisterRequest, LoginRequest, RefreshRequest, TokenResponse, UserResponse, UpdateFavoritesRequest, PushSubscribeRequest, ActivityRequest
 from app.security import hash_password, verify_password, create_access_token, create_refresh_token, decode_token
 
+def get_real_ip(request: Request) -> str:
+    x_forwarded_for = request.headers.get("x-forwarded-for")
+    if x_forwarded_for:
+        return x_forwarded_for.split(",")[0].strip()
+    x_real_ip = request.headers.get("x-real-ip")
+    if x_real_ip:
+        return x_real_ip.strip()
+    return request.client.host if request.client else ""
+
 router = APIRouter(prefix="/api/auth", tags=["Auth"])
 
 async def fetch_user_country(user_id: int, ip_address: str):
     if not ip_address or ip_address in ("127.0.0.1", "::1", "localhost"):
+        # Fallback for local development testing
+        try:
+            async with httpx.AsyncClient(timeout=3.0) as client:
+                res = await client.get("https://api.ipify.org")
+                ip_address = res.text.strip()
+        except Exception:
+            return
+            
+    if not ip_address:
         return
+        
     try:
         async with httpx.AsyncClient(timeout=3.0) as client:
             response = await client.get(f"http://ip-api.com/json/{ip_address}")
@@ -34,9 +53,6 @@ async def fetch_user_country(user_id: int, ip_address: str):
                             await session.commit()
     except Exception as e:
         print(f"IP Geolocation failed: {e}")
-
-router = APIRouter(prefix="/api/auth", tags=["Auth"])
-
 
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
 async def register(body: RegisterRequest, request: Request, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)):
@@ -56,7 +72,8 @@ async def register(body: RegisterRequest, request: Request, background_tasks: Ba
     await db.commit()
     await db.refresh(user)
 
-    background_tasks.add_task(fetch_user_country, user.id, request.client.host if request.client else "")
+    client_ip = get_real_ip(request)
+    background_tasks.add_task(fetch_user_country, user.id, client_ip)
 
     return TokenResponse(
         access_token=create_access_token(str(user.id)),
@@ -72,7 +89,8 @@ async def login(body: LoginRequest, request: Request, background_tasks: Backgrou
     if not user or not verify_password(body.password, user.password):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
 
-    background_tasks.add_task(fetch_user_country, user.id, request.client.host if request.client else "")
+    client_ip = get_real_ip(request)
+    background_tasks.add_task(fetch_user_country, user.id, client_ip)
 
     return TokenResponse(
         access_token=create_access_token(str(user.id)),
