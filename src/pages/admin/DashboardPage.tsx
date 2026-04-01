@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion } from 'motion/react';
 import {
   Users, Wifi, Crown, DollarSign, Target, TrendingUp,
   ArrowUpRight, ArrowDownRight, Clock, UserPlus, CreditCard,
@@ -48,7 +49,6 @@ function timeAgo(timestamp: string | null): string {
 export function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [revenuePeriod, setRevenuePeriod] = useState<'today' | 'this_week' | 'this_month' | 'this_year'>('this_month');
 
   useEffect(() => {
     const fetchStats = () => {
@@ -82,13 +82,8 @@ export function DashboardPage() {
 
   if (!stats) return <p className="text-zinc-500 text-center py-12">No data</p>;
 
-  const revenuePeriodAmount = stats.revenue[revenuePeriod] ?? 0;
-  const PERIOD_LABELS: Record<string, string> = {
-    today: 'Today',
-    this_week: 'This Week',
-    this_month: 'This Month',
-    this_year: 'This Year',
-  };
+  // Calculate last 30 days revenue from the trend array
+  const last30DaysRevenue = stats.revenue.trend.reduce((sum, item) => sum + item.amount, 0);
 
   // Prepare pie chart data
   const pieData = Object.entries(stats.revenue.by_method).map(([method, amount]) => ({
@@ -97,16 +92,49 @@ export function DashboardPage() {
     color: METHOD_COLORS[method] || '#71717a',
   }));
 
+  // Variants for staggered entry
+  const container = {
+    hidden: { opacity: 0 },
+    show: { opacity: 1, transition: { staggerChildren: 0.05 } }
+  };
+  const item = {
+    hidden: { opacity: 0, y: 15 },
+    show: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 300, damping: 24 } }
+  };
+
   return (
-    <div className="space-y-6 overflow-hidden">
+    <motion.div variants={container} initial="hidden" animate="show" className="space-y-6 overflow-hidden pb-10">
       {/* Page title */}
-      <div>
-        <h1 className="text-xl sm:text-2xl font-bold text-white font-display">Dashboard</h1>
-        <p className="text-sm text-zinc-500 mt-1">Platform overview & real-time analytics</p>
-      </div>
+      <motion.div variants={item} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold text-white font-display">Dashboard</h1>
+          <p className="text-sm text-zinc-500 mt-1">Platform overview & real-time analytics</p>
+        </div>
+        
+        <button
+          onClick={async () => {
+            if (window.confirm("DANGER: Are you absolutely sure you want to completely wipe all revenue history, visitor logs, and reset all active user subscriptions to zero? This CANNOT be undone.")) {
+              const toastId = toast.loading('Clearing all dashboard stats...');
+              try {
+                await adminService.clearDashboardStats();
+                toast.success('Stats completely wiped!', { id: toastId });
+                setLoading(true);
+                adminService.getDashboardStats().then(setStats).finally(() => setLoading(false));
+              } catch (err: any) {
+                toast.error(err.response?.data?.detail || 'Failed to clear stats');
+                toast.dismiss(toastId);
+              }
+            }
+          }}
+          className="flex items-center gap-2 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 hover:text-red-400 border border-red-500/20 hover:border-red-500/40 rounded-xl text-sm font-bold transition-all w-fit"
+        >
+          <Activity className="w-4 h-4" />
+          Reset Stats
+        </button>
+      </motion.div>
 
       {/* ═══ KPI Cards ═══ */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+      <motion.div variants={item} className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         {/* Total Users */}
         <KPICard
           icon={Users}
@@ -139,6 +167,13 @@ export function DashboardPage() {
           label="Subscribers"
           value={stats.users.active_subscribers.toString()}
           change={`${stats.users.conversion_rate}% conv.`}
+          breakdowns={Object.entries(stats.users.subscribers_by_tier)
+            .filter(([t]) => t !== 'free')
+            .map(([tier, count]) => ({
+              label: tier.charAt(0).toUpperCase() + tier.slice(1),
+              value: count.toString(),
+              color: tier.includes('basic') ? BLUE : tier.includes('standard') ? PURPLE : GOLD
+            }))}
           positive={stats.users.conversion_rate > 0}
           color="gold"
         />
@@ -148,6 +183,14 @@ export function DashboardPage() {
           label="Total Revenue"
           value={formatKES(stats.revenue.total)}
           change={`${formatKES(stats.revenue.today)} today`}
+          breakdowns={Object.entries(stats.revenue.by_method)
+            .sort((a, b) => (b[1] as number) - (a[1] as number))
+            .slice(0, 3)
+            .map(([method, amount]) => ({
+              label: method.charAt(0).toUpperCase() + method.slice(1),
+              value: formatKES(amount as number),
+              color: METHOD_COLORS[method] || '#71717a'
+            }))}
           positive
           color="emerald"
         />
@@ -157,6 +200,11 @@ export function DashboardPage() {
           label="Win Rate"
           value={`${stats.tips.win_rate}%`}
           change={`${stats.tips.won}W / ${stats.tips.lost}L`}
+          breakdowns={[
+            { label: 'Won', value: stats.tips.won.toString(), color: EMERALD },
+            { label: 'Lost', value: stats.tips.lost.toString(), color: RED },
+            { label: 'Void', value: stats.tips.voided.toString(), color: '#a1a1aa' }
+          ]}
           positive={stats.tips.win_rate > 50}
           color={stats.tips.win_rate > 50 ? 'emerald' : 'red'}
         />
@@ -166,12 +214,16 @@ export function DashboardPage() {
           label="Total Tips"
           value={stats.tips.total.toString()}
           change={`${stats.tips.pending} pending`}
+          breakdowns={[
+            { label: 'Settled', value: (stats.tips.won + stats.tips.lost + stats.tips.voided).toString(), color: BLUE },
+            { label: 'Pending', value: stats.tips.pending.toString(), color: GOLD }
+          ]}
           color="blue"
         />
-      </div>
+      </motion.div>
 
       {/* ═══ Charts Row ═══ */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <motion.div variants={item} className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Revenue Trend */}
         <div className="lg:col-span-2 bg-zinc-900/60 border border-zinc-800/60 rounded-2xl p-5">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-3">
@@ -179,25 +231,11 @@ export function DashboardPage() {
               <h3 className="text-sm font-bold text-zinc-300">Revenue Trend</h3>
               <p className="text-xs text-zinc-500 mt-0.5">Last 30 days</p>
             </div>
-            <div className="flex gap-1 bg-zinc-800/60 rounded-xl p-1 flex-wrap">
-              {(['today', 'this_week', 'this_month', 'this_year'] as const).map(period => (
-                <button
-                  key={period}
-                  onClick={() => setRevenuePeriod(period)}
-                  className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all ${
-                    revenuePeriod === period
-                      ? 'bg-emerald-500 text-zinc-950'
-                      : 'text-zinc-500 hover:text-zinc-300'
-                  }`}
-                >
-                  {PERIOD_LABELS[period]}
-                </button>
-              ))}
-            </div>
+            {/* The toggles were here causing confusion because they didn't filter the actual graph data. Removing them syncs the UX perfectly. */}
           </div>
           <div className="flex items-baseline gap-2 mb-4">
-            <span className="text-2xl font-bold text-white font-display">{formatKES(revenuePeriodAmount)}</span>
-            <span className="text-xs text-zinc-500">{PERIOD_LABELS[revenuePeriod]}</span>
+            <span className="text-2xl font-bold text-white font-display">{formatKES(last30DaysRevenue)}</span>
+            <span className="text-xs text-zinc-500">Last 30 Days</span>
           </div>
           <ResponsiveContainer width="100%" height={220}>
             <AreaChart data={stats.revenue.trend}>
@@ -257,10 +295,10 @@ export function DashboardPage() {
             </div>
           )}
         </div>
-      </div>
+      </motion.div>
 
       {/* ═══ User Growth + Subscribers by Tier ═══ */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <motion.div variants={item} className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* User Growth */}
         <div className="bg-zinc-900/60 border border-zinc-800/60 rounded-2xl p-5">
           <h3 className="text-sm font-bold text-zinc-300 mb-1">User Growth</h3>
@@ -304,10 +342,10 @@ export function DashboardPage() {
             })}
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* ═══ Top Pages + Activity Feed ═══ */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <motion.div variants={item} className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Top Pages */}
         <div className="bg-zinc-900/60 border border-zinc-800/60 rounded-2xl p-5">
           <h3 className="text-sm font-bold text-zinc-300 mb-1">Top Pages</h3>
@@ -358,10 +396,10 @@ export function DashboardPage() {
             )}
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* ═══ Tip Performance + Jackpot Stats ═══ */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <motion.div variants={item} className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 bg-zinc-900/60 border border-zinc-800/60 rounded-2xl p-5">
           <h3 className="text-sm font-bold text-zinc-300 mb-4">Tip Performance Breakdown</h3>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
@@ -403,8 +441,8 @@ export function DashboardPage() {
             </div>
           </div>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }
 
@@ -433,13 +471,17 @@ function KPICard({ icon: Icon, label, value, change, badge, positive, color, pul
   const c = colorMap[color] || colorMap.emerald;
 
   return (
-    <div className={`bg-zinc-900/60 border border-zinc-800/60 rounded-2xl p-4 sm:p-5 relative overflow-hidden group hover:border-zinc-700/60 transition-all flex flex-col justify-between`}>
-      <div className="flex justify-between items-start gap-4">
-        {/* Left column: Icon & Label */}
-        <div className="flex flex-col gap-2">
+    <motion.div 
+      whileHover={{ y: -4, scale: 1.02 }}
+      transition={{ type: "spring", stiffness: 400, damping: 25 }}
+      className={`bg-zinc-900/80 backdrop-blur-md border border-zinc-800/80 rounded-2xl p-4 sm:p-5 relative overflow-hidden group hover:border-zinc-700/60 hover:shadow-2xl hover:shadow-black/50 transition-colors flex flex-col justify-between`}
+    >
+      <div className="flex flex-col gap-3">
+        {/* Top Row: Icon & Change */}
+        <div className="flex justify-between items-start">
           <div className="flex items-center gap-2">
-            <div className={`w-9 h-9 rounded-xl ${c.bg} flex items-center justify-center shrink-0`}>
-              <Icon className={`w-4 h-4 ${c.icon}`} />
+            <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl ${c.bg} flex items-center justify-center shrink-0`}>
+              <Icon className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${c.icon}`} />
             </div>
             {badge && (
               <span className={`px-2 py-0.5 text-[9px] font-black uppercase rounded-full ${c.bg} ${c.text} ${pulse ? 'animate-pulse' : ''}`}>
@@ -447,35 +489,37 @@ function KPICard({ icon: Icon, label, value, change, badge, positive, color, pul
               </span>
             )}
           </div>
-          <p className="text-[10px] sm:text-[11px] text-zinc-400 uppercase font-bold tracking-wider mt-1">{label}</p>
-        </div>
-
-        {/* Right column: Value & Change */}
-        <div className="text-right shrink-0">
-          <p className="text-2xl sm:text-3xl font-bold text-white font-display leading-none pb-1">{value}</p>
+          
           {change && (
-            <p className={`text-[11px] font-medium flex items-center justify-end gap-1 ${positive ? 'text-emerald-400' : 'text-zinc-500'}`}>
+            <p className={`text-[10px] sm:text-[11px] font-bold flex items-center text-right gap-0.5 mt-1 sm:mt-1.5 ${positive ? 'text-emerald-400' : 'text-zinc-500'}`}>
               {positive && <ArrowUpRight className="w-3.5 h-3.5" />}
               {change}
             </p>
           )}
         </div>
+
+        {/* Bottom Row: Label & Value */}
+        <div className="flex flex-col mt-1">
+          <p className="text-[9px] sm:text-[10px] text-zinc-400 uppercase font-bold tracking-widest mb-1.5">{label}</p>
+          <p className="text-xl sm:text-2xl font-bold text-white font-display leading-none tracking-tight">{value}</p>
+        </div>
       </div>
       
       {/* Breakdowns Row */}
       {breakdowns && breakdowns.length > 0 && (
-        <div className="mt-4 pt-3 border-t border-zinc-800/50 flex flex-wrap gap-2 text-[10px] uppercase font-bold tracking-widest">
+        <div className="mt-4 pt-3 border-t border-zinc-800/50 flex flex-wrap gap-1.5 text-[9px] sm:text-[10px] uppercase font-bold tracking-widest leading-tight">
           {breakdowns.map((b, i) => (
-            <span key={i} className="flex items-center gap-1.5 bg-zinc-800/60 border border-zinc-700/40 px-2 py-1 rounded-md shadow-[0_2px_4px_rgba(0,0,0,0.2)]" style={{ color: b.color || '#a1a1aa' }}>
-              {b.label}: <span className="text-white relative top-[0.5px]">{b.value}</span>
-            </span>
+            <div key={i} className="flex flex-col min-w-[45%] flex-1 bg-zinc-800/60 border border-zinc-700/40 px-2 py-1.5 rounded-md shadow-[0_2px_4px_rgba(0,0,0,0.2)]" style={{ color: b.color || '#a1a1aa' }}>
+              <span className="opacity-80 mb-0.5 text-[8px] sm:text-[9px]">{b.label}</span>
+              <span className="text-white font-black">{b.value}</span>
+            </div>
           ))}
         </div>
       )}
 
       {/* Decorative glow */}
-      <div className={`absolute -top-12 -right-12 w-28 h-28 rounded-full ${c.bg} opacity-0 group-hover:opacity-60 transition-opacity blur-3xl pointer-events-none`} />
-    </div>
+      <div className={`absolute -top-12 -right-12 w-28 h-28 rounded-full ${c.bg} opacity-0 group-hover:opacity-80 transition-opacity duration-500 blur-3xl pointer-events-none`} />
+    </motion.div>
   );
 }
 

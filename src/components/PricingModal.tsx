@@ -123,10 +123,17 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
       else response = await paymentService.payPaystack(payload);
 
       if (selectedMethod === 'paystack' && response.access_code) {
-        // Launch Paystack Inline
+        const paystackKey = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY;
+        if (!paystackKey) {
+          toast.error("Paystack configuration missing. Restart your development wrapper.");
+          setProcessing(false);
+          return;
+        }
+
         const paystack = new (window as any).PaystackPop();
         paystack.newTransaction({
-          key: import.meta.env.VITE_PAYSTACK_PUBLIC_KEY,
+          key: paystackKey,
+          email: user?.email,
           accessCode: response.access_code,
           channels: ['card'],
           onSuccess: (transaction: any) => {

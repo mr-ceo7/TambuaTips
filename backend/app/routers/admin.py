@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_
+from sqlalchemy import select, func, and_, delete, update
 
 from app.dependencies import get_db, require_admin
 from app.models.user import User
@@ -33,6 +33,32 @@ router = APIRouter(prefix="/api/admin", tags=["Admin"])
 # ═══════════════════════════════════════════════════════════════
 #  DASHBOARD STATS
 # ═══════════════════════════════════════════════════════════════
+
+@router.delete("/dashboard/clear")
+async def clear_dashboard_stats(db: AsyncSession = Depends(get_db), admin: User = Depends(require_admin)):
+    """DANGEROUS: Wipes all tracking stats, payments, and resets user subscriptions."""
+    try:
+        # Wipe visitors & activity
+        await db.execute(delete(UserActivity))
+        await db.execute(delete(AnonymousVisitor))
+        
+        # Wipe payment history and purchases
+        await db.execute(delete(JackpotPurchase))
+        await db.execute(delete(Payment))
+        
+        # Reset all registered users back to free tier
+        await db.execute(
+            update(User)
+            .where(User.subscription_tier != None)
+            .values(subscription_tier=None, subscription_expires_at=None)
+        )
+        
+        await db.commit()
+        return {"status": "success", "message": "All stats cleared and users reset to free tier."}
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        raise HTTPException(status_code=500, detail=f"Failed: {str(e)}\n\n{error_details}")
 
 @router.get("/dashboard")
 async def dashboard_stats(db: AsyncSession = Depends(get_db), admin: User = Depends(require_admin)):

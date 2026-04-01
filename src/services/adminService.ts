@@ -155,6 +155,11 @@ export const adminService = {
     return response.data;
   },
 
+  clearDashboardStats: async (): Promise<{ status: string, message: string }> => {
+    const response = await apiClient.delete('/admin/dashboard/clear');
+    return response.data;
+  },
+
   // Users
   getUsers: async (): Promise<AdminUser[]> => {
     const response = await apiClient.get<AdminUser[]>('/admin/users');
