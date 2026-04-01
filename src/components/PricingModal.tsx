@@ -94,7 +94,7 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
     return () => clearInterval(interval);
   }, [paymentView, currentPaymentId, refreshUser]);
 
-  const isKenya = geoData?.country_code === 'KE';
+  const allowMpesa = (selectedTier?.currency === 'KES') || (!selectedTier && geoData?.currency === 'KES');
 
   const handleCheckout = async () => {
     if (!user) {
@@ -234,8 +234,8 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
                               </div>
                             </div>
                             <div className="text-right flex flex-col items-end">
-                              <div className="text-[10px] text-zinc-500 line-through">KES {(dprice * 1.5).toLocaleString()}</div>
-                              <div className="font-bold text-white text-sm">KES {dprice.toLocaleString()}</div>
+                              <div className="text-[10px] text-zinc-500 line-through">{tier.currency_symbol} {(dprice * 1.5).toLocaleString(undefined, {minimumFractionDigits: dprice % 1 !== 0 ? 2 : 0})}</div>
+                              <div className="font-bold text-white text-sm">{tier.currency_symbol} {dprice.toLocaleString(undefined, {minimumFractionDigits: dprice % 1 !== 0 ? 2 : 0})}</div>
                               <div className="text-[9px] text-emerald-500 font-bold uppercase">{duration} Weeks</div>
                             </div>
                           </button>
@@ -261,7 +261,7 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
                         {selectedMethod && <button onClick={() => setSelectedMethod(null)} className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider">Change</button>}
                       </div>
                       <div className="space-y-3">
-                        {(!selectedMethod || selectedMethod === 'mpesa') && isKenya && (
+                        {(!selectedMethod || selectedMethod === 'mpesa') && allowMpesa && (
                           <button onClick={() => setSelectedMethod('mpesa')} className={`relative w-full flex items-center justify-center p-4 rounded-xl border-2 transition-all ${selectedMethod === 'mpesa' ? 'border-emerald-500 bg-emerald-500/10' : 'border-zinc-800 hover:border-zinc-700'}`}>
                             <img src="/mpesa.svg" alt="M-Pesa" className="h-9 object-contain" />
                             {selectedMethod === 'mpesa' && <Check className="absolute right-4 w-5 h-5 text-emerald-500" />}

@@ -181,8 +181,8 @@ export function JackpotPurchaseModal({ isOpen, onClose, jackpot }: JackpotPurcha
                         <p className="font-bold text-white capitalize">{jackpot.type} Tips</p>
                       </div>
                       <div className="text-right flex flex-col items-end leading-none">
-                        <p className="text-[10px] text-zinc-500 line-through mb-1">KES {(jackpot.price * 1.5).toLocaleString()}</p>
-                        <p className="font-black text-gold-400 text-xl">KES {jackpot.price.toLocaleString()}</p>
+                        <p className="text-[10px] text-zinc-500 line-through mb-1">{jackpot.currency_symbol} {(jackpot.price * 1.5).toLocaleString(undefined, {minimumFractionDigits: jackpot.price % 1 !== 0 ? 2 : 0})}</p>
+                        <p className="font-black text-gold-400 text-xl">{jackpot.currency_symbol} {jackpot.price.toLocaleString(undefined, {minimumFractionDigits: jackpot.price % 1 !== 0 ? 2 : 0})}</p>
                       </div>
                     </div>
 
@@ -192,7 +192,7 @@ export function JackpotPurchaseModal({ isOpen, onClose, jackpot }: JackpotPurcha
                          {selectedMethod && <button onClick={() => setSelectedMethod(null)} className="text-[10px] text-gold-400 font-bold uppercase transition-colors">Change</button>}
                       </div>
                       <div className="space-y-3">
-                        {(!selectedMethod || selectedMethod === 'mpesa') && (
+                        {(!selectedMethod || selectedMethod === 'mpesa') && jackpot.currency === 'KES' && (
                           <button onClick={() => setSelectedMethod('mpesa')} className={`relative w-full flex items-center justify-center p-4 rounded-xl border-2 transition-all ${selectedMethod === 'mpesa' ? 'border-gold-500 bg-gold-500/10' : 'border-zinc-800 hover:border-zinc-700'}`}>
                             <img src="/mpesa.svg" alt="M-Pesa" className="h-9 object-contain" />
                             {selectedMethod === 'mpesa' && <Check className="absolute right-4 w-5 h-5 text-gold-500" />}

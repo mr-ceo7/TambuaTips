@@ -11,15 +11,37 @@ from app.dependencies import get_db, get_current_user, require_admin
 from app.models.user import User
 from app.models.subscription import SubscriptionTier
 from app.schemas.subscription import SubscriptionTierResponse, SubscribeRequest, SubscriptionTierCreate, SubscriptionTierUpdate
+from app.services.pricing import get_pricing_region
 from datetime import datetime, timedelta
+from typing import Optional
+from fastapi import Query
 
 router = APIRouter(prefix="/api/subscriptions", tags=["Subscriptions"])
 
 
 @router.get("/tiers", response_model=List[SubscriptionTierResponse])
-async def list_tiers(db: AsyncSession = Depends(get_db)):
+async def list_tiers(country: Optional[str] = Query(None), db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(SubscriptionTier).order_by(SubscriptionTier.price_2wk.asc()))
-    return result.scalars().all()
+    tiers = result.scalars().all()
+    
+    # Resolve pricing region
+    region = await get_pricing_region(db, country or "US")
+    
+    response = []
+    for t in tiers:
+        t_dict = t.__dict__.copy()
+        
+        # Determine override
+        if region and t.regional_prices and region.region_code in t.regional_prices:
+            overrides = t.regional_prices[region.region_code]
+            t_dict["price_2wk"] = overrides.get("price_2wk", t.price_2wk)
+            t_dict["price_4wk"] = overrides.get("price_4wk", t.price_4wk)
+            
+        t_dict["currency"] = region.currency if region else "KES"
+        t_dict["currency_symbol"] = region.currency_symbol if region else "KES"
+        response.append(SubscriptionTierResponse.model_validate(t_dict))
+        
+    return response
 
 
 @router.get("/me")

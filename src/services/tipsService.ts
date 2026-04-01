@@ -43,6 +43,9 @@ export interface JackpotPrediction {
   price: number;
   createdAt: string;
   updatedAt: string;
+  currency?: string;
+  currency_symbol?: string;
+  regional_prices?: Record<string, any>;
 }
 
 // ─── Mapping Helpers ─────────────────────────────────────────
@@ -79,6 +82,9 @@ function mapJackpot(data: any): JackpotPrediction {
     price: data.price,
     createdAt: data.created_at,
     updatedAt: data.created_at,
+    currency: data.currency || 'KES',
+    currency_symbol: data.currency_symbol || 'KES',
+    regional_prices: data.regional_prices || {},
   };
 }
 
@@ -209,9 +215,13 @@ export async function deleteTip(id: string): Promise<boolean> {
 
 // ─── Jackpots Fetching ───────────────────────────────────────
 
+import { detectUserCountry } from './geoService';
+
 export async function getAllJackpots(): Promise<JackpotPrediction[]> {
   try {
-    const res = await apiClient.get('/jackpots');
+    const country = await detectUserCountry();
+    const query = country ? `?country=${country}` : '';
+    const res = await apiClient.get(`/jackpots${query}`);
     return res.data.map(mapJackpot);
   } catch {
     return [];
@@ -220,7 +230,9 @@ export async function getAllJackpots(): Promise<JackpotPrediction[]> {
 
 export async function getJackpotById(id: string): Promise<JackpotPrediction | null> {
   try {
-    const res = await apiClient.get(`/jackpots/${id}`);
+    const country = await detectUserCountry();
+    const query = country ? `?country=${country}` : '';
+    const res = await apiClient.get(`/jackpots/${id}${query}`);
     return mapJackpot(res.data);
   } catch {
     return null;
@@ -233,6 +245,7 @@ export async function addJackpot(jackpot: any): Promise<JackpotPrediction> {
     dc_level: jackpot.dcLevel,
     price: jackpot.price,
     matches: jackpot.matches,
+    regional_prices: jackpot.regional_prices || {},
   };
   const res = await apiClient.post('/jackpots', payload);
   return mapJackpot(res.data);

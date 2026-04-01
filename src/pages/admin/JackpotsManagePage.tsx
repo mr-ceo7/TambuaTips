@@ -16,6 +16,7 @@ export function JackpotsManagePage() {
     type: 'midweek' as JackpotType,
     dcLevel: 3 as DCLevel,
     price: 500,
+    intPrice: 5.99,
     matches: [] as JackpotMatch[],
   });
   const [matchInput, setMatchInput] = useState({ homeTeam: '', awayTeam: '', pick: '1X' });
@@ -54,9 +55,15 @@ export function JackpotsManagePage() {
       toast.error(`${form.type === 'midweek' ? 'Midweek' : 'Mega'} jackpot requires exactly ${expected} matches. You have ${form.matches.length}.`);
       return;
     }
-    await addJackpot(form);
+    
+    const payload = {
+      ...form,
+      regional_prices: { international: { price: form.intPrice } }
+    };
+    
+    await addJackpot(payload);
     loadJackpots();
-    setForm({ type: 'midweek', dcLevel: 3, price: 500, matches: [] });
+    setForm({ type: 'midweek', dcLevel: 3, price: 500, intPrice: 5.99, matches: [] });
     setShowForm(false);
     toast.success('Jackpot prediction published');
   };
@@ -103,8 +110,12 @@ export function JackpotsManagePage() {
                 </select>
               </div>
               <div>
-                <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-1 tracking-wider">Price (KES)</label>
+                <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-1 tracking-wider">Local Price (KES)</label>
                 <input type="number" value={form.price} onChange={e => setForm({ ...form, price: parseInt(e.target.value) || 0 })} className="admin-input" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-blue-400 uppercase mb-1 tracking-wider">Intl Price (USD)</label>
+                <input type="number" step="0.01" value={form.intPrice} onChange={e => setForm({ ...form, intPrice: parseFloat(e.target.value) || 0 })} className="admin-input border-blue-500/30 bg-blue-500/5 focus:border-blue-500" />
               </div>
             </div>
 
@@ -148,7 +159,7 @@ export function JackpotsManagePage() {
               <button type="submit" className="flex-1 py-2.5 bg-yellow-500 text-zinc-950 font-bold rounded-xl hover:bg-yellow-400 transition-all text-sm">
                 Publish Jackpot
               </button>
-              <button type="button" onClick={() => { setShowForm(false); setForm({ type: 'midweek', dcLevel: 3, price: 500, matches: [] }); }} className="px-6 py-2.5 bg-zinc-800 text-zinc-300 rounded-xl hover:bg-zinc-700 transition-all text-sm">
+              <button type="button" onClick={() => { setShowForm(false); setForm({ type: 'midweek', dcLevel: 3, price: 500, intPrice: 5.99, matches: [] }); }} className="px-6 py-2.5 bg-zinc-800 text-zinc-300 rounded-xl hover:bg-zinc-700 transition-all text-sm">
                 Cancel
               </button>
             </div>
@@ -173,7 +184,9 @@ export function JackpotsManagePage() {
                   </div>
                   <div>
                     <span className="font-bold text-zinc-200">{j.type === 'midweek' ? 'Midweek' : 'Mega'} • {j.dcLevel}DC</span>
-                    <p className="text-xs text-zinc-500">KES {j.price.toLocaleString()} • {j.matches.length} matches</p>
+                    <p className="text-xs text-zinc-500">
+                      KES {j.price.toLocaleString()} • ${(j.regional_prices?.international?.price || 5.99).toLocaleString()} (Intl) • {j.matches.length} matches
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">

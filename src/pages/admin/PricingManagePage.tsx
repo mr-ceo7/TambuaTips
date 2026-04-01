@@ -15,7 +15,7 @@ const TIER_COLORS: Record<string, { bg: string; border: string; text: string }> 
 export function PricingManagePage() {
   const [tiers, setTiers] = useState<TierConfig[]>([]);
   const [editingTier, setEditingTier] = useState<string | null>(null);
-  const [tierForm, setTierForm] = useState({ price2wk: 0, price4wk: 0 });
+  const [tierForm, setTierForm] = useState({ price2wk: 0, price4wk: 0, int2wk: 0, int4wk: 0 });
   const [showNewForm, setShowNewForm] = useState(false);
   const [newForm, setNewForm] = useState({
     tier_id: '', name: '', description: '',
@@ -34,11 +34,29 @@ export function PricingManagePage() {
 
   const startEdit = (tier: TierConfig) => {
     setEditingTier(tier.id);
-    setTierForm({ price2wk: tier.price2wk, price4wk: tier.price4wk });
+    const rp = tier.regional_prices?.international || {};
+    setTierForm({ 
+      price2wk: tier.price2wk, 
+      price4wk: tier.price4wk,
+      int2wk: rp.price_2wk || 0,
+      int4wk: rp.price_4wk || 0
+    });
   };
 
   const saveEdit = async (tierId: string) => {
-    await updatePricingTier(tierId, tierForm);
+    const originalTier = tiers.find(t => t.id === tierId);
+    if (!originalTier) return;
+    
+    const updatedRegionalPrices = {
+      ...(originalTier.regional_prices || {}),
+      international: { price_2wk: tierForm.int2wk, price_4wk: tierForm.int4wk }
+    };
+    
+    await updatePricingTier(tierId, {
+      price2wk: tierForm.price2wk,
+      price4wk: tierForm.price4wk,
+      regional_prices: updatedRegionalPrices
+    });
     loadTiers();
     setEditingTier(null);
     toast.success('Pricing updated');
@@ -180,28 +198,49 @@ export function PricingManagePage() {
               </div>
 
               {editingTier === tier.id ? (
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-1">2 Weeks (KES)</label>
-                    <input type="number" value={tierForm.price2wk} onChange={e => setTierForm({ ...tierForm, price2wk: parseInt(e.target.value) || 0 })} className="admin-input" />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-1">4 Weeks (KES)</label>
-                    <input type="number" value={tierForm.price4wk} onChange={e => setTierForm({ ...tierForm, price4wk: parseInt(e.target.value) || 0 })} className="admin-input" />
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Local 2W (KES)</label>
+                      <input type="number" value={tierForm.price2wk} onChange={e => setTierForm({ ...tierForm, price2wk: parseInt(e.target.value) || 0 })} className="admin-input py-1.5 px-3 text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Local 4W (KES)</label>
+                      <input type="number" value={tierForm.price4wk} onChange={e => setTierForm({ ...tierForm, price4wk: parseInt(e.target.value) || 0 })} className="admin-input py-1.5 px-3 text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Intl 2W (USD)</label>
+                      <input type="number" step="0.01" value={tierForm.int2wk} onChange={e => setTierForm({ ...tierForm, int2wk: parseFloat(e.target.value) || 0 })} className="admin-input py-1.5 px-3 text-sm border-blue-500/30 bg-blue-500/5 focus:border-blue-500" />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Intl 4W (USD)</label>
+                      <input type="number" step="0.01" value={tierForm.int4wk} onChange={e => setTierForm({ ...tierForm, int4wk: parseFloat(e.target.value) || 0 })} className="admin-input py-1.5 px-3 text-sm border-blue-500/30 bg-blue-500/5 focus:border-blue-500" />
+                    </div>
                   </div>
                 </div>
               ) : (
                 <div className="space-y-3">
-                  <div className="flex items-end justify-between">
+                  <div className="flex items-end justify-between bg-zinc-950/50 p-2.5 rounded-xl border border-zinc-800">
                     <div>
-                      <span className="text-[10px] text-zinc-500">2 Weeks</span>
-                      <p className="text-base sm:text-xl font-bold text-white font-display">KES {tier.price2wk.toLocaleString()}</p>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-[10px] text-zinc-500">4 Weeks</span>
-                      <p className="text-base sm:text-xl font-bold text-white font-display">KES {tier.price4wk.toLocaleString()}</p>
+                      <span className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold">Local Prices (KES)</span>
+                      <div className="flex gap-4 mt-1">
+                        <div><span className="text-white font-bold">{tier.price2wk.toLocaleString()}</span> <span className="text-[10px] text-zinc-500">/ 2W</span></div>
+                        <div><span className="text-white font-bold">{tier.price4wk.toLocaleString()}</span> <span className="text-[10px] text-zinc-500">/ 4W</span></div>
+                      </div>
                     </div>
                   </div>
+                  
+                  {(tier.regional_prices?.international?.price_2wk || tier.regional_prices?.international?.price_4wk) && (
+                    <div className="flex items-end justify-between bg-blue-500/5 p-2.5 rounded-xl border border-blue-500/20">
+                      <div>
+                        <span className="text-[10px] text-blue-400 uppercase tracking-widest font-bold">Intl Override (USD)</span>
+                        <div className="flex gap-4 mt-1">
+                          {tier.regional_prices.international.price_2wk && <div><span className="text-white font-bold">${tier.regional_prices.international.price_2wk}</span> <span className="text-[10px] text-zinc-500">/ 2W</span></div>}
+                          {tier.regional_prices.international.price_4wk && <div><span className="text-white font-bold">${tier.regional_prices.international.price_4wk}</span> <span className="text-[10px] text-zinc-500">/ 4W</span></div>}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

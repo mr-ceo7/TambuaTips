@@ -17,6 +17,7 @@ class Jackpot(Base):
     dc_level = Column(Integer, nullable=False)  # 3, 4, 5, 6, 7, 10
     matches = Column(JSON, nullable=False)  # [{homeTeam, awayTeam, pick}]
     price = Column(Integer, nullable=False)  # KES
+    regional_prices = Column(JSON, default=dict, server_default='{}') # For dynamic overrides
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

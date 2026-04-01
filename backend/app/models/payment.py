@@ -3,7 +3,7 @@ Payment transaction model — logs all payment attempts.
 """
 
 from datetime import datetime
-from sqlalchemy import Column, BigInteger, String, Integer, DateTime, Text, ForeignKey
+from sqlalchemy import Column, BigInteger, String, Integer, Float, DateTime, Text, ForeignKey
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -14,7 +14,7 @@ class Payment(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(BigInteger, ForeignKey("users.id"), nullable=False, index=True)
-    amount = Column(Integer, nullable=False)  # KES
+    amount = Column(Float, nullable=False)  # KES or USD
     currency = Column(String(10), default="KES", nullable=False)
     method = Column(String(20), nullable=False)  # mpesa, paypal, skrill, card
     status = Column(String(20), nullable=False, default="pending")  # pending, completed, failed, refunded

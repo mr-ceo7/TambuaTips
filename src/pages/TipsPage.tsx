@@ -162,7 +162,7 @@ function JackpotCard({ jackpot }: { jackpot: JackpotPrediction; key?: React.Key 
             </div>
           </div>
           <div className="text-right">
-            <span className="text-lg font-bold text-gold-400">KES {jackpot.price.toLocaleString()}</span>
+            <span className="text-lg font-bold text-gold-400">{jackpot.currency_symbol || 'KES'} {jackpot.price.toLocaleString(undefined, {minimumFractionDigits: jackpot.price % 1 !== 0 ? 2 : 0})}</span>
           </div>
         </div>
 
@@ -202,7 +202,7 @@ function JackpotCard({ jackpot }: { jackpot: JackpotPrediction; key?: React.Key 
             onClick={handlePurchase}
             className="w-full py-2.5 bg-gold-500 text-zinc-950 font-bold rounded-xl text-sm hover:bg-gold-400 transition-all shadow-lg shadow-gold-500/20"
           >
-            Purchase — KES {jackpot.price.toLocaleString()}
+            Purchase — {jackpot.currency_symbol || 'KES'} {jackpot.price.toLocaleString(undefined, {minimumFractionDigits: jackpot.price % 1 !== 0 ? 2 : 0})}
           </button>
         )}
         

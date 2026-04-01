@@ -106,7 +106,7 @@ export function Pricing() {
               </div>
               
               <div className="mb-5 sm:mb-6 flex items-baseline gap-2">
-                <span className="text-2xl sm:text-3xl font-display font-bold text-white">KES {price.toLocaleString()}</span>
+                <span className="text-2xl sm:text-3xl font-display font-bold text-white">{tier.currency_symbol || 'KES'} {price.toLocaleString(undefined, {minimumFractionDigits: price % 1 !== 0 ? 2 : 0})}</span>
                 <span className="text-xs sm:text-sm text-zinc-500">/{duration === '2wk' ? '2 weeks' : '4 weeks'}</span>
               </div>
               

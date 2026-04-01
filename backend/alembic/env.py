@@ -11,7 +11,7 @@ from app.database import Base
 from app.config import settings
 
 # Import all models so they are registered
-from app.models import user, tip, jackpot, subscription, payment, activity, ad, notification  # noqa: F401
+from app.models import user, tip, jackpot, subscription, payment, activity, ad, notification, pricing  # noqa: F401
 
 # Alembic Config
 config = context.config
@@ -39,6 +39,7 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "format"},
+        render_as_batch=True,
     )
 
     with context.begin_transaction():
@@ -54,7 +55,7 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata)
+        context.configure(connection=connection, target_metadata=target_metadata, render_as_batch=True)
 
         with context.begin_transaction():
             context.run_migrations()

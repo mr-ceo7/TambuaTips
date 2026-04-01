@@ -12,6 +12,9 @@ export interface TierConfig {
   price4wk: number;
   categories: TipCategory[];
   popular: boolean;
+  currency?: string;
+  currency_symbol?: string;
+  regional_prices?: Record<string, any>;
 }
 
 const DEFAULT_TIERS: TierConfig[] = [
@@ -65,9 +68,13 @@ export function hasAccessToCategory(userTier: SubscriptionTier, category: TipCat
   return TIER_RANK[userTier] >= TIER_RANK[requiredTier];
 }
 
+import { detectUserCountry } from './geoService';
+
 export async function getPricingTiers(): Promise<TierConfig[]> {
   try {
-    const response = await apiClient.get('/subscriptions/tiers');
+    const country = await detectUserCountry();
+    const query = country ? `?country=${country}` : '';
+    const response = await apiClient.get(`/subscriptions/tiers${query}`);
     if (response.data && response.data.length > 0) {
       return response.data.map((t: any) => ({
         id: t.tier_id,
@@ -77,6 +84,9 @@ export async function getPricingTiers(): Promise<TierConfig[]> {
         price4wk: t.price_4wk,
         categories: Array.isArray(t.categories) ? t.categories : JSON.parse(t.categories || '[]'),
         popular: t.popular,
+        currency: t.currency || 'KES',
+        currency_symbol: t.currency_symbol || 'KES',
+        regional_prices: t.regional_prices || {},
       }));
     }
     return DEFAULT_TIERS;
@@ -95,6 +105,7 @@ export async function updatePricingTier(tierId: string, updates: Partial<TierCon
       price_4wk: updates.price4wk,
       categories: updates.categories,
       popular: updates.popular,
+      regional_prices: updates.regional_prices,
     };
     const response = await apiClient.put(`/subscriptions/tiers/${tierId}`, payload);
     const t = response.data;

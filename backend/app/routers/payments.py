@@ -25,20 +25,38 @@ router = APIRouter(prefix="/api/pay", tags=["Payments"])
 
 # ── Helpers ──────────────────────────────────────────────────
 
-async def _resolve_amount(body: PaymentRequest, db: AsyncSession) -> int:
-    """Resolve the KES amount from the item being purchased."""
+async def _resolve_amount(body: PaymentRequest, user: User, db: AsyncSession) -> tuple[float, str]:
+    """Resolve the currency amount and currency code from the item being purchased based on the user's region."""
+    from app.services.pricing import get_pricing_region
+    region = await get_pricing_region(db, user.country or "US")
+    currency = region.currency if region else "KES"
+    
     if body.item_type == "subscription":
         result = await db.execute(select(SubscriptionTier).where(SubscriptionTier.tier_id == body.item_id))
         tier = result.scalar_one_or_none()
         if not tier:
             raise HTTPException(status_code=400, detail="Invalid subscription tier")
-        return tier.price_2wk if body.duration_weeks == 2 else tier.price_4wk
+            
+        amount = tier.price_2wk if body.duration_weeks == 2 else tier.price_4wk
+        
+        if region and tier.regional_prices and region.region_code in tier.regional_prices:
+            overrides = tier.regional_prices[region.region_code]
+            amount = overrides.get("price_2wk" if body.duration_weeks == 2 else "price_4wk", amount)
+            
+        return float(amount), currency
+        
     elif body.item_type == "jackpot":
         result = await db.execute(select(Jackpot).where(Jackpot.id == int(body.item_id)))
         jp = result.scalar_one_or_none()
         if not jp:
             raise HTTPException(status_code=400, detail="Invalid jackpot ID")
-        return jp.price
+            
+        amount = jp.price
+        if region and jp.regional_prices and region.region_code in jp.regional_prices:
+            overrides = jp.regional_prices[region.region_code]
+            amount = overrides.get("price", amount)
+            
+        return float(amount), currency
     else:
         raise HTTPException(status_code=400, detail="Invalid item_type")
 
@@ -75,13 +93,16 @@ async def _fulfill_payment(payment: Payment, user: User, db: AsyncSession):
 
 @router.post("/mpesa", response_model=PaymentResponse)
 async def pay_mpesa(body: MpesaPaymentRequest, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
-    amount = await _resolve_amount(body, db)
+    amount, currency = await _resolve_amount(body, user, db)
+    if currency != "KES":
+        raise HTTPException(status_code=400, detail="M-Pesa payments are only available in Kenya (KES)")
+        
     reference = f"TT-{uuid.uuid4().hex[:8].upper()}"
 
     payment = Payment(
         user_id=user.id,
         amount=amount,
-        currency="KES",
+        currency=currency,
         method="mpesa",
         status="pending",
         reference=reference,
@@ -177,13 +198,13 @@ async def mpesa_callback(request: Request, secret: str = None, db: AsyncSession 
 
 @router.post("/paypal", response_model=PaymentResponse)
 async def pay_paypal(body: PaymentRequest, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
-    amount = await _resolve_amount(body, db)
+    amount, currency = await _resolve_amount(body, user, db)
     reference = f"TT-PP-{uuid.uuid4().hex[:8].upper()}"
 
     payment = Payment(
         user_id=user.id,
         amount=amount,
-        currency="KES",
+        currency=currency,
         method="paypal",
         status="pending",
         reference=reference,
@@ -200,8 +221,12 @@ async def pay_paypal(body: PaymentRequest, db: AsyncSession = Depends(get_db), u
         from app.services.exchange_rate import get_kes_to_usd_rate
         print("Creating PayPal Order...")
         try:
-            live_rate = await get_kes_to_usd_rate()
-            usd_amount = round(amount / live_rate, 2)
+            if currency == "USD":
+                usd_amount = amount
+            else:
+                live_rate = await get_kes_to_usd_rate()
+                usd_amount = round(amount / live_rate, 2)
+                
             if usd_amount < 0.01: usd_amount = 0.01
 
             order = await create_paypal_order(usd_amount, reference=reference, currency="USD")
@@ -273,13 +298,13 @@ async def capture_paypal(token: str, PayerID: str, db: AsyncSession = Depends(ge
 
 @router.post("/skrill", response_model=PaymentResponse)
 async def pay_skrill(body: PaymentRequest, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
-    amount = await _resolve_amount(body, db)
+    amount, currency = await _resolve_amount(body, user, db)
     reference = f"TT-SK-{uuid.uuid4().hex[:8].upper()}"
 
     payment = Payment(
         user_id=user.id,
         amount=amount,
-        currency="KES",
+        currency=currency,
         method="skrill",
         status="pending",
         reference=reference,
@@ -311,13 +336,13 @@ async def pay_skrill(body: PaymentRequest, db: AsyncSession = Depends(get_db), u
 
 @router.post("/paystack", response_model=PaymentResponse)
 async def pay_paystack(body: PaymentRequest, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
-    amount = await _resolve_amount(body, db)
+    amount, currency = await _resolve_amount(body, user, db)
     reference = f"TT-PS-{uuid.uuid4().hex[:8].upper()}"
 
     payment = Payment(
         user_id=user.id,
         amount=amount,
-        currency="KES",
+        currency=currency,
         method="paystack",
         status="pending",
         reference=reference,

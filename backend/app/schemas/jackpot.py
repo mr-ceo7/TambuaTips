@@ -18,6 +18,7 @@ class JackpotCreate(BaseModel):
     dc_level: int
     matches: List[JackpotMatch]
     price: int
+    regional_prices: Optional[dict] = {}
 
 
 class JackpotResponse(BaseModel):
@@ -26,6 +27,9 @@ class JackpotResponse(BaseModel):
     dc_level: int
     matches: List[JackpotMatch]
     price: int
+    regional_prices: Optional[dict] = {}
+    currency: Optional[str] = "KES"
+    currency_symbol: Optional[str] = "KES"
     created_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
@@ -39,4 +43,7 @@ class JackpotLockedResponse(BaseModel):
     match_count: int
     price: int
     locked: bool = True
+    regional_prices: Optional[dict] = {}
+    currency: Optional[str] = "KES"
+    currency_symbol: Optional[str] = "KES"
     created_at: Optional[datetime] = None

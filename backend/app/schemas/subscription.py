@@ -15,6 +15,9 @@ class SubscriptionTierResponse(BaseModel):
     price_4wk: int
     categories: List[str]
     popular: bool
+    regional_prices: Optional[dict] = {}
+    currency: Optional[str] = "KES"
+    currency_symbol: Optional[str] = "KES"
 
     model_config = {"from_attributes": True}
 
@@ -31,6 +34,7 @@ class SubscriptionTierUpdate(BaseModel):
     price_4wk: Optional[int] = None
     categories: Optional[List[str]] = None
     popular: Optional[bool] = None
+    regional_prices: Optional[dict] = None
 
 
 class SubscriptionTierCreate(BaseModel):
@@ -41,3 +45,4 @@ class SubscriptionTierCreate(BaseModel):
     price_4wk: int
     categories: List[str]
     popular: bool = False
+    regional_prices: Optional[dict] = {}
