@@ -64,6 +64,10 @@ async def _resolve_amount(body: PaymentRequest, user: User, db: AsyncSession) ->
 
 async def _fulfill_payment(payment: Payment, user: User, db: AsyncSession):
     """After successful payment, grant access to the purchased item."""
+    # Ensure user is fully locked for this transaction to prevent overlapping updates
+    user_res = await db.execute(select(User).where(User.id == user.id).with_for_update())
+    locked_user = user_res.scalar_one()
+
     if payment.item_type == "subscription":
         weeks = 2  # Default
         # Try to determine from original request context
@@ -76,12 +80,18 @@ async def _fulfill_payment(payment: Payment, user: User, db: AsyncSession):
             else:
                 weeks = 2
 
-        user.subscription_tier = payment.item_id
-        user.subscription_expires_at = datetime.utcnow() + timedelta(weeks=weeks)
+        locked_user.subscription_tier = payment.item_id
+        
+        # Safely extend or overwrite expiry
+        now = datetime.utcnow()
+        if not locked_user.subscription_expires_at or locked_user.subscription_expires_at < now:
+            locked_user.subscription_expires_at = now + timedelta(weeks=weeks)
+        else:
+            locked_user.subscription_expires_at += timedelta(weeks=weeks)
 
     elif payment.item_type == "jackpot":
         purchase = JackpotPurchase(
-            user_id=user.id,
+            user_id=locked_user.id,
             jackpot_id=int(payment.item_id),
             payment_id=payment.id,
         )
@@ -95,7 +105,7 @@ async def _fulfill_payment(payment: Payment, user: User, db: AsyncSession):
     import asyncio
     asyncio.create_task(
         send_payment_receipt_email(
-            email=user.email,
+            email=locked_user.email,
             amount=float(payment.amount),
             method=payment.method,
             transaction_id=payment.transaction_id or payment.reference
@@ -276,7 +286,7 @@ async def capture_paypal(token: str, PayerID: str, db: AsyncSession = Depends(ge
     """Callback when user approves PayPal payment."""
     from app.services.payment_gateway import capture_paypal_order
     
-    result = await db.execute(select(Payment).where(Payment.transaction_id == token))
+    result = await db.execute(select(Payment).where(Payment.transaction_id == token).with_for_update())
     payment = result.scalar_one_or_none()
     
     if not payment:

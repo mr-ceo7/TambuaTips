@@ -61,3 +61,12 @@ async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
         yield ac
     
     app.dependency_overrides.clear()
+
+from unittest.mock import patch
+
+@pytest.fixture(autouse=True)
+def mock_external_services():
+    with patch("app.routers.auth.send_welcome_email"), \
+         patch("app.routers.payments.send_payment_receipt_email"), \
+         patch("app.routers.auth.fetch_user_country"):
+        yield

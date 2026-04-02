@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Get backend URL from environment or use default
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://unfenestral-scratchily-lester.ngrok-free.dev';
 
 const apiClient = axios.create({
   baseURL: `${API_BASE_URL}/api`,
@@ -10,6 +10,7 @@ const apiClient = axios.create({
     'Content-Type': 'application/json',
   },
 });
+
 
 // Interceptor to handle 401s and token refresh automatically
 apiClient.interceptors.response.use(

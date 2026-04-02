@@ -5,7 +5,7 @@ Authentication routes: register, login, refresh, me.
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Response, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, update
 from datetime import datetime, timedelta
 import random
 import os
@@ -104,13 +104,14 @@ async def google_auth(body: GoogleLoginRequest, request: Request, response: Resp
 
             # Referral Fulfillment
             if body.referred_by_code:
-                result_ref = await db.execute(select(User).where(User.referral_code == body.referred_by_code))
+                result_ref = await db.execute(select(User).where(User.referral_code == body.referred_by_code).with_for_update())
                 referrer = result_ref.scalar_one_or_none()
                 if referrer and referrer.id != user.id:
                     ref_settings = await get_referral_settings(db)
                     
                     if ref_settings.get("referral_enabled", True):
                         user.referrer_id = referrer.id
+                        
                         referrer.referrals_count += 1
                         
                         reward_days = ref_settings.get("referral_reward_days", 7)
