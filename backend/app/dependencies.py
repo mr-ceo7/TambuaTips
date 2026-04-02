@@ -4,7 +4,7 @@ FastAPI dependencies: database session + current user extraction.
 
 from typing import Optional
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -25,21 +25,26 @@ async def get_db():
 
 
 async def get_current_user(
+    request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security_scheme),
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Extract and validate the current user from the Bearer token.
+    Extract and validate the current user from the cookie token (or Bearer fallback).
     Returns the User ORM object or raises 401.
     """
-    if credentials is None:
+    token = request.cookies.get("access_token")
+    if not token and credentials:
+        token = credentials.credentials
+        
+    if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    payload = decode_token(credentials.credentials)
+    payload = decode_token(token)
     if payload is None or payload.get("type") != "access":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -65,8 +70,46 @@ async def get_current_user(
 
     return user
 
+async def get_unverified_user(
+    request: Request,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security_scheme),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Extract current user from context but bypass is_active validation.
+    Used strictly for verification routes.
+    """
+    token = request.cookies.get("access_token")
+    if not token and credentials:
+        token = credentials.credentials
+        
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    payload = decode_token(token)
+    if payload is None or payload.get("type") != "access":
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid payload")
+
+    from app.models.user import User
+    result = await db.execute(select(User).where(User.id == int(user_id)))
+    user = result.scalar_one_or_none()
+
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+
+    return user
+
 
 async def get_current_user_optional(
+    request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security_scheme),
     db: AsyncSession = Depends(get_db),
 ):
@@ -74,10 +117,14 @@ async def get_current_user_optional(
     Like get_current_user, but returns None instead of raising if not authenticated.
     Useful for endpoints that are public but show extra data for logged-in users.
     """
-    if credentials is None:
+    token = request.cookies.get("access_token")
+    if not token and credentials:
+        token = credentials.credentials
+        
+    if not token:
         return None
 
-    payload = decode_token(credentials.credentials)
+    payload = decode_token(token)
     if payload is None or payload.get("type") != "access":
         return None
 

@@ -57,6 +57,9 @@ class Settings(BaseSettings):
     VAPID_PRIVATE_KEY: str = ""
     VAPID_SUBJECT: str = ""
 
+    # ── Auth ─────────────────────────────────────────────────
+    GOOGLE_CLIENT_ID: str = ""
+
     @property
     def api_football_key_list(self) -> List[str]:
         return [k.strip() for k in self.API_FOOTBALL_KEYS.split(",") if k.strip()]

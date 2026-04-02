@@ -21,6 +21,7 @@ python-jose = {extras = ["cryptography"], version = "==3.4.0"}
 passlib = {extras = ["bcrypt"], version = "==1.7.4"}
 pywebpush = "*"
 httpx = "*"
+google-auth = "*"
 
 [dev-packages]
 

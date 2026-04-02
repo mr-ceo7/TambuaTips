@@ -18,6 +18,8 @@ class User(Base):
     email_verified_at = Column(DateTime, nullable=True)
     password = Column(String(255), nullable=False)
     remember_token = Column(String(100), nullable=True)
+    verification_code = Column(String(6), nullable=True)
+    verification_code_expires_at = Column(DateTime, nullable=True)
 
     # New fields (will be added via Alembic migration)
     is_active = Column(Boolean, default=True, nullable=False, server_default="1")

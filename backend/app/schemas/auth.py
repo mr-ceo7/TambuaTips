@@ -19,9 +19,15 @@ class LoginRequest(BaseModel):
     email: EmailStr
     password: str
 
+class GoogleLoginRequest(BaseModel):
+    id_token: str
+
 
 class RefreshRequest(BaseModel):
     refresh_token: str
+
+class VerifyEmailRequest(BaseModel):
+    code: str
 
 class PushSubscribeRequest(BaseModel):
     endpoint: str

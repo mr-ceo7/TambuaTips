@@ -31,7 +31,9 @@ interface UserContextType {
   setShowPricingModal: (show: boolean, category?: TipCategory) => void;
   targetCategory: TipCategory | null;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  googleLogin: (idToken: string) => Promise<{ success: boolean; error?: string }>;
   signup: (username: string, email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  verifyEmail: (code: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   refreshUser: () => Promise<void>;
   showAuthModal: boolean;
@@ -113,21 +115,17 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [bettingHistory, setBettingHistory] = useState<any[]>([]);
 
   const refreshUser = useCallback(async () => {
-    const token = localStorage.getItem('tambuatips_access_token');
-    if (token) {
-      try {
-        const userData = await authService.me();
-        setUser(userData);
-        if (userData.favorite_teams) {
-          setFavoriteTeams(userData.favorite_teams);
-          localStorage.setItem('tambua_fav_teams', JSON.stringify(userData.favorite_teams));
-        }
-      } catch (error) {
-        console.error('Failed to refresh user', error);
-        // Don't logout on refresh error, just set user to null if it's a 401
-        if ((error as any).response?.status === 401) {
-          setUser(null);
-        }
+    try {
+      const userData = await authService.me();
+      setUser(userData);
+      if (userData.favorite_teams) {
+        setFavoriteTeams(userData.favorite_teams);
+        localStorage.setItem('tambua_fav_teams', JSON.stringify(userData.favorite_teams));
+      }
+    } catch (error) {
+      // If 401 or 403, it means no valid cookie or unverified
+      if ((error as any).response?.status === 401 || (error as any).response?.status === 403) {
+        setUser(null);
       }
     }
   }, []);
@@ -162,18 +160,17 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
   const signup = useCallback(async (username: string, email: string, password: string) => {
     try {
-      const tokens = await authService.register(username, email, password);
-      localStorage.setItem('tambuatips_access_token', tokens.access_token);
-      localStorage.setItem('tambuatips_refresh_token', tokens.refresh_token);
+      await authService.register(username, email, password);
       
-      const userData = await authService.me();
-      setUser(userData);
-      if (userData.favorite_teams) {
-        setFavoriteTeams(userData.favorite_teams);
-        localStorage.setItem('tambua_fav_teams', JSON.stringify(userData.favorite_teams));
+      try {
+        const userData = await authService.me();
+        setUser(userData);
+      } catch (meError: any) {
+        // Expected outcome: Registration kicks them to unverified (403 or 401)
+        setUser(null);
       }
-      setShowAuthModal(false);
-      enablePushNotifications();
+      
+      // We do NOT close the Auth Modal here if they need verification.
       return { success: true };
     } catch (error: any) {
       return { 
@@ -185,9 +182,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
   const login = useCallback(async (email: string, password: string) => {
     try {
-      const tokens = await authService.login(email, password);
-      localStorage.setItem('tambuatips_access_token', tokens.access_token);
-      localStorage.setItem('tambuatips_refresh_token', tokens.refresh_token);
+      await authService.login(email, password);
       
       const userData = await authService.me();
       setUser(userData);
@@ -201,7 +196,48 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     } catch (error: any) {
       return { 
         success: false, 
-        error: error.response?.data?.detail || 'Invalid email or password' 
+        error: error.response?.data?.detail || 'Invalid email or password / Account unverified' 
+      };
+    }
+  }, []);
+
+  const googleLogin = useCallback(async (idToken: string) => {
+    try {
+      await authService.googleLogin(idToken);
+      
+      const userData = await authService.me();
+      setUser(userData);
+      if (userData.favorite_teams) {
+        setFavoriteTeams(userData.favorite_teams);
+        localStorage.setItem('tambua_fav_teams', JSON.stringify(userData.favorite_teams));
+      }
+      setShowAuthModal(false);
+      enablePushNotifications();
+      return { success: true };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.detail || 'Google Authentication Failed'
+      };
+    }
+  }, []);
+
+  const verifyEmail = useCallback(async (code: string) => {
+    try {
+      await authService.verifyEmail(code);
+      const userData = await authService.me();
+      setUser(userData);
+      if (userData.favorite_teams) {
+        setFavoriteTeams(userData.favorite_teams);
+        localStorage.setItem('tambua_fav_teams', JSON.stringify(userData.favorite_teams));
+      }
+      setShowAuthModal(false);
+      enablePushNotifications();
+      return { success: true };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.detail || 'Invalid or expired verification code'
       };
     }
   }, []);
@@ -320,7 +356,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <UserContext.Provider value={{
-      user, isLoggedIn: !!user, login, signup, logout, refreshUser, upgradeToPremium, subscribeTo, hasAccess,
+      user, isLoggedIn: !!user, login, googleLogin, signup, verifyEmail, logout, refreshUser, upgradeToPremium, subscribeTo, hasAccess,
       showAuthModal, setShowAuthModal,
       showPricingModal, setShowPricingModal, targetCategory,
       purchaseJackpot, hasAccessToCategory, hasJackpotAccess,

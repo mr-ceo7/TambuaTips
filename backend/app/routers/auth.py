@@ -3,17 +3,23 @@ Authentication routes: register, login, refresh, me.
 """
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, status, Request, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Response, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from datetime import datetime
+from datetime import datetime, timedelta
+import random
+import os
+import string
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
 
 from app.database import AsyncSessionLocal
-from app.dependencies import get_db, get_current_user, get_current_user_optional
+from app.dependencies import get_db, get_current_user, get_current_user_optional, get_unverified_user
 from app.models.user import User
 from app.models.activity import UserActivity, AnonymousVisitor, AnonymousActivity
-from app.schemas.auth import RegisterRequest, LoginRequest, RefreshRequest, TokenResponse, UserResponse, UpdateFavoritesRequest, PushSubscribeRequest, ActivityRequest
+from app.schemas.auth import RegisterRequest, LoginRequest, GoogleLoginRequest, RefreshRequest, UserResponse, UpdateFavoritesRequest, PushSubscribeRequest, ActivityRequest, VerifyEmailRequest
 from app.security import hash_password, verify_password, create_access_token, create_refresh_token, decode_token
+from app.services.email_service import send_verification_email
 
 def get_real_ip(request: Request) -> str:
     x_forwarded_for = request.headers.get("x-forwarded-for")
@@ -54,19 +60,24 @@ async def fetch_user_country(user_id: int, ip_address: str):
     except Exception as e:
         print(f"IP Geolocation failed: {e}")
 
-@router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
-async def register(body: RegisterRequest, request: Request, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)):
+@router.post("/register", status_code=status.HTTP_201_CREATED)
+async def register(body: RegisterRequest, request: Request, response: Response, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)):
     # Check if email exists
     result = await db.execute(select(User).where(User.email == body.email.lower().strip()))
     if result.scalar_one_or_none():
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
 
+    code = f"{random.randint(100000, 999999)}"
+    
     user = User(
         name=body.name.strip(),
         email=body.email.lower().strip(),
         password=hash_password(body.password),
         subscription_tier="free",
-        is_admin=False
+        is_admin=False,
+        is_active=False,
+        verification_code=code,
+        verification_code_expires_at=datetime.utcnow() + timedelta(minutes=15)
     )
     db.add(user)
     await db.commit()
@@ -74,15 +85,41 @@ async def register(body: RegisterRequest, request: Request, background_tasks: Ba
 
     client_ip = get_real_ip(request)
     background_tasks.add_task(fetch_user_country, user.id, client_ip)
+    background_tasks.add_task(send_verification_email, user.email, code)
 
-    return TokenResponse(
-        access_token=create_access_token(str(user.id)),
-        refresh_token=create_refresh_token(str(user.id)),
-    )
+    access_token = create_access_token(str(user.id))
+    refresh_token = create_refresh_token(str(user.id))
+
+    response.set_cookie(key="access_token", value=access_token, httponly=True, secure=False, samesite="lax", max_age=3600)
+    response.set_cookie(key="refresh_token", value=refresh_token, httponly=True, secure=False, samesite="lax", max_age=604800)
+
+    return {"status": "success"}
 
 
-@router.post("/login", response_model=TokenResponse)
-async def login(body: LoginRequest, request: Request, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)):
+@router.post("/verify-email")
+async def verify_email(body: VerifyEmailRequest, db: AsyncSession = Depends(get_db), user: User = Depends(get_unverified_user)):
+    if user.is_active:
+        return {"status": "success", "detail": "Already verified"}
+        
+    if user.verification_code_expires_at and datetime.utcnow() > user.verification_code_expires_at:
+        raise HTTPException(status_code=400, detail="Verification code has expired. Please request a new one.")
+        
+    if str(user.verification_code) != str(body.code):
+        raise HTTPException(status_code=400, detail="Invalid verification code")
+        
+    user.is_active = True
+    user.email_verified_at = datetime.utcnow()
+    user.verification_code = None
+    user.verification_code_expires_at = None
+    
+    db.add(user)
+    await db.commit()
+    
+    return {"status": "success"}
+
+
+@router.post("/login")
+async def login(body: LoginRequest, request: Request, response: Response, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.email == body.email.lower().strip()))
     user = result.scalar_one_or_none()
 
@@ -92,15 +129,79 @@ async def login(body: LoginRequest, request: Request, background_tasks: Backgrou
     client_ip = get_real_ip(request)
     background_tasks.add_task(fetch_user_country, user.id, client_ip)
 
-    return TokenResponse(
-        access_token=create_access_token(str(user.id)),
-        refresh_token=create_refresh_token(str(user.id)),
-    )
+    access_token = create_access_token(str(user.id))
+    refresh_token = create_refresh_token(str(user.id))
+
+    response.set_cookie(key="access_token", value=access_token, httponly=True, secure=False, samesite="lax", max_age=3600)
+    response.set_cookie(key="refresh_token", value=refresh_token, httponly=True, secure=False, samesite="lax", max_age=604800)
+
+    return {"status": "success"}
 
 
-@router.post("/refresh", response_model=TokenResponse)
-async def refresh(body: RefreshRequest, db: AsyncSession = Depends(get_db)):
-    payload = decode_token(body.refresh_token)
+@router.post("/google")
+async def google_auth(body: GoogleLoginRequest, request: Request, response: Response, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)):
+    try:
+        # Validate Google token
+        client_id = os.getenv("GOOGLE_CLIENT_ID")
+        idinfo = id_token.verify_oauth2_token(body.id_token, google_requests.Request(), client_id)
+        
+        email = idinfo.get("email")
+        name = idinfo.get("name")
+        
+        if not email:
+            raise HTTPException(status_code=400, detail="No email provided in Google Token")
+            
+        # Check if user exists
+        result = await db.execute(select(User).where(User.email == email.lower().strip()))
+        user = result.scalar_one_or_none()
+        
+        if not user:
+            # Auto-register Google users and instantly mark as active
+            rand_pass = "".join(random.choices(string.ascii_letters + string.digits, k=32))
+            
+            user = User(
+                name=name.strip(),
+                email=email.lower().strip(),
+                password=hash_password(rand_pass),
+                subscription_tier="free",
+                is_admin=False,
+                is_active=True,
+                email_verified_at=datetime.utcnow()
+            )
+            db.add(user)
+            await db.commit()
+            await db.refresh(user)
+
+        # Update login mechanics tracking IP and Geo via background tasks
+        client_ip = get_real_ip(request)
+        background_tasks.add_task(fetch_user_country, user.id, client_ip)
+
+        # Issue securely
+        access_token = create_access_token(str(user.id))
+        refresh_token = create_refresh_token(str(user.id))
+
+        response.set_cookie(key="access_token", value=access_token, httponly=True, secure=False, samesite="lax", max_age=3600)
+        response.set_cookie(key="refresh_token", value=refresh_token, httponly=True, secure=False, samesite="lax", max_age=604800)
+
+        return {"status": "success"}
+
+    except ValueError as e:
+        raise HTTPException(status_code=401, detail=f"Invalid Google Token: {e}")
+
+@router.post("/logout")
+async def logout(response: Response):
+    response.delete_cookie("access_token")
+    response.delete_cookie("refresh_token")
+    return {"status": "success"}
+
+
+@router.post("/refresh")
+async def refresh(request: Request, response: Response, db: AsyncSession = Depends(get_db)):
+    refresh_token = request.cookies.get("refresh_token")
+    if not refresh_token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token missing from cookies")
+        
+    payload = decode_token(refresh_token)
     if payload is None or payload.get("type") != "refresh":
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
 
@@ -111,10 +212,13 @@ async def refresh(body: RefreshRequest, db: AsyncSession = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
 
-    return TokenResponse(
-        access_token=create_access_token(str(user.id)),
-        refresh_token=create_refresh_token(str(user.id)),
-    )
+    access_token = create_access_token(str(user.id))
+    new_refresh_token = create_refresh_token(str(user.id))
+
+    response.set_cookie(key="access_token", value=access_token, httponly=True, secure=False, samesite="lax", max_age=3600)
+    response.set_cookie(key="refresh_token", value=new_refresh_token, httponly=True, secure=False, samesite="lax", max_age=604800)
+
+    return {"status": "success"}
 
 
 @router.get("/me", response_model=UserResponse)

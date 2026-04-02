@@ -2,9 +2,7 @@ import apiClient from './apiClient';
 import type { UserData } from '../context/UserContext';
 
 export interface AuthResponse {
-  access_token: string;
-  refresh_token: string;
-  token_type: string;
+  status: string;
 }
 
 export const authService = {
@@ -21,6 +19,20 @@ export const authService = {
     const response = await apiClient.post<AuthResponse>('/auth/login', {
       email,
       password,
+    });
+    return response.data;
+  },
+
+  async googleLogin(idToken: string): Promise<AuthResponse> {
+    const response = await apiClient.post<AuthResponse>('/auth/google', {
+      id_token: idToken,
+    });
+    return response.data;
+  },
+
+  async verifyEmail(code: string): Promise<AuthResponse> {
+    const response = await apiClient.post<AuthResponse>('/auth/verify-email', {
+      code,
     });
     return response.data;
   },
@@ -67,9 +79,12 @@ export const authService = {
     return response.data;
   },
 
-  logout() {
-    localStorage.removeItem('tambuatips_access_token');
-    localStorage.removeItem('tambuatips_refresh_token');
+  async logout() {
+    try {
+      await apiClient.post('/auth/logout');
+    } catch (e) {
+      // Ignore if already logged out
+    }
     window.dispatchEvent(new Event('auth:unauthorized'));
   }
 };
