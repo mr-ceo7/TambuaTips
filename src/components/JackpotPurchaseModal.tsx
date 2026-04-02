@@ -24,9 +24,14 @@ export function JackpotPurchaseModal({ isOpen, onClose, jackpot }: JackpotPurcha
     if (!isOpen) {
       setPaymentView('selection');
       setCurrentPaymentId(null);
+      setSelectedMethod(null);
       return;
     }
     
+    if (jackpot?.currency === 'KES') {
+      setSelectedMethod('mpesa');
+    }
+
     if (!document.getElementById('paystack-script')) {
       const script = document.createElement('script');
       script.id = 'paystack-script';
@@ -34,7 +39,7 @@ export function JackpotPurchaseModal({ isOpen, onClose, jackpot }: JackpotPurcha
       script.async = true;
       document.body.appendChild(script);
     }
-  }, [isOpen]);
+  }, [isOpen, jackpot]);
 
   // Polling for payment status
   useEffect(() => {
@@ -199,7 +204,7 @@ export function JackpotPurchaseModal({ isOpen, onClose, jackpot }: JackpotPurcha
                           </button>
                         )}
                         {(!selectedMethod || selectedMethod === 'paystack') && (
-                          <button onClick={() => setSelectedMethod('paystack')} className={`relative w-full flex items-center justify-center p-4 rounded-xl border-2 transition-all ${selectedMethod === 'paystack' ? 'border-gold-500 bg-gold-500/10' : 'border-zinc-800 hover:border-zinc-700'}`}>
+                          <button onClick={() => toast.info('Paystack integration is coming soon!')} className="relative w-full flex items-center justify-center p-4 rounded-xl border-2 transition-all border-zinc-800 hover:border-zinc-700 opacity-50 cursor-not-allowed">
                             <div className="flex items-center gap-3">
                               <div className="flex gap-2">
                                 <div className="bg-linear-to-r from-blue-700 to-blue-900 rounded-[4px] px-2 py-0.5 shadow-xs border border-blue-600 flex items-center justify-center">
@@ -217,7 +222,7 @@ export function JackpotPurchaseModal({ isOpen, onClose, jackpot }: JackpotPurcha
                                 <img src="/paystack.svg" alt="Paystack" className="h-2.5 object-contain brightness-0 invert" />
                               </div>
                             </div>
-                            {selectedMethod === 'paystack' && <Check className="absolute right-4 w-5 h-5 text-gold-500" />}
+                            <div className="absolute right-4 text-[9px] font-bold text-purple-400 bg-purple-500/10 border border-purple-500/20 px-2 py-1 rounded-full uppercase tracking-wider">Coming Soon</div>
                           </button>
                         )}
                         {(!selectedMethod || selectedMethod === 'paypal') && (

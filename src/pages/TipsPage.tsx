@@ -94,7 +94,7 @@ function TipCard({ tip, locked = false, onGetFree }: { tip: Tip; locked?: boolea
                   <Eye className="w-4 h-4" />
                 </div>
                 <p className="text-[9px] text-gold-400 font-bold uppercase tracking-wider">
-                  Purchase
+                  Unlock
                 </p>
               </button>
               {onGetFree && (
@@ -148,7 +148,7 @@ function TipCard({ tip, locked = false, onGetFree }: { tip: Tip; locked?: boolea
 }
 
 // ─── Jackpot Card ────────────────────────────────────────────
-function JackpotCard({ jackpot }: { jackpot: JackpotPrediction; key?: React.Key }) {
+function JackpotCard({ jackpot, onGetFree }: { jackpot: JackpotPrediction; key?: React.Key; onGetFree?: () => void }) {
   const { user, setShowAuthModal, setSelectedJackpot, setShowJackpotModal, hasJackpotAccess } = useUser();
   const isUnlocked = hasJackpotAccess(jackpot.id);
 
@@ -215,12 +215,23 @@ function JackpotCard({ jackpot }: { jackpot: JackpotPrediction; key?: React.Key 
         )}
 
         {!isUnlocked && (
-          <button
-            onClick={handlePurchase}
-            className="w-full py-2.5 bg-gold-500 text-zinc-950 font-bold rounded-xl text-sm hover:bg-gold-400 transition-all shadow-lg shadow-gold-500/20"
-          >
-            Purchase — {jackpot.currency_symbol || 'KES'} {jackpot.price.toLocaleString(undefined, {minimumFractionDigits: jackpot.price % 1 !== 0 ? 2 : 0})}
-          </button>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <button
+              onClick={handlePurchase}
+              className="flex-1 py-2.5 bg-gold-500 text-zinc-950 font-bold rounded-xl text-sm hover:bg-gold-400 transition-all shadow-lg shadow-gold-500/20"
+            >
+              Unlock {jackpot.currency_symbol || 'KES'} {jackpot.price.toLocaleString(undefined, {minimumFractionDigits: jackpot.price % 1 !== 0 ? 2 : 0})}
+            </button>
+            {onGetFree && (
+              <button 
+                onClick={(e) => { e.preventDefault(); onGetFree(); }}
+                className="flex-1 py-2.5 flex items-center justify-center gap-1.5 bg-emerald-500 text-zinc-950 font-bold rounded-xl text-sm hover:bg-emerald-400 transition-all shadow-lg shadow-emerald-500/20"
+              >
+                <Gift className="w-4 h-4" />
+                Get Free
+              </button>
+            )}
+          </div>
         )}
         
         {isUnlocked && (
@@ -237,7 +248,7 @@ function JackpotCard({ jackpot }: { jackpot: JackpotPrediction; key?: React.Key 
 // ─── Main Page ───────────────────────────────────────────────
 export function TipsPage() {
   usePageTitle('Expert Tips');
-  const { user, hasAccess, setShowAuthModal, setShowPricingModal } = useUser();
+  const { user, hasAccess, hasJackpotAccess, setShowAuthModal, setShowPricingModal } = useUser();
   const [activeTab, setActiveTab] = useState<'tips' | 'jackpot'>('tips');
   const [stats, setStats] = useState({ total: 0, won: 0, lost: 0, pending: 0, voided: 0, winRate: 0 });
   const [jackpots, setJackpots] = useState<JackpotPrediction[]>([]);
@@ -389,9 +400,16 @@ export function TipsPage() {
 
           {jackpots.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {jackpots.map(j => (
-                <JackpotCard key={j.id} jackpot={j} />
-              ))}
+              {jackpots.map(j => {
+                const isUnlocked = hasJackpotAccess(j.id);
+                return (
+                  <JackpotCard 
+                    key={j.id} 
+                    jackpot={j} 
+                    onGetFree={(!isUnlocked && user) ? () => setShowReferralModal(true) : undefined}
+                  />
+                );
+              })}
             </div>
           ) : (
             <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-8 text-center">

@@ -13,7 +13,7 @@ const navItems = [
 ];
 
 export function Header() {
-  const { user, isLoggedIn, logout, setShowAuthModal } = useUser();
+  const { user, isLoggedIn, logout, setShowAuthModal, setShowPricingModal } = useUser();
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -124,12 +124,12 @@ export function Header() {
               </button>
             )}
 
-            <Link
-              to="/tips"
+            <button
+              onClick={() => setShowPricingModal(true, 'vip')}
               className="hidden sm:block rounded-lg bg-emerald-500 px-4 py-2 text-sm font-bold text-zinc-950 hover:bg-emerald-400 transition-all hover:scale-105 active:scale-95 hover:shadow-lg hover:shadow-emerald-500/20"
             >
               Go Premium
-            </Link>
+            </button>
 
             {/* Mobile menu toggle */}
             <button

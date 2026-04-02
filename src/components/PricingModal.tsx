@@ -45,6 +45,7 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
     if (!isOpen) {
       setPaymentView('selection');
       setCurrentPaymentId(null);
+      setSelectedMethod(null);
       return;
     }
     
@@ -58,8 +59,16 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
     
     fetch('https://ipapi.co/json/')
       .then(res => res.json())
-      .then(data => { setGeoData(data); setLoadingGeo(false); })
-      .catch(() => { setGeoData({ country_code: 'KE', currency: 'KES' }); setLoadingGeo(false); });
+      .then(data => { 
+        setGeoData(data); 
+        setLoadingGeo(false); 
+        if (data.currency === 'KES' || data.country_code === 'KE') setSelectedMethod('mpesa');
+      })
+      .catch(() => { 
+        setGeoData({ country_code: 'KE', currency: 'KES' }); 
+        setLoadingGeo(false); 
+        setSelectedMethod('mpesa');
+      });
   }, [isOpen, targetCategory]);
 
   // Polling for payment status
@@ -268,7 +277,7 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
                           </button>
                         )}
                         {(!selectedMethod || selectedMethod === 'paystack') && (
-                          <button onClick={() => setSelectedMethod('paystack')} className={`relative w-full flex items-center justify-center p-4 rounded-xl border-2 transition-all ${selectedMethod === 'paystack' ? 'border-emerald-500 bg-emerald-500/10' : 'border-zinc-800 hover:border-zinc-700'}`}>
+                          <button onClick={() => toast.info('Paystack integration is coming soon!')} className="relative w-full flex items-center justify-center p-4 rounded-xl border-2 transition-all border-zinc-800 hover:border-zinc-700 opacity-50 cursor-not-allowed">
                             <div className="flex items-center gap-3">
                               <div className="flex gap-2">
                                 <div className="bg-linear-to-r from-blue-700 to-blue-900 rounded-[4px] px-2 py-0.5 shadow-xs border border-blue-600 flex items-center justify-center">
@@ -286,7 +295,7 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
                                 <img src="/paystack.svg" alt="Paystack" className="h-2.5 object-contain brightness-0 invert" />
                               </div>
                             </div>
-                            {selectedMethod === 'paystack' && <Check className="absolute right-4 w-5 h-5 text-emerald-500" />}
+                            <div className="absolute right-4 text-[9px] font-bold text-purple-400 bg-purple-500/10 border border-purple-500/20 px-2 py-1 rounded-full uppercase tracking-wider">Coming Soon</div>
                           </button>
                         )}
                         {(!selectedMethod || selectedMethod === 'paypal') && (
