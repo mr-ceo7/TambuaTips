@@ -72,13 +72,17 @@ export function Footer() {
           </div>
         </div>
 
-        <div className="border-t border-zinc-800 mt-8 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-xs text-zinc-600">
-            © {new Date().getFullYear()} TambuaTips. All rights reserved.
+        <div className="border-t border-zinc-800 mt-8 pt-6 flex flex-col items-center justify-between gap-4 md:flex-row">
+          <p className="text-xs text-zinc-600 text-center md:text-left">
+            © {new Date().getFullYear()} TambuaTips. All rights reserved. <br className="md:hidden" />
+            <span className="hidden md:inline"> | </span> 
+            <span className="text-emerald-500/80 font-medium">Gamble responsibly. 18+ only.</span>
           </p>
-          <p className="text-xs text-zinc-600">
-            Gamble responsibly. 18+ only.
-          </p>
+          <div className="flex flex-wrap justify-center gap-4 md:gap-6">
+            <Link to="/privacy" className="text-xs font-medium text-zinc-500 hover:text-white transition-colors">Privacy Policy</Link>
+            <Link to="/terms" className="text-xs font-medium text-zinc-500 hover:text-white transition-colors">Terms of Service</Link>
+            <Link to="/responsible-gambling" className="text-xs font-medium text-zinc-500 hover:text-white transition-colors">Responsible Gambling</Link>
+          </div>
         </div>
       </div>
     </footer>

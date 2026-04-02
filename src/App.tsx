@@ -14,6 +14,9 @@ import { StandingsPage } from './pages/StandingsPage';
 import { NewsPage } from './pages/NewsPage';
 import { TipsPage } from './pages/TipsPage';
 import { SplashScreen } from './components/SplashScreen';
+import { PrivacyPolicy } from './pages/legal/PrivacyPolicy';
+import { TermsOfService } from './pages/legal/TermsOfService';
+import { ResponsibleGambling } from './pages/legal/ResponsibleGambling';
 
 // Admin
 import { AdminLayout } from './components/admin/AdminLayout';
@@ -44,6 +47,9 @@ export default function App() {
             <Route path="/standings" element={<StandingsPage />} />
             <Route path="/news" element={<NewsPage />} />
             <Route path="/tips" element={<TipsPage />} />
+            <Route path="/privacy" element={<PrivacyPolicy />} />
+            <Route path="/terms" element={<TermsOfService />} />
+            <Route path="/responsible-gambling" element={<ResponsibleGambling />} />
           </Route>
 
           {/* Admin console */}
