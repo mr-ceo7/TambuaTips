@@ -6,33 +6,9 @@ export interface AuthResponse {
 }
 
 export const authService = {
-  async register(name: string, email: string, password: string): Promise<AuthResponse> {
-    const response = await apiClient.post<AuthResponse>('/auth/register', {
-      name,
-      email,
-      password,
-    });
-    return response.data;
-  },
-
-  async login(email: string, password: string): Promise<AuthResponse> {
-    const response = await apiClient.post<AuthResponse>('/auth/login', {
-      email,
-      password,
-    });
-    return response.data;
-  },
-
   async googleLogin(idToken: string): Promise<AuthResponse> {
     const response = await apiClient.post<AuthResponse>('/auth/google', {
       id_token: idToken,
-    });
-    return response.data;
-  },
-
-  async verifyEmail(code: string): Promise<AuthResponse> {
-    const response = await apiClient.post<AuthResponse>('/auth/verify-email', {
-      code,
     });
     return response.data;
   },

@@ -3,6 +3,8 @@ import type { SubscriptionTier } from '../services/pricingService';
 import type { TipCategory, JackpotPrediction } from '../services/tipsService';
 import { hasAccessToCategory } from '../services/pricingService';
 import { authService } from '../services/authService';
+import { useGoogleOneTapLogin } from '@react-oauth/google';
+import { toast } from 'sonner';
 
 // ---- Types ----
 export interface UserSubscription {
@@ -30,10 +32,7 @@ interface UserContextType {
   showPricingModal: boolean;
   setShowPricingModal: (show: boolean, category?: TipCategory) => void;
   targetCategory: TipCategory | null;
-  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   googleLogin: (idToken: string) => Promise<{ success: boolean; error?: string }>;
-  signup: (username: string, email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  verifyEmail: (code: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   refreshUser: () => Promise<void>;
   showAuthModal: boolean;
@@ -158,49 +157,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener('auth:unauthorized', handleUnauthorized);
   }, []);
 
-  const signup = useCallback(async (username: string, email: string, password: string) => {
-    try {
-      await authService.register(username, email, password);
-      
-      try {
-        const userData = await authService.me();
-        setUser(userData);
-      } catch (meError: any) {
-        // Expected outcome: Registration kicks them to unverified (403 or 401)
-        setUser(null);
-      }
-      
-      // We do NOT close the Auth Modal here if they need verification.
-      return { success: true };
-    } catch (error: any) {
-      return { 
-        success: false, 
-        error: error.response?.data?.detail || 'Signup failed. Email might be in use.' 
-      };
-    }
-  }, []);
-
-  const login = useCallback(async (email: string, password: string) => {
-    try {
-      await authService.login(email, password);
-      
-      const userData = await authService.me();
-      setUser(userData);
-      if (userData.favorite_teams) {
-        setFavoriteTeams(userData.favorite_teams);
-        localStorage.setItem('tambua_fav_teams', JSON.stringify(userData.favorite_teams));
-      }
-      setShowAuthModal(false);
-      enablePushNotifications();
-      return { success: true };
-    } catch (error: any) {
-      return { 
-        success: false, 
-        error: error.response?.data?.detail || 'Invalid email or password / Account unverified' 
-      };
-    }
-  }, []);
-
   const googleLogin = useCallback(async (idToken: string) => {
     try {
       await authService.googleLogin(idToken);
@@ -222,25 +178,23 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const verifyEmail = useCallback(async (code: string) => {
-    try {
-      await authService.verifyEmail(code);
-      const userData = await authService.me();
-      setUser(userData);
-      if (userData.favorite_teams) {
-        setFavoriteTeams(userData.favorite_teams);
-        localStorage.setItem('tambua_fav_teams', JSON.stringify(userData.favorite_teams));
+  useGoogleOneTapLogin({
+    onSuccess: async (credentialResponse) => {
+      if (credentialResponse.credential) {
+        const result = await googleLogin(credentialResponse.credential);
+        if (result.success) {
+          toast.success(`Welcome to TambuaTips! 🎉`);
+        } else {
+          toast.error(result.error || 'Google Authentication failed');
+        }
       }
-      setShowAuthModal(false);
-      enablePushNotifications();
-      return { success: true };
-    } catch (error: any) {
-      return {
-        success: false,
-        error: error.response?.data?.detail || 'Invalid or expired verification code'
-      };
-    }
-  }, []);
+    },
+    onError: () => {
+      console.error('Google One Tap Failed');
+    },
+    disabled: !!user,
+    cancel_on_tap_outside: false
+  });
 
   const logout = useCallback(() => {
     authService.logout();
@@ -356,7 +310,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <UserContext.Provider value={{
-      user, isLoggedIn: !!user, login, googleLogin, signup, verifyEmail, logout, refreshUser, upgradeToPremium, subscribeTo, hasAccess,
+      user, isLoggedIn: !!user, googleLogin, logout, refreshUser, upgradeToPremium, subscribeTo, hasAccess,
       showAuthModal, setShowAuthModal,
       showPricingModal, setShowPricingModal, targetCategory,
       purchaseJackpot, hasAccessToCategory, hasJackpotAccess,

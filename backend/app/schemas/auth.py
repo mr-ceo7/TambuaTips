@@ -3,21 +3,11 @@ Pydantic schemas for authentication endpoints.
 """
 
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Any, Dict
 from pydantic import BaseModel, EmailStr, Field
 
 
 # ── Requests ─────────────────────────────────────────────────
-
-class RegisterRequest(BaseModel):
-    name: str = Field(..., min_length=2, max_length=255)
-    email: EmailStr
-    password: str = Field(..., min_length=6, max_length=128)
-
-
-class LoginRequest(BaseModel):
-    email: EmailStr
-    password: str
 
 class GoogleLoginRequest(BaseModel):
     id_token: str
@@ -25,9 +15,6 @@ class GoogleLoginRequest(BaseModel):
 
 class RefreshRequest(BaseModel):
     refresh_token: str
-
-class VerifyEmailRequest(BaseModel):
-    code: str
 
 class PushSubscribeRequest(BaseModel):
     endpoint: str

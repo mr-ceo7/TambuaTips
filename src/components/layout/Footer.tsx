@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Trophy, Twitter, Github, Mail } from 'lucide-react';
+import { Trophy } from 'lucide-react';
+import { FaWhatsapp, FaTelegramPlane, FaInstagram, FaTiktok } from 'react-icons/fa';
 
 export function Footer() {
   return (
@@ -55,14 +56,17 @@ export function Footer() {
           <div>
             <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-4">Connect</h4>
             <div className="flex gap-3">
-              <a href="#" className="p-2 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-700 transition-all hover:scale-110 active:scale-95">
-                <Twitter className="w-4 h-4" />
+              <a href="https://whatsapp.com/channel/0029Vb7T8A9DOQIgpMjX7F0f" target="_blank" rel="noopener noreferrer" className="p-2 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-700 transition-all hover:scale-110 active:scale-95">
+                <FaWhatsapp size={16} />
               </a>
-              <a href="#" className="p-2 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-700 transition-all hover:scale-110 active:scale-95">
-                <Github className="w-4 h-4" />
+              <a href="https://t.me/tambuatips" target="_blank" rel="noopener noreferrer" className="p-2 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-700 transition-all hover:scale-110 active:scale-95">
+                <FaTelegramPlane size={16} />
               </a>
-              <a href="#" className="p-2 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-700 transition-all hover:scale-110 active:scale-95">
-                <Mail className="w-4 h-4" />
+              <a href="https://www.instagram.com/tambuatips?igsh=MXNkN3d2c2dvaXN2cQ==" target="_blank" rel="noopener noreferrer" className="p-2 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-700 transition-all hover:scale-110 active:scale-95">
+                <FaInstagram size={16} />
+              </a>
+              <a href="https://www.tiktok.com/@tambuatips_.1?_r=1&_t=ZS-95BTHwRMkSL" target="_blank" rel="noopener noreferrer" className="p-2 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-700 transition-all hover:scale-110 active:scale-95">
+                <FaTiktok size={16} />
               </a>
             </div>
           </div>
