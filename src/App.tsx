@@ -17,6 +17,11 @@ import { SplashScreen } from './components/SplashScreen';
 import { PrivacyPolicy } from './pages/legal/PrivacyPolicy';
 import { TermsOfService } from './pages/legal/TermsOfService';
 import { ResponsibleGambling } from './pages/legal/ResponsibleGambling';
+import { RefundPolicy } from './pages/legal/RefundPolicy';
+import { ContactPage } from './pages/ContactPage';
+import { FAQPage } from './pages/FAQPage';
+import { NotFoundPage } from './pages/NotFoundPage';
+import { AboutUsPage } from './pages/AboutUsPage';
 
 // Admin
 import { AdminLayout } from './components/admin/AdminLayout';
@@ -50,6 +55,11 @@ export default function App() {
             <Route path="/privacy" element={<PrivacyPolicy />} />
             <Route path="/terms" element={<TermsOfService />} />
             <Route path="/responsible-gambling" element={<ResponsibleGambling />} />
+            <Route path="/refund-policy" element={<RefundPolicy />} />
+            <Route path="/contact" element={<ContactPage />} />
+            <Route path="/faq" element={<FAQPage />} />
+            <Route path="/about" element={<AboutUsPage />} />
+            <Route path="*" element={<NotFoundPage />} />
           </Route>
 
           {/* Admin console */}

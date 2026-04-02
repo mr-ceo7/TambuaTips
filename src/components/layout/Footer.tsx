@@ -28,10 +28,11 @@ export function Footer() {
             <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-4">Explore</h4>
             <ul className="space-y-2.5">
               {[
+                { to: '/about', label: 'About Us' },
                 { to: '/fixtures', label: 'Fixtures' },
                 { to: '/standings', label: 'Standings' },
-                { to: '/news', label: 'News' },
-                { to: '/tips', label: 'Tips' },
+                { to: '/faq', label: 'FAQ' },
+                { to: '/contact', label: 'Contact' },
               ].map(({ to, label }) => (
                 <li key={to}>
                   <Link to={to} className="text-sm text-zinc-500 hover:text-emerald-400 transition-colors">
@@ -80,7 +81,8 @@ export function Footer() {
           </p>
           <div className="flex flex-wrap justify-center gap-4 md:gap-6">
             <Link to="/privacy" className="text-xs font-medium text-zinc-500 hover:text-white transition-colors">Privacy Policy</Link>
-            <Link to="/terms" className="text-xs font-medium text-zinc-500 hover:text-white transition-colors">Terms of Service</Link>
+            <Link to="/terms" className="text-xs font-medium text-zinc-500 hover:text-white transition-colors">Terms</Link>
+            <Link to="/refund-policy" className="text-xs font-medium text-zinc-500 hover:text-white transition-colors">Refund</Link>
             <Link to="/responsible-gambling" className="text-xs font-medium text-zinc-500 hover:text-white transition-colors">Responsible Gambling</Link>
           </div>
         </div>

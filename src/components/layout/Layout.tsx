@@ -9,6 +9,7 @@ import { Toaster } from 'sonner';
 import { ReloadPrompt } from '../ReloadPrompt';
 import { PricingModal } from '../PricingModal';
 import { JackpotPurchaseModal } from '../JackpotPurchaseModal';
+import { CookieBanner } from '../CookieBanner';
 import { useUser } from '../../context/UserContext';
 import { usePageTracking } from '../../hooks/usePageTracking';
 
@@ -38,6 +39,7 @@ export function Layout() {
         jackpot={selectedJackpot} 
       />
       <ReloadPrompt />
+      <CookieBanner />
     </div>
   );
 }
