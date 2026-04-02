@@ -11,6 +11,7 @@ from pydantic import BaseModel, EmailStr, Field
 
 class GoogleLoginRequest(BaseModel):
     id_token: str
+    referred_by_code: Optional[str] = None
 
 
 class RefreshRequest(BaseModel):
@@ -49,6 +50,9 @@ class UserResponse(BaseModel):
     favorite_teams: list[str] = Field(default_factory=list)
     country: Optional[str] = None
     created_at: Optional[datetime] = None
+    profile_picture: Optional[str] = None
+    referral_code: Optional[str] = None
+    referrals_count: int = 0
 
     model_config = {"from_attributes": True}
 

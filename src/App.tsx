@@ -7,6 +7,7 @@ import React, { useState } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AnimatePresence } from 'motion/react';
 import { Layout } from './components/layout/Layout';
+import { DeviceConflictModal } from './components/DeviceConflictModal';
 import { HomePage } from './pages/HomePage';
 import { FixturesPage } from './pages/FixturesPage';
 import { MatchDetailPage } from './pages/MatchDetailPage';
@@ -33,6 +34,18 @@ import { RevenuePage } from './pages/admin/RevenuePage';
 import { PricingManagePage } from './pages/admin/PricingManagePage';
 import { BroadcastPage } from './pages/admin/BroadcastPage';
 import { AdsManagePage } from './pages/admin/AdsManagePage';
+import { SettingsManagePage } from './pages/admin/SettingsManagePage';
+
+function ReferralCatcher() {
+  React.useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const ref = searchParams.get('ref');
+    if (ref) {
+      localStorage.setItem('tambua_referral_code', ref);
+    }
+  }, []);
+  return null;
+}
 
 export default function App() {
   const [showSplash, setShowSplash] = useState(true);
@@ -42,7 +55,9 @@ export default function App() {
       <AnimatePresence>
         {showSplash && <SplashScreen onComplete={() => setShowSplash(false)} />}
       </AnimatePresence>
+      <DeviceConflictModal />
       <BrowserRouter>
+        <ReferralCatcher />
         <Routes>
           {/* Public site */}
           <Route element={<Layout />}>
@@ -72,6 +87,7 @@ export default function App() {
             <Route path="pricing" element={<PricingManagePage />} />
             <Route path="broadcast" element={<BroadcastPage />} />
             <Route path="ads" element={<AdsManagePage />} />
+            <Route path="settings" element={<SettingsManagePage />} />
           </Route>
         </Routes>
       </BrowserRouter>

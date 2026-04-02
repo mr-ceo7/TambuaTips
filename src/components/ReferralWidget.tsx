@@ -1,15 +1,21 @@
 import React, { useState } from 'react';
 import { Gift, Copy, CheckCircle2, Users } from 'lucide-react';
 
+import { useUser } from '../context/UserContext';
+
 export function ReferralWidget() {
   const [copied, setCopied] = useState(false);
-  const referralLink = 'tambuatips.com/ref/vip2026';
+  const { user } = useUser();
+  const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://tambuatips.com';
+  const referralLink = user?.referral_code ? `${baseUrl}/?ref=${user.referral_code}` : `${baseUrl}/`;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(referralLink);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  if (!user) return null;
 
   return (
     <div className="bg-gradient-to-br from-zinc-900 to-zinc-950 border border-emerald-500/30 rounded-2xl p-4 sm:p-6 shadow-2xl relative overflow-hidden group">
@@ -47,9 +53,9 @@ export function ReferralWidget() {
         <div className="flex items-center justify-between text-[10px] sm:text-xs text-zinc-500 border-t border-zinc-800/50 pt-3 sm:pt-4 mt-1 sm:mt-2">
           <span className="flex items-center gap-1 sm:gap-1.5">
             <Users className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-            3 Friends Invited
+            {user.referrals_count || 0} Friends Invited
           </span>
-          <span className="font-bold text-emerald-500">21 Days Earned</span>
+          <span className="font-bold text-emerald-500">{(user.referrals_count || 0) * 7} Days Earned</span>
         </div>
       </div>
     </div>

@@ -21,6 +21,9 @@ export interface UserData {
   subscription: UserSubscription;
   purchasedJackpotIds?: string[];
   favorite_teams?: string[];
+  profile_picture?: string;
+  referral_code?: string;
+  referrals_count?: number;
 }
 
 interface UserContextType {
@@ -159,7 +162,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
   const googleLogin = useCallback(async (idToken: string) => {
     try {
-      await authService.googleLogin(idToken);
+      const refCode = localStorage.getItem('tambua_referral_code') || undefined;
+      await authService.googleLogin(idToken, refCode);
       
       const userData = await authService.me();
       setUser(userData);

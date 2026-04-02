@@ -11,7 +11,7 @@ from app.database import Base
 from app.config import settings
 
 # Import all models so they are registered
-from app.models import user, tip, jackpot, subscription, payment, activity, ad, notification, pricing  # noqa: F401
+from app.models import user, tip, jackpot, subscription, payment, activity, ad, notification, pricing, setting  # noqa: F401
 
 # Alembic Config
 config = context.config

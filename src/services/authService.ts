@@ -6,10 +6,12 @@ export interface AuthResponse {
 }
 
 export const authService = {
-  async googleLogin(idToken: string): Promise<AuthResponse> {
-    const response = await apiClient.post<AuthResponse>('/auth/google', {
-      id_token: idToken,
-    });
+  async googleLogin(idToken: string, referred_by_code?: string): Promise<AuthResponse> {
+    const payload: any = { id_token: idToken };
+    if (referred_by_code) {
+      payload.referred_by_code = referred_by_code;
+    }
+    const response = await apiClient.post<AuthResponse>('/auth/google', payload);
     return response.data;
   },
 
@@ -28,6 +30,9 @@ export const authService = {
       },
       purchasedJackpotIds: [],
       favorite_teams: data.favorite_teams || [],
+      profile_picture: data.profile_picture,
+      referral_code: data.referral_code,
+      referrals_count: data.referrals_count || 0,
     };
   },
 

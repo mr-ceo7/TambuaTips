@@ -102,9 +102,13 @@ export function Header() {
               title={isLoggedIn ? user?.username || 'Profile' : 'Sign In'}
             >
               {isLoggedIn ? (
-                <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-emerald-500 text-zinc-950 flex items-center justify-center text-[10px] sm:text-xs font-bold">
-                  {user?.username?.charAt(0).toUpperCase()}
-                </div>
+                user?.profile_picture ? (
+                  <img src={user.profile_picture} alt={user.username} className="w-5 h-5 sm:w-6 sm:h-6 rounded-full object-cover" />
+                ) : (
+                  <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-emerald-500 text-zinc-950 flex items-center justify-center text-[10px] sm:text-xs font-bold">
+                    {user?.username?.charAt(0).toUpperCase()}
+                  </div>
+                )
               ) : (
                 <User className="w-4 h-4 sm:w-5 sm:h-5" />
               )}

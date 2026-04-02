@@ -22,6 +22,7 @@ from app.models.jackpot import Jackpot, JackpotPurchase
 from app.models.subscription import SubscriptionTier
 from app.models.activity import UserActivity, AnonymousVisitor
 from app.models.ad import AdPost
+from app.models.setting import AdminSetting
 from app.schemas.auth import UserResponse, AdminUserResponse
 from app.schemas.payment import PaymentResponse
 from app.schemas.ad import AdPostCreate, AdPostUpdate, AdPostResponse
@@ -29,6 +30,36 @@ from app.services.email_service import send_broadcast_email
 from app.config import settings
 
 router = APIRouter(prefix="/api/admin", tags=["Admin"])
+
+
+# ═══════════════════════════════════════════════════════════════
+#  SETTINGS
+# ═══════════════════════════════════════════════════════════════
+
+class SettingsUpdateProps(BaseModel):
+    referral_vip_days: int
+
+@router.get("/settings")
+async def get_settings(db: AsyncSession = Depends(get_db), admin: User = Depends(require_admin)):
+    result = await db.execute(select(AdminSetting))
+    settings_db = result.scalars().all()
+    out = {"referral_vip_days": 7} # default
+    for s in settings_db:
+        if s.key == "REFERRAL_VIP_DAYS":
+            out["referral_vip_days"] = int(s.value) if s.value.isdigit() else 7
+    return out
+
+@router.put("/settings")
+async def update_settings(body: SettingsUpdateProps, db: AsyncSession = Depends(get_db), admin: User = Depends(require_admin)):
+    res = await db.execute(select(AdminSetting).where(AdminSetting.key == "REFERRAL_VIP_DAYS"))
+    setting = res.scalar_one_or_none()
+    if not setting:
+        setting = AdminSetting(key="REFERRAL_VIP_DAYS", value=str(body.referral_vip_days), description="Days of VIP granted to referrers")
+        db.add(setting)
+    else:
+        setting.value = str(body.referral_vip_days)
+    await db.commit()
+    return {"status": "success", "referral_vip_days": body.referral_vip_days}
 
 
 # ═══════════════════════════════════════════════════════════════

@@ -68,6 +68,13 @@ async def get_current_user(
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account disabled")
 
+    # Anti-screenshot / Concurrent Device strict lockout
+    if user.session_id and payload.get("session_id") != user.session_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, 
+            detail="Session expired. Device logged in elsewhere."
+        )
+
     return user
 
 async def get_unverified_user(
@@ -105,6 +112,12 @@ async def get_unverified_user(
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
 
+    if user.session_id and payload.get("session_id") != user.session_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, 
+            detail="Session expired. Device logged in elsewhere."
+        )
+
     return user
 
 
@@ -138,6 +151,9 @@ async def get_current_user_optional(
     user = result.scalar_one_or_none()
     
     if user and not user.is_active:
+        return None
+        
+    if user and user.session_id and payload.get("session_id") != user.session_id:
         return None
         
     return user

@@ -17,6 +17,7 @@ const NAV_ITEMS = [
   { path: '/admin/pricing', icon: Settings, label: 'Pricing', end: false },
   { path: '/admin/ads', icon: Megaphone, label: 'Ads', end: false },
   { path: '/admin/broadcast', icon: Bell, label: 'Broadcast', end: false },
+  { path: '/admin/settings', icon: Settings, label: 'Settings', end: false },
 ];
 
 export function AdminLayout() {

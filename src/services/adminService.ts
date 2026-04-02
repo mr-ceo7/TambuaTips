@@ -259,6 +259,17 @@ export const adminService = {
   deleteAd: async (id: number): Promise<void> => {
     await apiClient.delete(`/admin/ads/${id}`);
   },
+
+  // ── Settings ────────────────────────────────────────────────
+  async getSettings(): Promise<{referral_vip_days: number}> {
+    const response = await apiClient.get('/admin/settings');
+    return response.data;
+  },
+
+  async updateSettings(data: {referral_vip_days: number}): Promise<{status: string, referral_vip_days: number}> {
+    const response = await apiClient.put('/admin/settings', data);
+    return response.data;
+  }
 };
 
 export interface AdPost {

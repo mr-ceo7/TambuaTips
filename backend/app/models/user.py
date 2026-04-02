@@ -3,7 +3,7 @@ User ORM model — extends the existing MySQL `users` table.
 """
 
 from datetime import datetime
-from sqlalchemy import Column, Integer, BigInteger, String, DateTime, Boolean, Text, JSON
+from sqlalchemy import Column, Integer, BigInteger, String, DateTime, Boolean, Text, JSON, ForeignKey
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -20,6 +20,7 @@ class User(Base):
     remember_token = Column(String(100), nullable=True)
     verification_code = Column(String(6), nullable=True)
     verification_code_expires_at = Column(DateTime, nullable=True)
+    profile_picture = Column(String(500), nullable=True)
 
     # New fields (will be added via Alembic migration)
     is_active = Column(Boolean, default=True, nullable=False, server_default="1")
@@ -31,6 +32,17 @@ class User(Base):
     
     country = Column(String(2), nullable=True) # ISO country code
     push_subscriptions = Column(JSON, default=list, server_default="[]")
+
+    # Anti-screenshot / One-device policies
+    session_id = Column(String(100), nullable=True, unique=True, index=True)
+    
+    # Referral / Affiliate Marketing
+    referral_code = Column(String(20), unique=True, nullable=True, index=True)
+    referrer_id = Column(Integer, ForeignKey('users.id'), nullable=True)
+    referrals_count = Column(Integer, default=0, nullable=False, server_default="0")
+    
+    # Self-referential relationship for referrals
+    referred_users = relationship("User", backref="referrer", remote_side=[id])
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

@@ -10,12 +10,14 @@ from datetime import datetime, timedelta
 import random
 import os
 import string
+import uuid
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 
 from app.database import AsyncSessionLocal
 from app.dependencies import get_db, get_current_user, get_current_user_optional, get_unverified_user
 from app.models.user import User
+from app.models.setting import AdminSetting
 from app.models.activity import UserActivity, AnonymousVisitor, AnonymousActivity
 from app.schemas.auth import GoogleLoginRequest, RefreshRequest, UserResponse, UpdateFavoritesRequest, PushSubscribeRequest, ActivityRequest
 from app.security import hash_password, verify_password, create_access_token, create_refresh_token, decode_token
@@ -69,6 +71,7 @@ async def google_auth(body: GoogleLoginRequest, request: Request, response: Resp
         
         email = idinfo.get("email")
         name = idinfo.get("name")
+        picture = idinfo.get("picture")
         
         if not email:
             raise HTTPException(status_code=400, detail="No email provided in Google Token")
@@ -88,7 +91,8 @@ async def google_auth(body: GoogleLoginRequest, request: Request, response: Resp
                 subscription_tier="free",
                 is_admin=False,
                 is_active=True,
-                email_verified_at=datetime.utcnow()
+                email_verified_at=datetime.utcnow(),
+                profile_picture=picture
             )
             db.add(user)
             await db.commit()
@@ -97,12 +101,49 @@ async def google_auth(body: GoogleLoginRequest, request: Request, response: Resp
             # Dispatch welcome email asynchronously 
             background_tasks.add_task(send_welcome_email, user.email, user.name)
 
+            # Referral Fulfillment
+            if body.referred_by_code:
+                result_ref = await db.execute(select(User).where(User.referral_code == body.referred_by_code))
+                referrer = result_ref.scalar_one_or_none()
+                if referrer and referrer.id != user.id:
+                    user.referrer_id = referrer.id
+                    referrer.referrals_count += 1
+                    
+                    # Fetch reward days from AdminSetting or default to 7
+                    settings_res = await db.execute(select(AdminSetting).where(AdminSetting.key == "REFERRAL_VIP_DAYS"))
+                    setting_obj = settings_res.scalar_one_or_none()
+                    reward_days = int(setting_obj.value) if setting_obj and setting_obj.value.isdigit() else 7
+
+                    # Grant referrer VIP Days
+                    if not referrer.subscription_expires_at or referrer.subscription_expires_at < datetime.utcnow():
+                        referrer.subscription_expires_at = datetime.utcnow() + timedelta(days=reward_days)
+                    else:
+                        referrer.subscription_expires_at += timedelta(days=reward_days)
+                    
+                    db.add(referrer)
+                    db.add(user)
+                    await db.commit()
+
+        # Update dynamic fields (Profile Pic update if changed, Session ID rotation)
+        if picture and user.profile_picture != picture:
+            user.profile_picture = picture
+            
+        user.session_id = uuid.uuid4().hex
+        if not user.referral_code:
+            # Generate a clean short referral code
+            safe_name = "".join([c for c in user.name if c.isalpha()])[:3].upper()
+            if len(safe_name) < 3: safe_name = "VIP"
+            user.referral_code = f"{safe_name}{uuid.uuid4().hex[:5].upper()}"
+            
+        db.add(user)
+        await db.commit()
+
         # Update login mechanics tracking IP and Geo via background tasks
         client_ip = get_real_ip(request)
         background_tasks.add_task(fetch_user_country, user.id, client_ip)
 
-        # Issue securely
-        access_token = create_access_token(str(user.id))
+        # Issue securely with session tracking
+        access_token = create_access_token(str(user.id), extra={"session_id": user.session_id})
         refresh_token = create_refresh_token(str(user.id))
 
         response.set_cookie(key="access_token", value=access_token, httponly=True, secure=False, samesite="lax", max_age=3600)
@@ -137,7 +178,11 @@ async def refresh(request: Request, response: Response, db: AsyncSession = Depen
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
 
-    access_token = create_access_token(str(user.id))
+    user.session_id = uuid.uuid4().hex
+    db.add(user)
+    await db.commit()
+
+    access_token = create_access_token(str(user.id), extra={"session_id": user.session_id})
     new_refresh_token = create_refresh_token(str(user.id))
 
     response.set_cookie(key="access_token", value=access_token, httponly=True, secure=False, samesite="lax", max_age=3600)

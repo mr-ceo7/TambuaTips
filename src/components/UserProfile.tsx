@@ -35,9 +35,13 @@ export function UserProfile({ isOpen, onClose }: UserProfileProps) {
           >
             <div className="flex items-center justify-between p-4 sm:p-6 border-b border-zinc-800">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-500">
-                  <User className="w-5 h-5" />
-                </div>
+                {user?.profile_picture ? (
+                  <img src={user.profile_picture} alt={user.username} className="w-10 h-10 rounded-full object-cover" />
+                ) : (
+                  <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-500">
+                    <User className="w-5 h-5" />
+                  </div>
+                )}
                 <div>
                   <h2 className="text-lg sm:text-xl font-display font-bold text-white">My Profile</h2>
                   <p className="text-xs text-zinc-400">Manage your betting journey</p>

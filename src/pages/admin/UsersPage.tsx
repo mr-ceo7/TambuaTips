@@ -23,7 +23,7 @@ export function UsersPage() {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortField, setSortField] = useState<SortField>('created_at');
+  const [sortField, setSortField] = useState<SortField>('last_seen');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [expandedUserId, setExpandedUserId] = useState<number | null>(null);
   const [userDetail, setUserDetail] = useState<UserActivityDetail | null>(null);
@@ -127,6 +127,10 @@ export function UsersPage() {
 
     // Sort
     result.sort((a, b) => {
+      // Online users always come first
+      if (a.is_online !== b.is_online) {
+        return a.is_online ? -1 : 1;
+      }
       let av: any = (a as any)[sortField];
       let bv: any = (b as any)[sortField];
       if (av == null) av = '';

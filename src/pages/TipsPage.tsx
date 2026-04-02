@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Zap, Lock, Star, Trophy, Crown, ChevronRight, Target, Plus, Check, Eye } from 'lucide-react';
+import { Zap, Lock, Star, Trophy, Crown, ChevronRight, Target, Plus, Check, Eye, AlertTriangle, X } from 'lucide-react';
 import { TeamWithLogo } from '../components/TeamLogo';
+import { ReferralWidget } from '../components/ReferralWidget';
 import { getFreeTips, getPremiumTips, getTipsByCategory, getTipStats, getAllJackpots, type Tip, type TipCategory, type JackpotPrediction } from '../services/tipsService';
 import { CATEGORY_LABELS } from '../services/pricingService';
 import { usePageTitle } from '../hooks/usePageTitle';
@@ -226,6 +227,27 @@ export function TipsPage() {
   const [jackpots, setJackpots] = useState<JackpotPrediction[]>([]);
   const [tipsByCategory, setTipsByCategory] = useState<Record<string, Tip[]>>({});
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
+  const [showScreenshotWarning, setShowScreenshotWarning] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Common screenshot keys: PrintScreen or Cmd+Shift+3/4/5
+      if (e.key === 'PrintScreen' || 
+         (e.metaKey && e.shiftKey && (e.key === '3' || e.key === '4' || e.key === '5'))) {
+        
+        // Let the OS take the screenshot of the blurred overlay instead
+        setShowScreenshotWarning(true);
+
+        // Wipe clipboard to deter simple scraping
+        if (navigator.clipboard) {
+          navigator.clipboard.writeText('TambuaTips is protected. Share your link to get free access!').catch(() => {});
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const toggleCategory = (cat: string) => {
     setExpandedCategories(prev => ({ ...prev, [cat]: !prev[cat] }));
@@ -254,6 +276,11 @@ export function TipsPage() {
       </div>
 
       {/* Detached: Stats Banner */}
+
+      {/* Prominent Referral Marketing Widget */}
+      <div className="mb-8">
+        <ReferralWidget />
+      </div>
 
       {/* Tab Bar */}
       <div className="flex bg-zinc-900/60 border border-zinc-800 rounded-xl p-1 mb-6">
@@ -361,6 +388,32 @@ export function TipsPage() {
       )}
 
       {/* CTA */}
+
+      {/* Anti-Screenshot Overlay */}
+      {showScreenshotWarning && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-3xl p-4">
+          <div className="bg-zinc-950 border border-emerald-500/30 rounded-2xl p-6 max-w-md w-full relative">
+            <button 
+              onClick={() => setShowScreenshotWarning(false)}
+              className="absolute top-4 right-4 p-2 text-zinc-400 hover:text-white bg-zinc-900 rounded-full"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="text-center mb-6 mt-2">
+              <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-red-500/20">
+                <AlertTriangle className="w-8 h-8 text-red-500" />
+              </div>
+              <h2 className="text-xl font-display font-bold text-white mb-2">Screenshot Detected</h2>
+              <p className="text-sm text-zinc-400">
+                Sharing screenshots of premium tips is heavily prohibited. If you want to share TambuaTips with friends, use your referral link below instead to earn free VIP days!
+              </p>
+            </div>
+
+            <ReferralWidget />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
