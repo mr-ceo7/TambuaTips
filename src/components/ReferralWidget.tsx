@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { Gift, Copy, CheckCircle2, Users } from 'lucide-react';
-
+import { Gift, Copy, CheckCircle2, Users, MessageCircle, Send, ExternalLink } from 'lucide-react';
 import { useUser } from '../context/UserContext';
 
 export function ReferralWidget() {
@@ -9,10 +8,24 @@ export function ReferralWidget() {
   const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://tambuatips.com';
   const referralLink = user?.referral_code ? `${baseUrl}/?ref=${user.referral_code}` : `${baseUrl}/`;
 
+  const shareMessage = `🔥 Get expert football tips on TambuaTips! Join using my link and we both win: ${referralLink}`;
+
   const handleCopy = () => {
     navigator.clipboard.writeText(referralLink);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const shareWhatsApp = () => {
+    window.open(`https://wa.me/?text=${encodeURIComponent(shareMessage)}`, '_blank');
+  };
+
+  const shareTelegram = () => {
+    window.open(`https://t.me/share/url?url=${encodeURIComponent(referralLink)}&text=${encodeURIComponent('🔥 Get expert football tips on TambuaTips!')}`, '_blank');
+  };
+
+  const shareTwitter = () => {
+    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareMessage)}`, '_blank');
   };
 
   if (!user) return null;
@@ -29,14 +42,15 @@ export function ReferralWidget() {
           </div>
           <div>
             <h3 className="text-sm sm:text-base font-display font-bold text-white uppercase tracking-wider">Invite & Earn</h3>
-            <p className="text-[9px] sm:text-[10px] font-bold text-emerald-500 uppercase tracking-widest">Get 1 Week Premium Free</p>
+            <p className="text-[9px] sm:text-[10px] font-bold text-emerald-500 uppercase tracking-widest">Earn Free Premium Access</p>
           </div>
         </div>
         
         <p className="text-xs sm:text-sm text-zinc-300 mb-4 sm:mb-5 leading-relaxed">
-          Share your unique link with friends. When they sign up, you <span className="text-white font-bold">both</span> get 7 days of VIP access instantly!
+          Share your unique link with friends. When they sign up, you earn <span className="text-white font-bold">free premium access</span>!
         </p>
         
+        {/* Copy Link */}
         <div className="flex items-center gap-2 mb-3 sm:mb-4">
           <div className="flex-1 bg-zinc-950 border border-zinc-800 rounded-lg px-2.5 sm:px-3 py-2 sm:py-2.5 flex items-center justify-between min-w-0">
             <span className="text-[10px] sm:text-xs font-mono text-zinc-400 truncate select-all">{referralLink}</span>
@@ -47,6 +61,31 @@ export function ReferralWidget() {
             title="Copy Link"
           >
             {copied ? <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <Copy className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+          </button>
+        </div>
+
+        {/* Share Buttons */}
+        <div className="grid grid-cols-3 gap-1.5 mb-3 sm:mb-4">
+          <button
+            onClick={shareWhatsApp}
+            className="flex items-center justify-center gap-1 py-2 rounded-lg bg-[#25D366]/10 text-[#25D366] border border-[#25D366]/20 hover:bg-[#25D366]/20 transition-all text-[10px] sm:text-xs font-bold"
+          >
+            <MessageCircle className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+            WhatsApp
+          </button>
+          <button
+            onClick={shareTelegram}
+            className="flex items-center justify-center gap-1 py-2 rounded-lg bg-[#0088cc]/10 text-[#0088cc] border border-[#0088cc]/20 hover:bg-[#0088cc]/20 transition-all text-[10px] sm:text-xs font-bold"
+          >
+            <Send className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+            Telegram
+          </button>
+          <button
+            onClick={shareTwitter}
+            className="flex items-center justify-center gap-1 py-2 rounded-lg bg-zinc-800 text-zinc-300 border border-zinc-700 hover:bg-zinc-700 transition-all text-[10px] sm:text-xs font-bold"
+          >
+            <ExternalLink className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+            X
           </button>
         </div>
 

@@ -146,6 +146,29 @@ export interface FixtureSearchResult {
   leagueLogo?: string;
 }
 
+export interface ReferralSettings {
+  referral_enabled: boolean;
+  referral_reward_tier: string;
+  referral_reward_days: number;
+  referral_new_user_reward: boolean;
+  referral_new_user_reward_tier: string;
+  referral_new_user_reward_days: number;
+  referral_free_tips_count: number;
+}
+
+export interface ReferralStatsResponse {
+  total_referrals: number;
+  referred_users: number;
+  top_referrers: {
+    id: number;
+    name: string;
+    email: string;
+    referrals_count: number;
+    referral_code: string;
+  }[];
+  settings: ReferralSettings;
+}
+
 // ── Service ─────────────────────────────────────────────────
 
 export const adminService = {
@@ -261,15 +284,21 @@ export const adminService = {
   },
 
   // ── Settings ────────────────────────────────────────────────
-  async getSettings(): Promise<{referral_vip_days: number}> {
+  async getSettings(): Promise<ReferralSettings> {
     const response = await apiClient.get('/admin/settings');
     return response.data;
   },
 
-  async updateSettings(data: {referral_vip_days: number}): Promise<{status: string, referral_vip_days: number}> {
+  async updateSettings(data: Partial<ReferralSettings>): Promise<ReferralSettings> {
     const response = await apiClient.put('/admin/settings', data);
     return response.data;
-  }
+  },
+
+  // ── Referral Analytics ─────────────────────────────────────
+  async getReferralStats(): Promise<ReferralStatsResponse> {
+    const response = await apiClient.get('/admin/referral-stats');
+    return response.data;
+  },
 };
 
 export interface AdPost {

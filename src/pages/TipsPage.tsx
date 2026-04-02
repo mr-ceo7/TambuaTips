@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Zap, Lock, Star, Trophy, Crown, ChevronRight, Target, Plus, Check, Eye, AlertTriangle, X } from 'lucide-react';
+import { Zap, Lock, Star, Trophy, Crown, ChevronRight, Target, Plus, Check, Eye, AlertTriangle, X, Gift } from 'lucide-react';
 import { TeamWithLogo } from '../components/TeamLogo';
 import { ReferralWidget } from '../components/ReferralWidget';
+import { ReferralModal } from '../components/ReferralModal';
 import { getFreeTips, getPremiumTips, getTipsByCategory, getTipStats, getAllJackpots, type Tip, type TipCategory, type JackpotPrediction } from '../services/tipsService';
 import { CATEGORY_LABELS } from '../services/pricingService';
 import { usePageTitle } from '../hooks/usePageTitle';
@@ -21,7 +22,7 @@ const CATEGORY_ICONS: Record<TipCategory, React.ElementType> = {
 };
 
 // ─── Tip Card ────────────────────────────────────────────────
-function TipCard({ tip, locked = false }: { tip: Tip; locked?: boolean; key?: React.Key }) {
+function TipCard({ tip, locked = false, onGetFree }: { tip: Tip; locked?: boolean; key?: React.Key; onGetFree?: () => void }) {
   const { user, setShowAuthModal, setShowPricingModal, hasAccess } = useUser();
   // Detached: const { addSelection, selections } = useBetSlip();
   const [addedBookmaker, setAddedBookmaker] = useState<string | null>(null);
@@ -83,18 +84,33 @@ function TipCard({ tip, locked = false }: { tip: Tip; locked?: boolean; key?: Re
               </div>
             </div>
 
-            {/* Eye Overlay */}
-            <button 
-              onClick={handleUnlock}
-              className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-950/40 rounded-xl border border-zinc-800/50 hover:bg-zinc-950/20 transition-all group/eye"
-            >
-              <div className="p-2 rounded-full bg-gold-500/20 text-gold-400 group-hover/eye:scale-110 group-hover/eye:bg-gold-500/30 transition-all mb-1">
-                <Eye className="w-5 h-5" />
-              </div>
-              <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">
-                Reveal Tip
-              </p>
-            </button>
+            {/* Action Buttons Overlay */}
+            <div className="absolute inset-0 flex items-center justify-center bg-zinc-950/40 rounded-xl border border-zinc-800/50 gap-2 px-3">
+              <button 
+                onClick={handleUnlock}
+                className="flex-1 flex flex-col items-center justify-center py-2.5 rounded-lg bg-gold-500/10 hover:bg-gold-500/20 border border-gold-500/20 transition-all group/eye"
+              >
+                <div className="p-1.5 rounded-full bg-gold-500/20 text-gold-400 group-hover/eye:scale-110 transition-all mb-1">
+                  <Eye className="w-4 h-4" />
+                </div>
+                <p className="text-[9px] text-gold-400 font-bold uppercase tracking-wider">
+                  Purchase
+                </p>
+              </button>
+              {onGetFree && (
+                <button 
+                  onClick={(e) => { e.preventDefault(); onGetFree(); }}
+                  className="flex-1 flex flex-col items-center justify-center py-2.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 transition-all group/free"
+                >
+                  <div className="p-1.5 rounded-full bg-emerald-500/20 text-emerald-400 group-hover/free:scale-110 transition-all mb-1">
+                    <Gift className="w-4 h-4" />
+                  </div>
+                  <p className="text-[9px] text-emerald-400 font-bold uppercase tracking-wider">
+                    Get Free
+                  </p>
+                </button>
+              )}
+            </div>
           </div>
         ) : (
           <>
@@ -228,6 +244,7 @@ export function TipsPage() {
   const [tipsByCategory, setTipsByCategory] = useState<Record<string, Tip[]>>({});
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
   const [showScreenshotWarning, setShowScreenshotWarning] = useState(false);
+  const [showReferralModal, setShowReferralModal] = useState(false);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -277,10 +294,8 @@ export function TipsPage() {
 
       {/* Detached: Stats Banner */}
 
-      {/* Prominent Referral Marketing Widget */}
-      <div className="mb-8">
-        <ReferralWidget />
-      </div>
+      {/* Referral Modal (opened from locked tip cards) */}
+      <ReferralModal isOpen={showReferralModal} onClose={() => setShowReferralModal(false)} />
 
       {/* Tab Bar */}
       <div className="flex bg-zinc-900/60 border border-zinc-800 rounded-xl p-1 mb-6">
@@ -340,7 +355,8 @@ export function TipsPage() {
                         key={tip.id} 
                         tip={tip} 
                         // It is ONLY locked if they dont have access AND the match hasnt finished yet
-                        locked={!userHasAccess && tip.result === 'pending'} 
+                        locked={!userHasAccess && tip.result === 'pending'}
+                        onGetFree={(!userHasAccess && tip.result === 'pending' && user) ? () => setShowReferralModal(true) : undefined}
                       />
                     ));
                   })()}

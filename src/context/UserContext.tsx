@@ -164,6 +164,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     try {
       const refCode = localStorage.getItem('tambua_referral_code') || undefined;
       await authService.googleLogin(idToken, refCode);
+      // Clear referral code after it has been used
+      localStorage.removeItem('tambua_referral_code');
       
       const userData = await authService.me();
       setUser(userData);

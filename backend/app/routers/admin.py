@@ -33,33 +33,123 @@ router = APIRouter(prefix="/api/admin", tags=["Admin"])
 
 
 # ═══════════════════════════════════════════════════════════════
-#  SETTINGS
+#  SETTINGS — Referral Economics Configuration
 # ═══════════════════════════════════════════════════════════════
 
+# Default referral settings (used when no AdminSetting row exists yet)
+REFERRAL_DEFAULTS = {
+    "referral_enabled": "true",
+    "referral_reward_tier": "basic",
+    "referral_reward_days": "7",
+    "referral_new_user_reward": "false",
+    "referral_new_user_reward_tier": "basic",
+    "referral_new_user_reward_days": "7",
+    "referral_free_tips_count": "1",
+}
+
+REFERRAL_DESCRIPTIONS = {
+    "referral_enabled": "Master toggle for the referral system",
+    "referral_reward_tier": "Subscription tier granted to the referrer",
+    "referral_reward_days": "Days of access granted to the referrer per referral",
+    "referral_new_user_reward": "Whether the new user also gets rewarded on sign-up",
+    "referral_new_user_reward_tier": "Subscription tier granted to the new user",
+    "referral_new_user_reward_days": "Days of access granted to the new user",
+    "referral_free_tips_count": "Number of premium tips unlocked per successful referral",
+}
+
+async def get_referral_settings(db: AsyncSession) -> dict:
+    """Helper to read all referral settings as a typed dict."""
+    result = await db.execute(select(AdminSetting).where(AdminSetting.key.in_(REFERRAL_DEFAULTS.keys())))
+    settings_db = {s.key: s.value for s in result.scalars().all()}
+    out = {}
+    for key, default in REFERRAL_DEFAULTS.items():
+        raw = settings_db.get(key, default)
+        # Type coerce based on default
+        if default in ("true", "false"):
+            out[key] = raw.lower() == "true"
+        elif default.isdigit():
+            out[key] = int(raw) if raw.isdigit() else int(default)
+        else:
+            out[key] = raw
+    return out
+
+
 class SettingsUpdateProps(BaseModel):
-    referral_vip_days: int
+    referral_enabled: Optional[bool] = None
+    referral_reward_tier: Optional[str] = None
+    referral_reward_days: Optional[int] = None
+    referral_new_user_reward: Optional[bool] = None
+    referral_new_user_reward_tier: Optional[str] = None
+    referral_new_user_reward_days: Optional[int] = None
+    referral_free_tips_count: Optional[int] = None
+
 
 @router.get("/settings")
 async def get_settings(db: AsyncSession = Depends(get_db), admin: User = Depends(require_admin)):
-    result = await db.execute(select(AdminSetting))
-    settings_db = result.scalars().all()
-    out = {"referral_vip_days": 7} # default
-    for s in settings_db:
-        if s.key == "REFERRAL_VIP_DAYS":
-            out["referral_vip_days"] = int(s.value) if s.value.isdigit() else 7
-    return out
+    return await get_referral_settings(db)
+
 
 @router.put("/settings")
 async def update_settings(body: SettingsUpdateProps, db: AsyncSession = Depends(get_db), admin: User = Depends(require_admin)):
-    res = await db.execute(select(AdminSetting).where(AdminSetting.key == "REFERRAL_VIP_DAYS"))
-    setting = res.scalar_one_or_none()
-    if not setting:
-        setting = AdminSetting(key="REFERRAL_VIP_DAYS", value=str(body.referral_vip_days), description="Days of VIP granted to referrers")
-        db.add(setting)
-    else:
-        setting.value = str(body.referral_vip_days)
+    updates = body.model_dump(exclude_none=True)
+    for key, value in updates.items():
+        # Serialize booleans as "true"/"false", ints as strings
+        str_value = str(value).lower() if isinstance(value, bool) else str(value)
+        res = await db.execute(select(AdminSetting).where(AdminSetting.key == key))
+        setting = res.scalar_one_or_none()
+        if not setting:
+            setting = AdminSetting(key=key, value=str_value, description=REFERRAL_DESCRIPTIONS.get(key, ""))
+            db.add(setting)
+        else:
+            setting.value = str_value
     await db.commit()
-    return {"status": "success", "referral_vip_days": body.referral_vip_days}
+    return await get_referral_settings(db)
+
+
+# ═══════════════════════════════════════════════════════════════
+#  REFERRAL ANALYTICS
+# ═══════════════════════════════════════════════════════════════
+
+@router.get("/referral-stats")
+async def referral_stats(db: AsyncSession = Depends(get_db), admin: User = Depends(require_admin)):
+    """Aggregated referral analytics for the admin panel."""
+    # Total referrals made across platform
+    total_res = await db.execute(select(func.sum(User.referrals_count)))
+    total_referrals = total_res.scalar() or 0
+
+    # Top 10 referrers
+    top_res = await db.execute(
+        select(User.id, User.name, User.email, User.referrals_count, User.referral_code)
+        .where(User.referrals_count > 0)
+        .order_by(User.referrals_count.desc())
+        .limit(10)
+    )
+    top_referrers = [
+        {
+            "id": row.id,
+            "name": row.name,
+            "email": row.email,
+            "referrals_count": row.referrals_count,
+            "referral_code": row.referral_code,
+        }
+        for row in top_res.all()
+    ]
+
+    # Users acquired via referrals (have a referrer_id set)
+    referred_users_res = await db.execute(
+        select(func.count(User.id)).where(User.referrer_id != None)
+    )
+    referred_users_count = referred_users_res.scalar() or 0
+
+    # Current settings
+    ref_settings = await get_referral_settings(db)
+
+    return {
+        "total_referrals": total_referrals,
+        "referred_users": referred_users_count,
+        "top_referrers": top_referrers,
+        "settings": ref_settings,
+    }
 
 
 # ═══════════════════════════════════════════════════════════════

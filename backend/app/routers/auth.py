@@ -18,6 +18,7 @@ from app.database import AsyncSessionLocal
 from app.dependencies import get_db, get_current_user, get_current_user_optional, get_unverified_user
 from app.models.user import User
 from app.models.setting import AdminSetting
+from app.routers.admin import get_referral_settings
 from app.models.activity import UserActivity, AnonymousVisitor, AnonymousActivity
 from app.schemas.auth import GoogleLoginRequest, RefreshRequest, UserResponse, UpdateFavoritesRequest, PushSubscribeRequest, ActivityRequest
 from app.security import hash_password, verify_password, create_access_token, create_refresh_token, decode_token
@@ -106,23 +107,32 @@ async def google_auth(body: GoogleLoginRequest, request: Request, response: Resp
                 result_ref = await db.execute(select(User).where(User.referral_code == body.referred_by_code))
                 referrer = result_ref.scalar_one_or_none()
                 if referrer and referrer.id != user.id:
-                    user.referrer_id = referrer.id
-                    referrer.referrals_count += 1
+                    ref_settings = await get_referral_settings(db)
                     
-                    # Fetch reward days from AdminSetting or default to 7
-                    settings_res = await db.execute(select(AdminSetting).where(AdminSetting.key == "REFERRAL_VIP_DAYS"))
-                    setting_obj = settings_res.scalar_one_or_none()
-                    reward_days = int(setting_obj.value) if setting_obj and setting_obj.value.isdigit() else 7
+                    if ref_settings.get("referral_enabled", True):
+                        user.referrer_id = referrer.id
+                        referrer.referrals_count += 1
+                        
+                        reward_days = ref_settings.get("referral_reward_days", 7)
+                        reward_tier = ref_settings.get("referral_reward_tier", "basic")
 
-                    # Grant referrer VIP Days
-                    if not referrer.subscription_expires_at or referrer.subscription_expires_at < datetime.utcnow():
-                        referrer.subscription_expires_at = datetime.utcnow() + timedelta(days=reward_days)
-                    else:
-                        referrer.subscription_expires_at += timedelta(days=reward_days)
-                    
-                    db.add(referrer)
-                    db.add(user)
-                    await db.commit()
+                        # Grant referrer: set BOTH tier and expiry (fixes critical bug)
+                        referrer.subscription_tier = reward_tier
+                        if not referrer.subscription_expires_at or referrer.subscription_expires_at < datetime.utcnow():
+                            referrer.subscription_expires_at = datetime.utcnow() + timedelta(days=reward_days)
+                        else:
+                            referrer.subscription_expires_at += timedelta(days=reward_days)
+                        
+                        # Conditionally reward the new user too (admin-controlled)
+                        if ref_settings.get("referral_new_user_reward", False):
+                            new_user_days = ref_settings.get("referral_new_user_reward_days", 7)
+                            new_user_tier = ref_settings.get("referral_new_user_reward_tier", "basic")
+                            user.subscription_tier = new_user_tier
+                            user.subscription_expires_at = datetime.utcnow() + timedelta(days=new_user_days)
+                        
+                        db.add(referrer)
+                        db.add(user)
+                        await db.commit()
 
         # Update dynamic fields (Profile Pic update if changed, Session ID rotation)
         if picture and user.profile_picture != picture:
