@@ -6,10 +6,10 @@ import { toast } from 'sonner';
 export function BroadcastPage() {
   const [form, setForm] = useState({
     title: '', body: '', url: '/',
-    targetTier: 'all', targetCountry: '',
+    targetTier: 'all', targetCountry: '', deliveryMethod: 'both'
   });
   const [isSending, setIsSending] = useState(false);
-  const [lastResult, setLastResult] = useState<{ targeted_users: number; total_subscriptions: number } | null>(null);
+  const [lastResult, setLastResult] = useState<{ targeted_users: number; total_subscriptions: number; emails_sent: number } | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,10 +25,11 @@ export function BroadcastPage() {
         url: form.url,
         target_tier: form.targetTier,
         target_country: form.targetCountry || undefined,
+        delivery_method: form.deliveryMethod,
       });
       toast.success(`Broadcast queued! Targeted ${result.targeted_users} users`);
       setLastResult(result);
-      setForm({ title: '', body: '', url: '/', targetTier: 'all', targetCountry: '' });
+      setForm({ title: '', body: '', url: '/', targetTier: 'all', targetCountry: '', deliveryMethod: 'both' });
     } catch (err: any) {
       toast.error(err.response?.data?.detail || 'Broadcast failed');
     } finally {
@@ -141,6 +142,20 @@ export function BroadcastPage() {
                 />
               </div>
             </div>
+            <div>
+              <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-1 tracking-wider">
+                Delivery Channel
+              </label>
+              <select
+                value={form.deliveryMethod}
+                onChange={e => setForm({ ...form, deliveryMethod: e.target.value })}
+                className="admin-input"
+              >
+                <option value="both">Push + Email</option>
+                <option value="push">Push Notification Only</option>
+                <option value="email">Email Only</option>
+              </select>
+            </div>
           </div>
 
           <div className="pt-4 border-t border-zinc-800/60">
@@ -170,7 +185,7 @@ export function BroadcastPage() {
           <p className="text-emerald-400 font-bold mb-1">✅ Last Broadcast Result</p>
           <p className="text-zinc-400">
             Targeted <span className="font-bold text-white">{lastResult.targeted_users}</span> users
-            ({lastResult.total_subscriptions} push subscriptions)
+            ({lastResult.total_subscriptions} push subscriptions, {lastResult.emails_sent} emails)
           </p>
         </div>
       )}

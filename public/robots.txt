@@ -4,4 +4,4 @@ Disallow: /admin
 Disallow: /admin/*
 Disallow: /api/*
 
-Sitemap: https://tambuatips.vercel.app/sitemap.xml
+Sitemap: https://tambuatips.com/sitemap.xml

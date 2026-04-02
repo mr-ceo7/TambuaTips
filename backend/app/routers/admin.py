@@ -25,6 +25,7 @@ from app.models.ad import AdPost
 from app.schemas.auth import UserResponse, AdminUserResponse
 from app.schemas.payment import PaymentResponse
 from app.schemas.ad import AdPostCreate, AdPostUpdate, AdPostResponse
+from app.services.email_service import send_broadcast_email
 from app.config import settings
 
 router = APIRouter(prefix="/api/admin", tags=["Admin"])
@@ -670,6 +671,7 @@ class BroadcastPushRequest(BaseModel):
     url: Optional[str] = "/"
     target_tier: str = "all"
     target_country: Optional[str] = None
+    delivery_method: str = "both"
 
 def send_webpush_task(subscriptions: list, payload: str):
     from pywebpush import webpush, WebPushException
@@ -715,16 +717,28 @@ async def broadcast_push(
         if isinstance(u.push_subscriptions, list):
             all_subs.extend(u.push_subscriptions)
             
-    payload = json.dumps({
-        "title": request.title,
-        "body": request.body,
-        "icon": request.icon,
-        "url": request.url
-    })
+    emails_sent = 0
+    if request.delivery_method in ["both", "email"]:
+        for u in users:
+            if u.email:
+                background_tasks.add_task(send_broadcast_email, u.email, request.title, request.body, request.url)
+                emails_sent += 1
+                
+    if request.delivery_method in ["both", "push"]:
+        payload = json.dumps({
+            "title": request.title,
+            "body": request.body,
+            "icon": request.icon,
+            "url": request.url
+        })
+        background_tasks.add_task(send_webpush_task, all_subs, payload)
     
-    background_tasks.add_task(send_webpush_task, all_subs, payload)
-    
-    return {"message": "Broadcast queued", "targeted_users": len(users), "total_subscriptions": len(all_subs)}
+    return {
+        "message": "Broadcast queued", 
+        "targeted_users": len(users), 
+        "total_subscriptions": len(all_subs) if request.delivery_method in ["both", "push"] else 0,
+        "emails_sent": emails_sent
+    }
 
 
 # ═══════════════════════════════════════════════════════════════

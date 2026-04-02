@@ -227,13 +227,15 @@ export const adminService = {
     url?: string;
     target_tier?: string;
     target_country?: string;
-  }): Promise<{ message: string; targeted_users: number; total_subscriptions: number }> => {
+    delivery_method?: string;
+  }): Promise<{ message: string; targeted_users: number; total_subscriptions: number; emails_sent: number }> => {
     const response = await apiClient.post('/admin/broadcast-push', {
       title: data.title,
       body: data.body,
       url: data.url || '/',
       target_tier: data.target_tier || 'all',
       target_country: data.target_country || 'all',
+      delivery_method: data.delivery_method || 'both',
     });
     return response.data;
   },
