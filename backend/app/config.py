@@ -60,6 +60,13 @@ class Settings(BaseSettings):
     # ── Auth ─────────────────────────────────────────────────
     GOOGLE_CLIENT_ID: str = ""
 
+    # ── SMTP (Email Server) ──────────────────────────────────
+    SMTP_SERVER: str = "smtp.gmail.com"
+    SMTP_PORT: int = 465
+    SMTP_USERNAME: str = "tambuatips@gmail.com"
+    SMTP_PASSWORD: str = ""
+    FROM_EMAIL: str = "tambuatips@gmail.com"
+
     @property
     def api_football_key_list(self) -> List[str]:
         return [k.strip() for k in self.API_FOOTBALL_KEYS.split(",") if k.strip()]

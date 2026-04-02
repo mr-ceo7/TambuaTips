@@ -19,6 +19,7 @@ from app.models.user import User
 from app.models.activity import UserActivity, AnonymousVisitor, AnonymousActivity
 from app.schemas.auth import GoogleLoginRequest, RefreshRequest, UserResponse, UpdateFavoritesRequest, PushSubscribeRequest, ActivityRequest
 from app.security import hash_password, verify_password, create_access_token, create_refresh_token, decode_token
+from app.services.email_service import send_welcome_email
 
 def get_real_ip(request: Request) -> str:
     x_forwarded_for = request.headers.get("x-forwarded-for")
@@ -92,6 +93,9 @@ async def google_auth(body: GoogleLoginRequest, request: Request, response: Resp
             db.add(user)
             await db.commit()
             await db.refresh(user)
+            
+            # Dispatch welcome email asynchronously 
+            background_tasks.add_task(send_welcome_email, user.email, user.name)
 
         # Update login mechanics tracking IP and Geo via background tasks
         client_ip = get_real_ip(request)

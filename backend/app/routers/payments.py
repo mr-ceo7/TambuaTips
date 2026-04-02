@@ -19,6 +19,7 @@ from app.models.payment import Payment
 from app.models.jackpot import Jackpot, JackpotPurchase
 from app.models.subscription import SubscriptionTier
 from app.schemas.payment import MpesaPaymentRequest, PaymentRequest, PaymentResponse, MpesaCallbackData
+from app.services.email_service import send_payment_receipt_email
 
 router = APIRouter(prefix="/api/pay", tags=["Payments"])
 
@@ -86,7 +87,20 @@ async def _fulfill_payment(payment: Payment, user: User, db: AsyncSession):
         )
         db.add(purchase)
 
+        db.add(purchase)
+
     await db.commit()
+    
+    # Try to send a receipt
+    import asyncio
+    asyncio.create_task(
+        send_payment_receipt_email(
+            email=user.email,
+            amount=float(payment.amount),
+            method=payment.method,
+            transaction_id=payment.transaction_id or payment.reference
+        )
+    )
 
 
 # ── M-Pesa ───────────────────────────────────────────────────
