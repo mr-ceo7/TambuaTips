@@ -65,7 +65,7 @@ async def initiate_mpesa_stk(phone: str, amount: float, reference: str) -> dict:
         "Password": password,
         "Timestamp": timestamp,
         "TransactionType": "CustomerPayBillOnline",
-        "Amount": amount,
+        "Amount": int(amount),
         "PartyA": phone,
         "PartyB": shortcode,
         "PhoneNumber": phone,
