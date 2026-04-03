@@ -157,8 +157,8 @@ async def google_auth(body: GoogleLoginRequest, request: Request, response: Resp
         access_token = create_access_token(str(user.id), extra={"session_id": user.session_id})
         refresh_token = create_refresh_token(str(user.id))
 
-        response.set_cookie(key="access_token", value=access_token, httponly=True, secure=False, samesite="lax", max_age=3600)
-        response.set_cookie(key="refresh_token", value=refresh_token, httponly=True, secure=False, samesite="lax", max_age=604800)
+        response.set_cookie(key="access_token", value=access_token, httponly=True, secure=True, samesite="none", max_age=3600)
+        response.set_cookie(key="refresh_token", value=refresh_token, httponly=True, secure=True, samesite="none", max_age=604800)
 
         return {"status": "success"}
 
@@ -167,8 +167,8 @@ async def google_auth(body: GoogleLoginRequest, request: Request, response: Resp
 
 @router.post("/logout")
 async def logout(response: Response):
-    response.delete_cookie("access_token")
-    response.delete_cookie("refresh_token")
+    response.delete_cookie("access_token", samesite="none", secure=True)
+    response.delete_cookie("refresh_token", samesite="none", secure=True)
     return {"status": "success"}
 
 
@@ -196,8 +196,8 @@ async def refresh(request: Request, response: Response, db: AsyncSession = Depen
     access_token = create_access_token(str(user.id), extra={"session_id": user.session_id})
     new_refresh_token = create_refresh_token(str(user.id))
 
-    response.set_cookie(key="access_token", value=access_token, httponly=True, secure=False, samesite="lax", max_age=3600)
-    response.set_cookie(key="refresh_token", value=new_refresh_token, httponly=True, secure=False, samesite="lax", max_age=604800)
+    response.set_cookie(key="access_token", value=access_token, httponly=True, secure=True, samesite="none", max_age=3600)
+    response.set_cookie(key="refresh_token", value=new_refresh_token, httponly=True, secure=True, samesite="none", max_age=604800)
 
     return {"status": "success"}
 
