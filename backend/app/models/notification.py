@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime
+from sqlalchemy import Column, Integer, BigInteger, String, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 
@@ -8,7 +8,7 @@ class MatchSubscription(Base):
     __tablename__ = "match_subscriptions"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     match_id = Column(Integer, index=True, nullable=False)
     home_team = Column(String(100), nullable=True)
     away_team = Column(String(100), nullable=True)
