@@ -26,7 +26,8 @@ apiClient.interceptors.response.use(
     }
     
     // If error is 401 and request hasn't been retried yet
-    if (error.response?.status === 401 && !originalRequest._retry && originalRequest.url !== '/auth/refresh') {
+    const isAuthRoute = originalRequest.url === '/auth/refresh' || originalRequest.url === '/auth/google';
+    if (error.response?.status === 401 && !originalRequest._retry && !isAuthRoute) {
       originalRequest._retry = true;
       try {
         // Try to get a new access token via HttpOnly cookies
