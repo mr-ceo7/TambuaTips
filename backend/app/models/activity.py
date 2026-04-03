@@ -13,7 +13,7 @@ class UserActivity(Base):
     __tablename__ = "user_activities"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     path = Column(String(255), nullable=False)
     time_spent_seconds = Column(Integer, default=0, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)

@@ -24,7 +24,7 @@ def upgrade() -> None:
         batch_op.add_column(sa.Column('profile_picture', sa.String(length=500), nullable=True))
         batch_op.add_column(sa.Column('session_id', sa.String(length=100), nullable=True))
         batch_op.add_column(sa.Column('referral_code', sa.String(length=20), nullable=True))
-        batch_op.add_column(sa.Column('referrer_id', sa.Integer(), nullable=True))
+        batch_op.add_column(sa.Column('referrer_id', sa.BigInteger(), nullable=True))
         batch_op.add_column(sa.Column('referrals_count', sa.Integer(), server_default='0', nullable=False))
         batch_op.create_index(batch_op.f('ix_users_referral_code'), ['referral_code'], unique=True)
         batch_op.create_index(batch_op.f('ix_users_session_id'), ['session_id'], unique=True)

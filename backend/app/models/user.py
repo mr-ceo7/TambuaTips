@@ -38,7 +38,7 @@ class User(Base):
     
     # Referral / Affiliate Marketing
     referral_code = Column(String(20), unique=True, nullable=True, index=True)
-    referrer_id = Column(Integer, ForeignKey('users.id'), nullable=True)
+    referrer_id = Column(BigInteger, ForeignKey('users.id'), nullable=True)
     referrals_count = Column(Integer, default=0, nullable=False, server_default="0")
     
     # Self-referential relationship for referrals
