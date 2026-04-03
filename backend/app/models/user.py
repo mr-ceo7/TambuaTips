@@ -28,10 +28,10 @@ class User(Base):
     is_admin = Column(Boolean, default=False, nullable=False, server_default="0")
     subscription_tier = Column(String(20), default="free", nullable=False, server_default="free")
     subscription_expires_at = Column(DateTime, nullable=True)
-    favorite_teams = Column(JSON, default=list, server_default="[]")
+    favorite_teams = Column(JSON, default=list)
     
     country = Column(String(2), nullable=True) # ISO country code
-    push_subscriptions = Column(JSON, default=list, server_default="[]")
+    push_subscriptions = Column(JSON, default=list)
 
     # Anti-screenshot / One-device policies
     session_id = Column(String(100), nullable=True, unique=True, index=True)
