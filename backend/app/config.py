@@ -60,6 +60,12 @@ class Settings(BaseSettings):
     # ── Auth ─────────────────────────────────────────────────
     GOOGLE_CLIENT_ID: str = ""
 
+    # ── Frontend URL (for payment redirects) ─────────────────
+    FRONTEND_URL: str = "http://localhost:5173"
+
+    # ── Backend URL (for callbacks/captures) ──────────────────
+    BACKEND_URL: str = "http://localhost:8000"
+
     # ── SMTP (Email Server) ──────────────────────────────────
     SMTP_SERVER: str = "smtp.gmail.com"
     SMTP_PORT: int = 465

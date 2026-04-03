@@ -39,7 +39,7 @@ export function Header() {
               <div className="absolute inset-0 rounded-full bg-emerald-500/20 blur-md opacity-40 group-hover:opacity-100 group-hover:bg-emerald-400/30 transition-all duration-700 animate-pulse" />
               
               <img 
-                src="/tambua-logo.jpg" 
+                src="/tambua-logo.png" 
                 alt="TambuaTips Logo" 
                 className="absolute w-[180%] h-[180%] max-w-none object-cover mix-blend-screen invert hue-rotate-180 contrast-[1.3] brightness-125 z-10 drop-shadow-[0_0_5px_rgba(16,185,129,0.2)] group-hover:drop-shadow-[0_0_15px_rgba(16,185,129,0.5)] transition-all duration-500" 
                 style={{

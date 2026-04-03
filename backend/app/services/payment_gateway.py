@@ -34,7 +34,7 @@ async def get_mpesa_access_token() -> str:
         return data["access_token"]
 
 
-async def initiate_mpesa_stk(phone: str, amount: int, reference: str) -> dict:
+async def initiate_mpesa_stk(phone: str, amount: float, reference: str) -> dict:
     """Initiate M-Pesa STK Push."""
     token = await get_mpesa_access_token()
 
@@ -112,8 +112,8 @@ async def create_paypal_order(amount: float, reference: str, currency: str = "US
             "amount": {"currency_code": currency, "value": f"{float(amount):.2f}"},
         }],
         "application_context": {
-            "return_url": "http://localhost:8000/api/pay/paypal/capture",
-            "cancel_url": "http://localhost:3000",
+            "return_url": f"{settings.BACKEND_URL}/api/pay/paypal/capture",
+            "cancel_url": f"{settings.FRONTEND_URL}",
         }
     }
 
@@ -154,7 +154,7 @@ async def capture_paypal_order(order_id: str) -> dict:
 # Skrill (Quick Checkout)
 # ─────────────────────────────────────────────────────────────
 
-async def create_skrill_session(amount: int, reference: str, email: str) -> dict:
+async def create_skrill_session(amount: float, reference: str, email: str) -> dict:
     """Create a Skrill Quick Checkout URL."""
     url = "https://pay.skrill.com"
 
@@ -180,12 +180,12 @@ async def create_skrill_session(amount: int, reference: str, email: str) -> dict
 # Paystack (Card/Visa/Mobile Money)
 # ─────────────────────────────────────────────────────────────
 
-async def initialize_paystack_transaction(amount: int, email: str, reference: str, currency: str = "KES") -> dict:
+async def initialize_paystack_transaction(amount: float, email: str, reference: str, currency: str = "KES") -> dict:
     """Initialize a Paystack transaction."""
     url = "https://api.paystack.co/transaction/initialize"
 
     payload = {
-        "amount": amount * 100,  # Paystack uses smallest currency unit (kobo/cents)
+        "amount": int(round(amount * 100)),  # Paystack uses smallest currency unit (kobo/cents)
         "email": email,
         "currency": currency,
         "reference": reference,

@@ -279,7 +279,7 @@ async def pay_paypal(body: PaymentRequest, db: AsyncSession = Depends(get_db), u
         await asyncio.sleep(1)
         payment.status = "completed"
         payment.transaction_id = f"SIM-PP-{uuid.uuid4().hex[:10].upper()}"
-        payment.auth_url = "http://localhost:8000/api/pay/paypal/capture?token=" + payment.transaction_id + "&PayerID=SIM"
+        payment.auth_url = f"{settings.BACKEND_URL}/api/pay/paypal/capture?token={payment.transaction_id}&PayerID=SIM"  # Sandbox only
         await db.commit()
         await _fulfill_payment(payment, user, db)
         await db.refresh(payment)
@@ -295,10 +295,10 @@ async def capture_paypal(token: str, PayerID: str, db: AsyncSession = Depends(ge
     payment = result.scalar_one_or_none()
     
     if not payment:
-        return RedirectResponse(url="http://localhost:3000/?payment=cancel")
+        return RedirectResponse(url=f"{settings.FRONTEND_URL}/?payment=cancel")
         
     if payment.status == "completed":
-        return RedirectResponse(url="http://localhost:3000/?payment=success")
+        return RedirectResponse(url=f"{settings.FRONTEND_URL}/?payment=success")
         
     if settings.PAYMENTS_LIVE:
         try:
@@ -312,18 +312,18 @@ async def capture_paypal(token: str, PayerID: str, db: AsyncSession = Depends(ge
                 user = user_result.scalar_one()
                 await db.commit()
                 await _fulfill_payment(payment, user, db)
-                return RedirectResponse(url=f"http://localhost:3000/?payment=success")
+                return RedirectResponse(url=f"{settings.FRONTEND_URL}/?payment=success")
             else:
                 payment.status = "failed"
                 await db.commit()
-                return RedirectResponse(url="http://localhost:3000/?payment=cancel")
+                return RedirectResponse(url=f"{settings.FRONTEND_URL}/?payment=cancel")
         except Exception as e:
             print(f"PayPal Capture Error: {e}")
             payment.status = "failed"
             await db.commit()
-            return RedirectResponse(url="http://localhost:3000/?payment=cancel")
+            return RedirectResponse(url=f"{settings.FRONTEND_URL}/?payment=cancel")
     else:
-        return RedirectResponse(url=f"http://localhost:3000/?payment=success")
+        return RedirectResponse(url=f"{settings.FRONTEND_URL}/?payment=success")
 
 
 # ── Skrill ───────────────────────────────────────────────────

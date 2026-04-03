@@ -11,8 +11,8 @@ class SubscriptionTierResponse(BaseModel):
     tier_id: str
     name: str
     description: Optional[str] = None
-    price_2wk: int
-    price_4wk: int
+    price_2wk: float
+    price_4wk: float
     categories: List[str]
     popular: bool
     regional_prices: Optional[dict] = {}
@@ -41,8 +41,8 @@ class SubscriptionTierCreate(BaseModel):
     tier_id: str  # e.g. "gold"
     name: str
     description: Optional[str] = None
-    price_2wk: int
-    price_4wk: int
+    price_2wk: float
+    price_4wk: float
     categories: List[str]
     popular: bool = False
     regional_prices: Optional[dict] = {}

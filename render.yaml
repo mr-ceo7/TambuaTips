@@ -85,3 +85,11 @@ services:
       # Auth Google
       - key: GOOGLE_CLIENT_ID
         value: "924177133255-g3duhln1pfflnr50qqg3le5mh3jo59pa.apps.googleusercontent.com"
+
+      # Frontend URL (for payment redirects)
+      - key: FRONTEND_URL
+        value: "https://tambua-tips-preview.vercel.app"
+
+      # Backend URL (for callbacks/captures)
+      - key: BACKEND_URL
+        value: "https://tambuatips-backend.onrender.com"

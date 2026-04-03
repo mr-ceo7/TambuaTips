@@ -19,7 +19,7 @@ class MpesaPaymentRequest(PaymentRequest):
 
 class PaymentResponse(BaseModel):
     id: int
-    amount: int
+    amount: float
     currency: str
     method: str
     status: str

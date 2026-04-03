@@ -17,7 +17,7 @@ class JackpotCreate(BaseModel):
     type: str  # midweek, mega
     dc_level: int
     matches: List[JackpotMatch]
-    price: int
+    price: float
     regional_prices: Optional[dict] = {}
 
 
@@ -26,7 +26,7 @@ class JackpotResponse(BaseModel):
     type: str
     dc_level: int
     matches: List[JackpotMatch]
-    price: int
+    price: float
     regional_prices: Optional[dict] = {}
     currency: Optional[str] = "KES"
     currency_symbol: Optional[str] = "KES"
@@ -41,7 +41,7 @@ class JackpotLockedResponse(BaseModel):
     type: str
     dc_level: int
     match_count: int
-    price: int
+    price: float
     locked: bool = True
     regional_prices: Optional[dict] = {}
     currency: Optional[str] = "KES"
