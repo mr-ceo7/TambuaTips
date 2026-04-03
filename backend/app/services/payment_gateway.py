@@ -33,6 +33,8 @@ async def get_mpesa_access_token() -> str:
     async with httpx.AsyncClient(timeout=60.0) as client:
         try:
             resp = await client.get(url, headers={"Authorization": f"Basic {credentials}"})
+            if resp.status_code != 200:
+                raise Exception(f"M-Pesa Token Error: {resp.status_code} - {resp.text}")
             data = resp.json()
             return data["access_token"]
         except httpx.ConnectTimeout:
@@ -76,6 +78,8 @@ async def initiate_mpesa_stk(phone: str, amount: float, reference: str) -> dict:
                 json=payload,
                 headers={"Authorization": f"Bearer {token}"},
             )
+            if resp.status_code != 200:
+                raise Exception(f"M-Pesa STK Error: {resp.status_code} - {resp.text}")
             return resp.json()
         except httpx.ConnectTimeout:
             raise Exception("M-Pesa STK push timed out (Safaricom API unreachable). Please try again later.")
