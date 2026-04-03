@@ -3,6 +3,7 @@ import asyncio
 from typing import AsyncGenerator
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+from sqlalchemy.pool import StaticPool
 
 from app.main import app
 from app.database import Base
@@ -11,13 +12,14 @@ from app.dependencies import get_db
 # Import models so Base.metadata is populated
 from app.models import user, tip, jackpot, subscription, payment
 
-SQLALCHEMY_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
+SQLALCHEMY_DATABASE_URL = "sqlite+aiosqlite:///file:testdb?mode=memory&cache=shared&uri=true"
 
 engine = create_async_engine(
     SQLALCHEMY_DATABASE_URL,
     connect_args={"check_same_thread": False},
-    # Ensure memory db doesn't drop between connections if pool is closed
+    poolclass=StaticPool,
 )
+
 
 TestingSessionLocal = async_sessionmaker(
     bind=engine,
@@ -25,12 +27,7 @@ TestingSessionLocal = async_sessionmaker(
     expire_on_commit=False,
 )
 
-@pytest.fixture(scope="session")
-def event_loop():
-    """Create an instance of the default event loop for each test case."""
-    loop = asyncio.get_event_loop_policy().new_event_loop()
-    yield loop
-    loop.close()
+
 
 @pytest.fixture()
 async def db_session() -> AsyncGenerator[AsyncSession, None]:
@@ -52,7 +49,8 @@ async def db_session() -> AsyncGenerator[AsyncSession, None]:
 @pytest.fixture()
 async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
     async def override_get_db():
-        yield db_session
+        async with TestingSessionLocal() as session:
+            yield session
 
     app.dependency_overrides[get_db] = override_get_db
     

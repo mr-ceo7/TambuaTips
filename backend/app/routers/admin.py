@@ -6,7 +6,7 @@ import csv
 import io
 import json
 from typing import List, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query
 from fastapi.responses import StreamingResponse
@@ -189,7 +189,7 @@ async def dashboard_stats(
     admin: User = Depends(require_admin)
 ):
     """Aggregated dashboard stats for the admin overview."""
-    now = datetime.utcnow()
+    now = datetime.now(UTC).replace(tzinfo=None)
     three_min_ago = now - timedelta(minutes=3)
 
     # ── User Stats ─────────────────────────────────────────
@@ -595,7 +595,7 @@ async def export_transactions(
     return StreamingResponse(
         output,
         media_type="text/csv",
-        headers={"Content-Disposition": f"attachment; filename=tambuatips_transactions_{datetime.utcnow().strftime('%Y%m%d')}.csv"}
+        headers={"Content-Disposition": f"attachment; filename=tambuatips_transactions_{datetime.now(UTC).replace(tzinfo=None).strftime('%Y%m%d')}.csv"}
     )
 
 
@@ -719,7 +719,7 @@ async def list_users(db: AsyncSession = Depends(get_db), admin: User = Depends(r
     users = result.scalars().all()
     
     response = []
-    now = datetime.utcnow()
+    now = datetime.now(UTC).replace(tzinfo=None)
     
     for u in users:
         is_online = u.last_seen and (now - u.last_seen) < timedelta(minutes=3)

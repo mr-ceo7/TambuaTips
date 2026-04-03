@@ -6,7 +6,7 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Response, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 import random
 import os
 import string
@@ -92,7 +92,7 @@ async def google_auth(body: GoogleLoginRequest, request: Request, response: Resp
                 subscription_tier="free",
                 is_admin=False,
                 is_active=True,
-                email_verified_at=datetime.utcnow(),
+                email_verified_at=datetime.now(UTC).replace(tzinfo=None),
                 profile_picture=picture
             )
             db.add(user)
@@ -119,8 +119,8 @@ async def google_auth(body: GoogleLoginRequest, request: Request, response: Resp
 
                         # Grant referrer: set BOTH tier and expiry (fixes critical bug)
                         referrer.subscription_tier = reward_tier
-                        if not referrer.subscription_expires_at or referrer.subscription_expires_at < datetime.utcnow():
-                            referrer.subscription_expires_at = datetime.utcnow() + timedelta(days=reward_days)
+                        if not referrer.subscription_expires_at or referrer.subscription_expires_at < datetime.now(UTC).replace(tzinfo=None):
+                            referrer.subscription_expires_at = datetime.now(UTC).replace(tzinfo=None) + timedelta(days=reward_days)
                         else:
                             referrer.subscription_expires_at += timedelta(days=reward_days)
                         
@@ -129,7 +129,7 @@ async def google_auth(body: GoogleLoginRequest, request: Request, response: Resp
                             new_user_days = ref_settings.get("referral_new_user_reward_days", 7)
                             new_user_tier = ref_settings.get("referral_new_user_reward_tier", "basic")
                             user.subscription_tier = new_user_tier
-                            user.subscription_expires_at = datetime.utcnow() + timedelta(days=new_user_days)
+                            user.subscription_expires_at = datetime.now(UTC).replace(tzinfo=None) + timedelta(days=new_user_days)
                         
                         db.add(referrer)
                         db.add(user)
@@ -245,10 +245,7 @@ async def push_subscribe(
 
 async def cleanup_old_visitors_task():
     try:
-        from sqlalchemy import delete
-        import datetime as dt
-        async with AsyncSessionLocal() as session:
-            cutoff = dt.datetime.utcnow() - dt.timedelta(days=30)
+            cutoff = datetime.now(UTC).replace(tzinfo=None) - timedelta(days=30)
             await session.execute(delete(AnonymousVisitor).where(AnonymousVisitor.last_seen < cutoff))
             await session.commit()
     except Exception as e:
@@ -267,7 +264,7 @@ async def track_activity(
 
     if user:
         # 1. Update heartbeat
-        user.last_seen = datetime.utcnow()
+        user.last_seen = datetime.now(UTC).replace(tzinfo=None)
         db.add(user)
         
         # 2. Log activity
@@ -289,7 +286,7 @@ async def track_activity(
             await db.commit()
             await db.refresh(visitor)
             
-        visitor.last_seen = datetime.utcnow()
+        visitor.last_seen = datetime.now(UTC).replace(tzinfo=None)
         db.add(visitor)
         
         if body.time_spent > 0 and body.path:

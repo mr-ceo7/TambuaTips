@@ -2,7 +2,7 @@
 User ORM model — extends the existing MySQL `users` table.
 """
 
-from datetime import datetime
+from datetime import datetime, UTC
 from sqlalchemy import Column, Integer, BigInteger, String, DateTime, Boolean, Text, JSON, ForeignKey
 from sqlalchemy.orm import relationship
 
@@ -44,8 +44,8 @@ class User(Base):
     # Self-referential relationship for referrals
     referred_users = relationship("User", backref="referrer", remote_side=[id])
 
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
+    updated_at = Column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
     # Relationships
     payments = relationship("Payment", back_populates="user", lazy="selectin")
@@ -54,8 +54,7 @@ class User(Base):
 
     @property
     def is_subscription_active(self) -> bool:
-        if self.subscription_tier == "free":
+        if self.subscription_tier == "free" or self.subscription_expires_at is None:
             return False
-        if self.subscription_expires_at is None:
-            return False
-        return self.subscription_expires_at > datetime.utcnow()
+            
+        return self.subscription_expires_at > datetime.now(UTC).replace(tzinfo=None)

@@ -1,5 +1,5 @@
 import httpx
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 
 # Global Cache to prevent spamming the external API
 _RATE_CACHE = None
@@ -14,7 +14,7 @@ async def get_kes_to_usd_rate() -> float:
     global _RATE_CACHE, _CACHE_EXPIRES
     
     # Return cached rate if it's still valid
-    if _RATE_CACHE is not None and _CACHE_EXPIRES and datetime.utcnow() < _CACHE_EXPIRES:
+    if _RATE_CACHE is not None and _CACHE_EXPIRES and datetime.now(UTC).replace(tzinfo=None) < _CACHE_EXPIRES:
         return _RATE_CACHE
         
     try:
@@ -29,7 +29,7 @@ async def get_kes_to_usd_rate() -> float:
             
             if kes_rate and float(kes_rate) > 0:
                 _RATE_CACHE = float(kes_rate)
-                _CACHE_EXPIRES = datetime.utcnow() + timedelta(hours=12)
+                _CACHE_EXPIRES = datetime.now(UTC).replace(tzinfo=None) + timedelta(hours=12)
                 return _RATE_CACHE
     except Exception as e:
         print(f"[Currency API] Failed to fetch live exchange rate: {e}")

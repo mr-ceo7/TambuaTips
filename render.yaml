@@ -1,0 +1,86 @@
+services:
+  - type: web
+    name: tambuatips-backend
+    env: python
+    rootDir: backend
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.13.0"
+        
+      # Sensitive: You will be prompted to enter this in the Render dashboard!
+      - key: DATABASE_URL
+        sync: false
+        
+      # Sensitive: You will be prompted to enter this in the Render dashboard!
+      - key: JWT_SECRET_KEY
+        sync: false
+        
+      - key: JWT_ALGORITHM
+        value: "HS256"
+        
+      # Sensitive: You will be prompted to enter this in the Render dashboard!
+      - key: API_FOOTBALL_KEYS
+        sync: false
+        
+      - key: ALLOWED_ORIGINS
+        # FastAPI requires explicit origins instead of * when credentials are used
+        value: "https://tambua-tips-preview.vercel.app,https://www.tambuatips.com,http://localhost:5173"
+      - key: PAYMENTS_LIVE
+        value: "true"
+      
+      # M-Pesa Setup
+      - key: MPESA_CONSUMER_KEY
+        sync: false
+      - key: MPESA_CONSUMER_SECRET
+        sync: false
+      - key: MPESA_SHORTCODE
+        value: "174379"
+      - key: MPESA_PASSKEY
+        sync: false
+      - key: MPESA_CALLBACK_URL
+        # Note: If your render app gets a random URL suffix, update this!
+        value: "https://tambuatips-backend.onrender.com/api/pay/mpesa/callback"
+      - key: MPESA_CALLBACK_SECRET
+        sync: false
+      - key: MPESA_ENV
+        value: "sandbox"
+        
+      # PayPal Setup
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
+      - key: PAYPAL_MODE
+        value: "sandbox"
+        
+      # Paystack Setup
+      - key: PAYSTACK_SECRET_KEY
+        sync: false
+      - key: PAYSTACK_PUBLIC_KEY
+        value: "pk_test_3b090dc14ceb6fe8e611f786e42a26152f59e241"
+
+      # Email / SMTP Setup
+      - key: SMTP_SERVER
+        value: "smtp.gmail.com"
+      - key: SMTP_PORT
+        value: "465"
+      - key: SMTP_USERNAME
+        value: "tambuatips@gmail.com"
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: FROM_EMAIL
+        value: "tambuatips@gmail.com"
+
+      # VAPID / Notifications
+      - key: VAPID_PUBLIC_KEY
+        value: "BETxA1mQutNiaUTmGbpWrrGGH5zqbr-IazrY3FA0m1vjWM6LAUjZZqjifdkrjA5dPtnArrgSpgTzltEua-G9Ap4"
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: VAPID_SUBJECT
+        value: "tambuatips@gmail.com"
+
+      # Auth Google
+      - key: GOOGLE_CLIENT_ID
+        value: "924177133255-g3duhln1pfflnr50qqg3le5mh3jo59pa.apps.googleusercontent.com"

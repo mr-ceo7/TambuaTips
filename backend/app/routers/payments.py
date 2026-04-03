@@ -5,7 +5,7 @@ All gateways are implemented but controlled by PAYMENTS_LIVE env flag.
 
 import asyncio
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -52,6 +52,11 @@ async def _resolve_amount(body: PaymentRequest, user: User, db: AsyncSession) ->
         if not jp:
             raise HTTPException(status_code=400, detail="Invalid jackpot ID")
             
+        # Prevent double purchases
+        existing_purchase = await db.execute(select(JackpotPurchase).where(JackpotPurchase.user_id == user.id, JackpotPurchase.jackpot_id == jp.id))
+        if existing_purchase.scalar_one_or_none():
+            raise HTTPException(status_code=400, detail="Jackpot already purchased")
+            
         amount = jp.price
         if region and jp.regional_prices and region.region_code in jp.regional_prices:
             overrides = jp.regional_prices[region.region_code]
@@ -83,7 +88,7 @@ async def _fulfill_payment(payment: Payment, user: User, db: AsyncSession):
         locked_user.subscription_tier = payment.item_id
         
         # Safely extend or overwrite expiry
-        now = datetime.utcnow()
+        now = datetime.now(UTC).replace(tzinfo=None)
         if not locked_user.subscription_expires_at or locked_user.subscription_expires_at < now:
             locked_user.subscription_expires_at = now + timedelta(weeks=weeks)
         else:
@@ -291,6 +296,9 @@ async def capture_paypal(token: str, PayerID: str, db: AsyncSession = Depends(ge
     
     if not payment:
         return RedirectResponse(url="http://localhost:3000/?payment=cancel")
+        
+    if payment.status == "completed":
+        return RedirectResponse(url="http://localhost:3000/?payment=success")
         
     if settings.PAYMENTS_LIVE:
         try:

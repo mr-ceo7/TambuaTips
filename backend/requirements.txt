@@ -17,6 +17,12 @@ bcrypt==4.0.1
 # HTTP client (for proxying APIs)
 httpx==0.28.1
 
+# Email
+aiosmtplib==3.0.2
+
+# Web Push
+pywebpush==1.14.0
+
 # Caching
 cachetools==5.5.2
 

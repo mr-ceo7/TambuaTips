@@ -1,8 +1,38 @@
+# Frontend
 node_modules/
-build/
 dist/
+build/
 coverage/
-.DS_Store
-*.log
+
+# Environments
 .env*
 !.env.example
+
+# OS / Logs
+.DS_Store
+*.log
+
+# Python / Backend
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+*.egg-info/
+.eggs/
+
+# Virtual Environments
+venv/
+.venv/
+env/
+
+# Database
+*.db
+*.sqlite3
+
+# IDE
+.idea/
+.vscode/

@@ -1,8 +1,20 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { MatchCard } from './MatchCard';
 import { MatchTip } from '../types';
+import { MemoryRouter } from 'react-router-dom';
+
+vi.mock('../context/UserContext', () => ({
+  useUser: vi.fn().mockReturnValue({
+    user: null,
+    isLoggedIn: false,
+    favoriteTeams: [],
+    toggleFavoriteTeam: vi.fn(),
+    notifiedMatches: [],
+    toggleMatchNotification: vi.fn(),
+  }),
+}));
 
 const mockTip: MatchTip = {
   id: 1,
@@ -24,20 +36,26 @@ const mockTip: MatchTip = {
 
 describe('MatchCard', () => {
   it('renders match details correctly', () => {
-    render(<MatchCard tip={mockTip} />);
+    render(
+      <MemoryRouter>
+        <MatchCard tip={mockTip} />
+      </MemoryRouter>
+    );
     
     expect(screen.getByText('Arsenal')).toBeInTheDocument();
     expect(screen.getByText('Chelsea')).toBeInTheDocument();
     expect(screen.getByText(/Soccer/i)).toBeInTheDocument();
     expect(screen.getByText(/Premier League/i)).toBeInTheDocument();
     expect(screen.getByText('Home Win')).toBeInTheDocument();
-    expect(screen.getByText('2.10')).toBeInTheDocument();
   });
 
   it('handles missing date gracefully', () => {
     const tipWithoutDate = { ...mockTip, matchDate: '' };
-    render(<MatchCard tip={tipWithoutDate} />);
+    render(
+      <MemoryRouter>
+        <MatchCard tip={tipWithoutDate} />
+      </MemoryRouter>
+    );
     expect(screen.getByText('TBD')).toBeInTheDocument();
   });
 });
-

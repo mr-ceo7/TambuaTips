@@ -47,7 +47,7 @@ class Settings(BaseSettings):
     PAYSTACK_PUBLIC_KEY: str = ""
 
     # ── CORS ─────────────────────────────────────────────────
-    ALLOWED_ORIGINS: str = "http://localhost:5173,http://localhost:3000"
+    ALLOWED_ORIGINS: str = "http://localhost:8000,http://localhost:3000,https://www.tambuatips.com,https://tambua-tips-preview.vercel.app"
 
     # ── Gemini AI ────────────────────────────────────────────
     GEMINI_API_KEY: str = ""
