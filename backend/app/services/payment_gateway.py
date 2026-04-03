@@ -37,9 +37,9 @@ async def get_mpesa_access_token() -> str:
                 raise Exception(f"M-Pesa Token Error: {resp.status_code} - {resp.text}")
             data = resp.json()
             return data["access_token"]
-        except httpx.ConnectTimeout:
-            raise Exception("M-Pesa service unreachable (Safaricom API timeout). Please try again later.")
-        except httpx.ConnectError:
+        except httpx.TimeoutException:
+            raise Exception("M-Pesa service timed out (Safaricom API unreachable). Please try again later.")
+        except httpx.RequestError:
             raise Exception("Cannot connect to M-Pesa service. Check your internet connection.")
 
 
@@ -84,9 +84,9 @@ async def initiate_mpesa_stk(phone: str, amount: float, reference: str) -> dict:
             if resp.status_code != 200:
                 raise Exception(f"M-Pesa STK Error: {resp.status_code} - {resp.text}")
             return resp.json()
-        except httpx.ConnectTimeout:
-            raise Exception("M-Pesa STK push timed out (Safaricom API unreachable). Please try again later.")
-        except httpx.ConnectError:
+        except httpx.TimeoutException:
+            raise Exception("M-Pesa STK push timed out (Safaricom took too long to respond). Please try again later.")
+        except httpx.RequestError:
             raise Exception("Cannot connect to M-Pesa service. Check your internet connection.")
 
 
