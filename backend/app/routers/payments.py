@@ -157,6 +157,7 @@ async def pay_mpesa(body: MpesaPaymentRequest, db: AsyncSession = Depends(get_db
             payment.status = "error"
             payment.gateway_response = str(e)
             await db.commit()
+            print(f"M-Pesa Exact Error: {e}")
             detail = f"M-Pesa initiation failed: {e}" if settings.PAYMENTS_LIVE and settings.DEBUG else "M-Pesa initiation failed. Please try again later."
             raise HTTPException(status_code=502, detail=detail)
     else:

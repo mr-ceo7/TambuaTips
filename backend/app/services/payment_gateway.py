@@ -53,18 +53,21 @@ async def initiate_mpesa_stk(phone: str, amount: float, reference: str) -> dict:
         url = "https://api.safaricom.co.ke/mpesa/stkpush/v1/processrequest"
 
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    shortcode = settings.MPESA_SHORTCODE.replace("\n", "").replace("\r", "").replace(" ", "").strip()
+    passkey = settings.MPESA_PASSKEY.replace("\n", "").replace("\r", "").replace(" ", "").strip()
+    
     password = base64.b64encode(
-        f"{settings.MPESA_SHORTCODE}{settings.MPESA_PASSKEY}{timestamp}".encode()
+        f"{shortcode}{passkey}{timestamp}".encode()
     ).decode()
 
     payload = {
-        "BusinessShortCode": settings.MPESA_SHORTCODE,
+        "BusinessShortCode": shortcode,
         "Password": password,
         "Timestamp": timestamp,
         "TransactionType": "CustomerPayBillOnline",
         "Amount": amount,
         "PartyA": phone,
-        "PartyB": settings.MPESA_SHORTCODE,
+        "PartyB": shortcode,
         "PhoneNumber": phone,
         "CallBackURL": f"{settings.MPESA_CALLBACK_URL}?secret={settings.MPESA_CALLBACK_SECRET}" if settings.MPESA_CALLBACK_SECRET else settings.MPESA_CALLBACK_URL,
         "AccountReference": reference,
