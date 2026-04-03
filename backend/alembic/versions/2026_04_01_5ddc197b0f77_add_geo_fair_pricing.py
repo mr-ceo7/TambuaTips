@@ -33,8 +33,8 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_pricing_regions_region_code'), 'pricing_regions', ['region_code'], unique=True)
-    op.add_column('jackpots', sa.Column('regional_prices', sa.JSON(), server_default='{}', nullable=True))
-    op.add_column('subscription_tiers', sa.Column('regional_prices', sa.JSON(), server_default='{}', nullable=True))
+    op.add_column('jackpots', sa.Column('regional_prices', sa.JSON(), nullable=True))
+    op.add_column('subscription_tiers', sa.Column('regional_prices', sa.JSON(), nullable=True))
     # ### end Alembic commands ###
 
 
