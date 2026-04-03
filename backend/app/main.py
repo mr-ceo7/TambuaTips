@@ -64,6 +64,73 @@ async def seed_default_ads():
             session.add(AdPost(**val))
         await session.commit()
 
+
+async def seed_default_tiers():
+    from sqlalchemy import select
+    from app.database import AsyncSessionLocal
+    from app.models.subscription import SubscriptionTier
+    
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(select(SubscriptionTier).limit(1))
+        if result.scalar_one_or_none() is not None:
+            return  # Already seeded or has data
+
+        tiers_data = [
+            {
+                "tier_id": "basic",
+                "name": "Basic",
+                "description": "Daily free tips and 2+ odds predictions.",
+                "price_2wk": 550.0,
+                "price_4wk": 860.0,
+                "categories": ["free", "2+"],
+                "popular": False,
+            },
+            {
+                "tier_id": "standard",
+                "name": "Standard Plan",
+                "description": "4+ Odds, 2+ Odds, and GG (BTTS) predictions.",
+                "price_2wk": 1250.0,
+                "price_4wk": 2000.0,
+                "categories": ["free", "2+", "4+", "gg"],
+                "popular": True,
+            },
+            {
+                "tier_id": "premium",
+                "name": "Premium VIP",
+                "description": "All access: 10+ Odds, VIP, and specialty analytics.",
+                "price_2wk": 2500.0,
+                "price_4wk": 4500.0,
+                "categories": ["free", "2+", "4+", "gg", "10+", "vip"],
+                "popular": False,
+            }
+        ]
+        for val in tiers_data:
+            session.add(SubscriptionTier(**val))
+        await session.commit()
+
+
+async def seed_default_jackpots():
+    from sqlalchemy import select
+    from app.database import AsyncSessionLocal
+    from app.models.jackpot import Jackpot
+    
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(select(Jackpot).limit(1))
+        if result.scalar_one_or_none() is not None:
+            return  # Already seeded or has data
+
+        jackpots_data = [
+            {
+                "type": "midweek",
+                "dc_level": 3,
+                "price": 99.0,
+                "matches": [], # Empty list placeholder
+            }
+        ]
+        for val in jackpots_data:
+            session.add(Jackpot(**val))
+        await session.commit()
+
 import asyncio
 from app.services.match_poller import poll_live_matches
 
@@ -75,6 +142,8 @@ async def lifespan(app: FastAPI):
         await conn.run_sync(Base.metadata.create_all)
         
     await seed_default_ads()
+    await seed_default_tiers()
+    await seed_default_jackpots()
     
     # Start the background match poller task
     poller_task = asyncio.create_task(poll_live_matches())

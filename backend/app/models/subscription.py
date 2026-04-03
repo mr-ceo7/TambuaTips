@@ -15,8 +15,8 @@ class SubscriptionTier(Base):
     tier_id = Column(String(20), unique=True, nullable=False)  # basic, standard, premium
     name = Column(String(100), nullable=False)
     description = Column(String(500), nullable=True)
-    price_2wk = Column(Integer, nullable=False)  # KES
-    price_4wk = Column(Integer, nullable=False)  # KES
+    price_2wk = Column(Float, nullable=False)  # KES
+    price_4wk = Column(Float, nullable=False)  # KES
     regional_prices = Column(JSON, default=dict) # For dynamic overrides
     categories = Column(JSON, nullable=False)  # ["free", "4+", ...]
     popular = Column(Boolean, default=False)
