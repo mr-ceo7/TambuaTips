@@ -28,10 +28,15 @@ async def get_mpesa_access_token() -> str:
         f"{settings.MPESA_CONSUMER_KEY}:{settings.MPESA_CONSUMER_SECRET}".encode()
     ).decode()
 
-    async with httpx.AsyncClient() as client:
-        resp = await client.get(url, headers={"Authorization": f"Basic {credentials}"})
-        data = resp.json()
-        return data["access_token"]
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        try:
+            resp = await client.get(url, headers={"Authorization": f"Basic {credentials}"})
+            data = resp.json()
+            return data["access_token"]
+        except httpx.ConnectTimeout:
+            raise Exception("M-Pesa service unreachable (Safaricom API timeout). Please try again later.")
+        except httpx.ConnectError:
+            raise Exception("Cannot connect to M-Pesa service. Check your internet connection.")
 
 
 async def initiate_mpesa_stk(phone: str, amount: float, reference: str) -> dict:
@@ -62,13 +67,18 @@ async def initiate_mpesa_stk(phone: str, amount: float, reference: str) -> dict:
         "TransactionDesc": f"TambuaTips Payment {reference}",
     }
 
-    async with httpx.AsyncClient() as client:
-        resp = await client.post(
-            url,
-            json=payload,
-            headers={"Authorization": f"Bearer {token}"},
-        )
-        return resp.json()
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        try:
+            resp = await client.post(
+                url,
+                json=payload,
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            return resp.json()
+        except httpx.ConnectTimeout:
+            raise Exception("M-Pesa STK push timed out (Safaricom API unreachable). Please try again later.")
+        except httpx.ConnectError:
+            raise Exception("Cannot connect to M-Pesa service. Check your internet connection.")
 
 
 # ─────────────────────────────────────────────────────────────

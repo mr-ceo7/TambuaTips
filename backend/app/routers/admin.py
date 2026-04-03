@@ -178,9 +178,11 @@ async def clear_dashboard_stats(db: AsyncSession = Depends(get_db), admin: User 
         await db.commit()
         return {"status": "success", "message": "All stats cleared and users reset to free tier."}
     except Exception as e:
-        import traceback
-        error_details = traceback.format_exc()
-        raise HTTPException(status_code=500, detail=f"Failed: {str(e)}\n\n{error_details}")
+        if settings.DEBUG:
+            import traceback
+            error_details = traceback.format_exc()
+            raise HTTPException(status_code=500, detail=f"Failed: {str(e)}\n\n{error_details}")
+        raise HTTPException(status_code=500, detail="Failed to clear dashboard stats. Internal Server Error.")
 
 @router.get("/dashboard")
 async def dashboard_stats(
@@ -695,7 +697,8 @@ async def search_fixtures(
         fixtures = await fetch_fixtures_by_date(search_date)
     except Exception as e:
         # API might be unavailable — return empty gracefully 
-        return {"fixtures": [], "error": str(e)}
+        error_msg = str(e) if settings.DEBUG else "Service unavailable"
+        return {"fixtures": [], "error": error_msg}
 
     # Filter by query
     q_lower = q.lower()

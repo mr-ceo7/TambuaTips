@@ -3,7 +3,7 @@ Jackpot ORM model and JackpotPurchase model — replaces frontend localStorage j
 """
 
 from datetime import datetime
-from sqlalchemy import Column, BigInteger, String, Integer, DateTime, JSON, ForeignKey
+from sqlalchemy import Column, BigInteger, String, Integer, Float, DateTime, JSON, ForeignKey
 from sqlalchemy.orm import relationship
 
 from app.database import Base

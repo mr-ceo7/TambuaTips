@@ -3,7 +3,7 @@ Subscription tier configuration model — replaces frontend pricingService.ts lo
 """
 
 from datetime import datetime
-from sqlalchemy import Column, BigInteger, String, Integer, Boolean, DateTime, JSON
+from sqlalchemy import Column, BigInteger, String, Integer, Float, Boolean, DateTime, JSON
 
 from app.database import Base
 

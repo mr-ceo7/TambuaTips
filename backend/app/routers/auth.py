@@ -163,7 +163,8 @@ async def google_auth(body: GoogleLoginRequest, request: Request, response: Resp
         return {"status": "success"}
 
     except ValueError as e:
-        raise HTTPException(status_code=401, detail=f"Invalid Google Token: {e}")
+        detail = f"Invalid Google Token: {e}" if settings.DEBUG else "Invalid identity token. Access denied."
+        raise HTTPException(status_code=401, detail=detail)
 
 @router.post("/logout")
 async def logout(response: Response):

@@ -102,8 +102,6 @@ async def _fulfill_payment(payment: Payment, user: User, db: AsyncSession):
         )
         db.add(purchase)
 
-        db.add(purchase)
-
     await db.commit()
     
     # Try to send a receipt
@@ -159,7 +157,8 @@ async def pay_mpesa(body: MpesaPaymentRequest, db: AsyncSession = Depends(get_db
             payment.status = "error"
             payment.gateway_response = str(e)
             await db.commit()
-            raise HTTPException(status_code=500, detail="M-Pesa initiation failed")
+            detail = f"M-Pesa initiation failed: {e}" if settings.PAYMENTS_LIVE and settings.DEBUG else "M-Pesa initiation failed. Please try again later."
+            raise HTTPException(status_code=502, detail=detail)
     else:
         # Simulate: auto-complete after short delay
         await asyncio.sleep(1)
@@ -274,7 +273,8 @@ async def pay_paypal(body: PaymentRequest, db: AsyncSession = Depends(get_db), u
         except Exception as e:
             err_msg = str(e)
             print(f"PayPal Order Error: {err_msg}")
-            raise HTTPException(status_code=500, detail=f"PayPal gateway error: {err_msg}")
+            detail = f"PayPal gateway error: {err_msg}" if settings.DEBUG else "PayPal gateway error. Please try again later."
+            raise HTTPException(status_code=500, detail=detail)
     else:
         await asyncio.sleep(1)
         payment.status = "completed"
@@ -398,7 +398,8 @@ async def pay_paystack(body: PaymentRequest, db: AsyncSession = Depends(get_db),
             payment.status = "error"
             payment.gateway_response = str(e)
             await db.commit()
-            raise HTTPException(status_code=500, detail=str(e))
+            detail = f"Paystack error: {e}" if settings.DEBUG else "Payment initialization failed. Please try again later."
+            raise HTTPException(status_code=500, detail=detail)
     else:
         await asyncio.sleep(1)
         payment.status = "completed"

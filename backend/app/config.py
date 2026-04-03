@@ -9,6 +9,7 @@ from typing import List
 class Settings(BaseSettings):
     # ── Database ──────────────────────────────────────────────
     DATABASE_URL: str = "mysql+asyncmy://root:password@localhost:3306/tambuatips_com"
+    DEBUG: bool = True  # Set to False in production
 
     # ── JWT ───────────────────────────────────────────────────
     JWT_SECRET_KEY: str = "change-me"
