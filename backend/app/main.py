@@ -128,6 +128,42 @@ async def global_exception_handler(request: Request, exc: Exception):
     )
 
 
-@app.get("/api/health")
+@app.api_route("/api/health", methods=["GET", "HEAD"])
 async def health():
     return {"status": "ok", "service": "tambuatips-api"}
+
+
+@app.post("/api/bootstrap-admin")
+async def bootstrap_admin(request: Request):
+    """One-time endpoint to promote the first admin. Only works when zero admins exist."""
+    from sqlalchemy import select, func
+    from app.database import AsyncSessionLocal
+    from app.models.user import User
+
+    body = await request.json()
+    email = body.get("email", "").lower().strip()
+    secret = body.get("secret", "")
+
+    # Require a bootstrap secret to prevent random access
+    import os
+    bootstrap_secret = os.getenv("BOOTSTRAP_SECRET", "tambuatips-first-admin-2026")
+    if secret != bootstrap_secret:
+        raise HTTPException(status_code=403, detail="Invalid bootstrap secret")
+
+    async with AsyncSessionLocal() as session:
+        # Check if any admin already exists
+        admin_count = await session.execute(select(func.count(User.id)).where(User.is_admin == True))
+        if admin_count.scalar() > 0:
+            raise HTTPException(status_code=409, detail="Admin already exists. Use /api/admin/users/{id}/make-admin instead.")
+
+        # Find user by email
+        result = await session.execute(select(User).where(User.email == email))
+        user = result.scalar_one_or_none()
+        if not user:
+            raise HTTPException(status_code=404, detail=f"No user found with email: {email}")
+
+        user.is_admin = True
+        session.add(user)
+        await session.commit()
+
+    return {"status": "success", "message": f"{email} is now the first admin!"}
