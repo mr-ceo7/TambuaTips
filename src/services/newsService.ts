@@ -8,6 +8,9 @@ export interface NewsItem {
   image: string;
   category: string;
   link: string;
+  description?: string;
+  isVideo?: boolean;
+  videoUrl?: string;
 }
 
 const PLAYER_IMAGES = [

@@ -10,11 +10,14 @@ from sqlalchemy import select
 from app.dependencies import get_db, get_current_user, require_admin
 from app.models.user import User
 from app.models.subscription import SubscriptionTier
+from app.models.campaign import Campaign
 from app.schemas.subscription import SubscriptionTierResponse, SubscribeRequest, SubscriptionTierCreate, SubscriptionTierUpdate
 from app.services.pricing import get_pricing_region
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from fastapi import Query
+
+UTC = timezone.utc
 
 router = APIRouter(prefix="/api/subscriptions", tags=["Subscriptions"])
 
@@ -39,6 +42,28 @@ async def list_tiers(country: Optional[str] = Query(None), db: AsyncSession = De
             
         t_dict["currency"] = region.currency if region else "KES"
         t_dict["currency_symbol"] = region.currency_symbol if region else "KES"
+        
+        # Check active campaign discount
+        now_dt = datetime.now(UTC).replace(tzinfo=None)
+        campaign_result = await db.execute(
+            select(Campaign)
+            .where(
+                Campaign.is_active == True,
+                Campaign.start_date <= now_dt,
+                Campaign.end_date >= now_dt
+            )
+            .order_by(Campaign.start_date.desc())
+            .limit(1)
+        )
+        campaign = campaign_result.scalar_one_or_none()
+        if campaign and campaign.incentive_type == "discount":
+            t_dict["original_price_2wk"] = t_dict["price_2wk"]
+            t_dict["original_price_4wk"] = t_dict["price_4wk"]
+            
+            discount = campaign.incentive_value / 100.0
+            t_dict["price_2wk"] = max(0, t_dict["price_2wk"] - (t_dict["price_2wk"] * discount))
+            t_dict["price_4wk"] = max(0, t_dict["price_4wk"] - (t_dict["price_4wk"] * discount))
+
         response.append(SubscriptionTierResponse.model_validate(t_dict))
         
     return response

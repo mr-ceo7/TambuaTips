@@ -7,3 +7,4 @@ from app.models.activity import UserActivity, AnonymousVisitor, AnonymousActivit
 from app.models.ad import AdPost
 from app.models.notification import MatchSubscription
 from app.models.setting import AdminSetting
+from app.models.campaign import Campaign

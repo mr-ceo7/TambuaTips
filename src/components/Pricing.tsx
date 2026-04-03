@@ -83,6 +83,7 @@ export function Pricing() {
           const colors = TIER_COLORS[tier.id] || TIER_COLORS.basic;
           const Icon = TIER_ICONS[tier.id] || Zap;
           const price = duration === '2wk' ? tier.price2wk : tier.price4wk;
+          const originalPrice = duration === '2wk' ? tier.originalPrice2wk : tier.originalPrice4wk;
 
           return (
             <div 
@@ -105,9 +106,21 @@ export function Pricing() {
                 <p className="text-xs sm:text-sm text-zinc-400 h-10">{tier.description}</p>
               </div>
               
-              <div className="mb-5 sm:mb-6 flex items-baseline gap-2">
-                <span className="text-2xl sm:text-3xl font-display font-bold text-white">{tier.currency_symbol || 'KES'} {price.toLocaleString(undefined, {minimumFractionDigits: price % 1 !== 0 ? 2 : 0})}</span>
-                <span className="text-xs sm:text-sm text-zinc-500">/{duration === '2wk' ? '2 weeks' : '4 weeks'}</span>
+              <div className="mb-5 sm:mb-6">
+                {originalPrice ? (
+                  <div className="flex flex-col mb-1">
+                     <span className="text-sm text-zinc-500 line-through decoration-red-500/50 decoration-2">{tier.currency_symbol || 'KES'} {originalPrice.toLocaleString(undefined, {minimumFractionDigits: originalPrice % 1 !== 0 ? 2 : 0})}</span>
+                     <div className="flex items-baseline gap-2">
+                       <span className="text-2xl sm:text-3xl font-display font-bold text-emerald-400">{tier.currency_symbol || 'KES'} {price.toLocaleString(undefined, {minimumFractionDigits: price % 1 !== 0 ? 2 : 0})}</span>
+                       <span className="text-xs sm:text-sm text-zinc-500">/{duration === '2wk' ? '2 weeks' : '4 weeks'}</span>
+                     </div>
+                  </div>
+                ) : (
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-2xl sm:text-3xl font-display font-bold text-white">{tier.currency_symbol || 'KES'} {price.toLocaleString(undefined, {minimumFractionDigits: price % 1 !== 0 ? 2 : 0})}</span>
+                    <span className="text-xs sm:text-sm text-zinc-500">/{duration === '2wk' ? '2 weeks' : '4 weeks'}</span>
+                  </div>
+                )}
               </div>
               
               {/* Included categories */}

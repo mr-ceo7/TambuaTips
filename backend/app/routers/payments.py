@@ -16,6 +16,7 @@ from app.dependencies import get_db, get_current_user
 from app.services.payment_gateway import initiate_mpesa_stk
 from app.models.user import User
 from app.models.payment import Payment
+from app.models.campaign import Campaign
 from app.models.jackpot import Jackpot, JackpotPurchase
 from app.models.subscription import SubscriptionTier
 from app.schemas.payment import MpesaPaymentRequest, PaymentRequest, PaymentResponse, MpesaCallbackData
@@ -43,6 +44,23 @@ async def _resolve_amount(body: PaymentRequest, user: User, db: AsyncSession) ->
         if region and tier.regional_prices and region.region_code in tier.regional_prices:
             overrides = tier.regional_prices[region.region_code]
             amount = overrides.get("price_2wk" if body.duration_weeks == 2 else "price_4wk", amount)
+            
+        # Check active campaigns for discounts
+        now = datetime.now(UTC).replace(tzinfo=None)
+        active_campaign = await db.execute(
+            select(Campaign)
+            .where(
+                Campaign.is_active == True,
+                Campaign.start_date <= now,
+                Campaign.end_date >= now
+            )
+            .order_by(Campaign.start_date.desc())
+            .limit(1)
+        )
+        campaign = active_campaign.scalar_one_or_none()
+        if campaign and campaign.incentive_type == "discount":
+            discount = amount * (campaign.incentive_value / 100.0)
+            amount = max(0, amount - discount)
             
         return float(amount), currency
         
@@ -87,12 +105,28 @@ async def _fulfill_payment(payment: Payment, user: User, db: AsyncSession):
 
         locked_user.subscription_tier = payment.item_id
         
+        # Check active campaign for extra days
+        now_dt = datetime.now(UTC).replace(tzinfo=None)
+        active_campaign = await db.execute(
+            select(Campaign)
+            .where(
+                Campaign.is_active == True,
+                Campaign.start_date <= now_dt,
+                Campaign.end_date >= now_dt
+            )
+            .order_by(Campaign.start_date.desc())
+            .limit(1)
+        )
+        campaign = active_campaign.scalar_one_or_none()
+        bonus_days = 0
+        if campaign and campaign.incentive_type == "extra_days":
+            bonus_days = int(campaign.incentive_value)
+        
         # Safely extend or overwrite expiry
-        now = datetime.now(UTC).replace(tzinfo=None)
-        if not locked_user.subscription_expires_at or locked_user.subscription_expires_at < now:
-            locked_user.subscription_expires_at = now + timedelta(weeks=weeks)
+        if not locked_user.subscription_expires_at or locked_user.subscription_expires_at < now_dt:
+            locked_user.subscription_expires_at = now_dt + timedelta(weeks=weeks, days=bonus_days)
         else:
-            locked_user.subscription_expires_at += timedelta(weeks=weeks)
+            locked_user.subscription_expires_at += timedelta(weeks=weeks, days=bonus_days)
 
     elif payment.item_type == "jackpot":
         purchase = JackpotPurchase(

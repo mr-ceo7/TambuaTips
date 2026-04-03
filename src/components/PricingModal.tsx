@@ -216,6 +216,8 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
                       {tiers.map(tier => {
                         const Icon = TIER_ICONS[tier.id] || Zap;
                         const dprice = duration === 2 ? tier.price2wk : tier.price4wk;
+                        const originalPrice = duration === 2 ? tier.originalPrice2wk : tier.originalPrice4wk;
+                        const defaultOriginalPrice = originalPrice || (dprice * 1.25); // fallback to small padding
                         const isSelected = selectedTier?.id === tier.id;
                         return (
                           <button
@@ -243,8 +245,8 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
                               </div>
                             </div>
                             <div className="text-right flex flex-col items-end">
-                              <div className="text-[10px] text-zinc-500 line-through">{tier.currency_symbol} {(dprice * 1.5).toLocaleString(undefined, {minimumFractionDigits: dprice % 1 !== 0 ? 2 : 0})}</div>
-                              <div className="font-bold text-white text-sm">{tier.currency_symbol} {dprice.toLocaleString(undefined, {minimumFractionDigits: dprice % 1 !== 0 ? 2 : 0})}</div>
+                              <div className="text-[10px] text-zinc-500 line-through decoration-red-500/50">{tier.currency_symbol} {defaultOriginalPrice.toLocaleString(undefined, {minimumFractionDigits: defaultOriginalPrice % 1 !== 0 ? 2 : 0})}</div>
+                              <div className={`font-bold text-sm ${originalPrice ? 'text-emerald-400' : 'text-white'}`}>{tier.currency_symbol} {dprice.toLocaleString(undefined, {minimumFractionDigits: dprice % 1 !== 0 ? 2 : 0})}</div>
                               <div className="text-[9px] text-emerald-500 font-bold uppercase">{duration} Weeks</div>
                             </div>
                           </button>

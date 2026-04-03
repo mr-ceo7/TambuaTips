@@ -8,16 +8,19 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from fastapi.staticfiles import StaticFiles
+
 from app.config import settings
 from app.database import engine, Base
+import os
 
 logger = logging.getLogger(__name__)
 
 # Import all models so SQLAlchemy registers them
-from app.models import user, tip, jackpot, subscription, payment, ad, notification  # noqa: F401
+from app.models import user, tip, jackpot, subscription, payment, ad, notification, campaign  # noqa: F401
 
 # Import routers
-from app.routers import auth, tips, jackpots, payments, subscriptions, sports, news, admin, notifications
+from app.routers import auth, tips, jackpots, payments, subscriptions, sports, news, admin, notifications, campaigns
 
 
 async def seed_default_ads():
@@ -162,6 +165,9 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+os.makedirs("media/uploads", exist_ok=True)
+app.mount("/media", StaticFiles(directory="media"), name="media")
+
 # ── CORS ─────────────────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
@@ -181,6 +187,7 @@ app.include_router(sports.router)
 app.include_router(news.router)
 app.include_router(admin.router)
 app.include_router(notifications.router)
+app.include_router(campaigns.router)
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):

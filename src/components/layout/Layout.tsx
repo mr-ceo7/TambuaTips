@@ -12,6 +12,9 @@ import { JackpotPurchaseModal } from '../JackpotPurchaseModal';
 import { CookieBanner } from '../CookieBanner';
 import { useUser } from '../../context/UserContext';
 import { usePageTracking } from '../../hooks/usePageTracking';
+import { CampaignThemeInjector } from '../campaign/CampaignThemeInjector';
+import { CampaignBadge } from '../campaign/CampaignBadge';
+import { CampaignParticles } from '../campaign/CampaignParticles';
 
 export function Layout() {
   const { showPricingModal, setShowPricingModal, showJackpotModal, setShowJackpotModal, selectedJackpot, user } = useUser();
@@ -23,6 +26,8 @@ export function Layout() {
 
   return (
     <div className="min-h-screen bg-pitch text-zinc-50 font-sans flex flex-col">
+      <CampaignThemeInjector />
+      <CampaignParticles />
       <Toaster theme="dark" position="top-center" />
       <Header />
       <main className="flex-1 pb-20 md:pb-0">
@@ -38,8 +43,10 @@ export function Layout() {
         onClose={() => setShowJackpotModal(false)} 
         jackpot={selectedJackpot} 
       />
+      <CampaignBadge />
       <ReloadPrompt />
       <CookieBanner />
     </div>
   );
 }
+

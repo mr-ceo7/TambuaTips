@@ -6,6 +6,7 @@ import { FaWhatsapp, FaTelegramPlane, FaInstagram, FaTiktok } from 'react-icons/
 import { fetchTodayFixtures, fetchStandings, fetchFixturesByLeague, LEAGUES, EUROPEAN_LEAGUE_IDS } from '../services/sportsApiService';
 import { fetchNews, fetchActiveAds, mixPromoSlides, FALLBACK_IMAGE, NewsItem } from '../services/newsService';
 import { getTipStats, getFreeTips } from '../services/tipsService';
+import { useCampaign } from '../context/CampaignContext';
 import { toast } from 'sonner';
 import { FixtureData, TeamStanding } from '../types';
 import { usePageTitle } from '../hooks/usePageTitle';
@@ -173,7 +174,8 @@ function NewsCarousel({ articles }: { articles: NewsItem[] }) {
     if (articles.length === 0) return;
     const isPremiumAd = articles[currentIndex]?.id === 'promo-premium';
     const isBrandAd = articles[currentIndex]?.id === 'promo-tambua-ad';
-    const delay = isPremiumAd ? 12000 : isBrandAd ? 10000 : 5000; // 12s video ad, 10s brand ad, 5s others
+    const isCampaign = String(articles[currentIndex]?.id).startsWith('promo-campaign-');
+    const delay = isCampaign ? 15000 : isPremiumAd ? 12000 : isBrandAd ? 10000 : 5000; // 15s campaign video, 12s premium ad, 10s brand ad, 5s others
     
     const timer = setTimeout(() => {
       setCurrentIndex(prev => (prev + 1) % articles.length);
@@ -201,7 +203,11 @@ function NewsCarousel({ articles }: { articles: NewsItem[] }) {
             <AnimatedPremiumAd />
           ) : (
             <>
-              <img src={item.image} alt={item.title} className="w-full h-full object-cover" loading="lazy" onError={(e) => { e.currentTarget.src = FALLBACK_IMAGE; }} />
+              {item.isVideo && item.videoUrl ? (
+                <video src={item.videoUrl} autoPlay loop muted playsInline className="w-full h-full object-cover" />
+              ) : (
+                <img src={item.image} alt={item.title} className="w-full h-full object-cover" loading="lazy" onError={(e) => { e.currentTarget.src = FALLBACK_IMAGE; }} />
+              )}
               <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/60 to-transparent" />
               <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-8">
                 <span className={`inline-block px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded mb-3 ${isPromo ? 'bg-gold-500 text-zinc-950' : 'bg-emerald-500/90 text-zinc-950'}`}>
@@ -382,6 +388,7 @@ export function HomePage() {
   const [newsArticles, setNewsArticles] = useState<NewsItem[]>([]);
   const [selectedLeague, setSelectedLeague] = useState('all');
   const [standings, setStandings] = useState<TeamStanding[]>([]);
+  const { activeCampaign } = useCampaign();
   const [loading, setLoading] = useState(true);
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -411,7 +418,29 @@ export function HomePage() {
           fetchActiveAds().catch(() => [])
         ]);
         setFixtures(fixturesData);
-        setNewsArticles(mixPromoSlides(newsData.articles, activeAds));
+        
+        let allNews = mixPromoSlides(newsData.articles, activeAds);
+        
+        // Inject Campaign into NewsCarousel if available
+        if (activeCampaign) {
+            allNews = [
+                {
+                    id: `promo-campaign-${activeCampaign.id}`,
+                    title: activeCampaign.title,
+                    description: activeCampaign.description || '',
+                    category: 'Special Campaign',
+                    image: activeCampaign.asset_image_url || FALLBACK_IMAGE,
+                    link: '/pricing', // Direct to pricing page where they see discounts/extras
+                    source: 'TambuaTips',
+                    time: 'Now',
+                    isVideo: !!activeCampaign.asset_video_url,
+                    videoUrl: activeCampaign.asset_video_url || undefined
+                },
+                ...allNews
+            ];
+        }
+        
+        setNewsArticles(allNews);
         setStandings(standingsData || []);
       } catch (err) {
         console.error('Failed to load home data:', err);
@@ -419,8 +448,9 @@ export function HomePage() {
         setLoading(false);
       }
     };
+
     load();
-  }, [activeLeagueId]);
+  }, [selectedLeague, activeLeagueId, activeCampaign]);
 
   if (loading) {
     return <HomePageSkeleton />;
@@ -428,6 +458,22 @@ export function HomePage() {
 
   return (
     <div className="container mx-auto px-4 py-4 sm:py-8 max-w-7xl">
+      {/* Top Banner for Campaign */}
+      {activeCampaign && activeCampaign.banner_text && (
+          <div className="bg-gradient-to-r from-emerald-500 to-emerald-400 p-3 rounded-xl mb-6 shadow-lg shadow-emerald-500/20 text-center relative overflow-hidden">
+             <div className="absolute inset-0 bg-white/10 w-full h-full skew-x-12 -translate-x-full animate-[shimmer_3s_infinite]" />
+             <p className="font-bold text-zinc-950 flex items-center justify-center gap-2 text-sm">
+                <Crown className="w-5 h-5 fill-zinc-950" /> 
+                {activeCampaign.banner_text}
+                {activeCampaign.incentive_type === 'discount' && (
+                    <span className="bg-zinc-950 text-white text-[10px] uppercase px-2 py-0.5 rounded ml-2 shadow-sm font-black tracking-widest">
+                        {activeCampaign.incentive_value}% OFF
+                    </span>
+                )}
+             </p>
+          </div>
+      )}
+
       {/* League Filter */}
       <section className="mb-6">
         <LeagueFilter selectedLeague={selectedLeague} onSelect={setSelectedLeague} />
@@ -559,16 +605,16 @@ export function HomePage() {
             </p>
             <div className="space-y-3 relative z-10">
               <a href="https://t.me/tambuatips" target="_blank" rel="noopener noreferrer" className="w-full py-2.5 bg-[#2AABEE]/10 text-[#2AABEE] border border-[#2AABEE]/20 font-bold rounded-xl hover:bg-[#2AABEE] hover:text-white transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 text-sm group">
-                <FaTelegramPlane size={18} className="group-hover:-rotate-12 transition-transform" /> Join Telegram
+                <span className="group-hover:-rotate-12 transition-transform"><FaTelegramPlane size={18} /></span> Join Telegram
               </a>
               <a href="https://whatsapp.com/channel/0029Vb7T8A9DOQIgpMjX7F0f" target="_blank" rel="noopener noreferrer" className="w-full py-2.5 bg-[#25D366]/10 text-[#25D366] border border-[#25D366]/20 font-bold rounded-xl hover:bg-[#25D366] hover:text-white transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 text-sm group">
-                <FaWhatsapp size={18} className="group-hover:scale-110 transition-transform" /> WhatsApp Channel
+                <span className="group-hover:scale-110 transition-transform"><FaWhatsapp size={18} /></span> WhatsApp Channel
               </a>
               <a href="https://www.tiktok.com/@tambuatips_.1?_r=1&_t=ZS-95BTHwRMkSL" target="_blank" rel="noopener noreferrer" className="w-full py-2.5 bg-zinc-800 text-zinc-300 border border-zinc-700 font-bold rounded-xl hover:bg-zinc-700 hover:text-white transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 text-sm group">
-                <FaTiktok size={18} className="group-hover:-translate-y-0.5 transition-transform" /> Follow on TikTok
+                <span className="group-hover:-translate-y-0.5 transition-transform"><FaTiktok size={18} /></span> Follow on TikTok
               </a>
               <a href="https://www.instagram.com/tambuatips?igsh=MXNkN3d2c2dvaXN2cQ==" target="_blank" rel="noopener noreferrer" className="w-full py-2.5 bg-[#E1306C]/10 text-[#E1306C] border border-[#E1306C]/20 font-bold rounded-xl hover:bg-[#E1306C] hover:text-white transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 text-sm group">
-                <FaInstagram size={18} className="group-hover:scale-110 transition-transform" /> Follow on Instagram
+                <span className="group-hover:scale-110 transition-transform"><FaInstagram size={18} /></span> Follow on Instagram
               </a>
             </div>
           </div>

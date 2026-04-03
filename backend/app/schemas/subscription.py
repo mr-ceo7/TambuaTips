@@ -13,6 +13,8 @@ class SubscriptionTierResponse(BaseModel):
     description: Optional[str] = None
     price_2wk: float
     price_4wk: float
+    original_price_2wk: Optional[float] = None
+    original_price_4wk: Optional[float] = None
     categories: List[str]
     popular: bool
     regional_prices: Optional[dict] = {}

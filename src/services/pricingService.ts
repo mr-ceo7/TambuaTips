@@ -15,6 +15,8 @@ export interface TierConfig {
   currency?: string;
   currency_symbol?: string;
   regional_prices?: Record<string, any>;
+  originalPrice2wk?: number;
+  originalPrice4wk?: number;
 }
 
 const DEFAULT_TIERS: TierConfig[] = [
@@ -87,6 +89,8 @@ export async function getPricingTiers(): Promise<TierConfig[]> {
         currency: t.currency || 'KES',
         currency_symbol: t.currency_symbol || 'KES',
         regional_prices: t.regional_prices || {},
+        originalPrice2wk: t.original_price_2wk,
+        originalPrice4wk: t.original_price_4wk,
       }));
     }
     return DEFAULT_TIERS;

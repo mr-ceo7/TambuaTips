@@ -283,6 +283,26 @@ export const adminService = {
     await apiClient.delete(`/admin/ads/${id}`);
   },
 
+  // ── Campaigns ───────────────────────────────────────────────
+  getCampaigns: async (): Promise<Campaign[]> => {
+    const response = await apiClient.get<Campaign[]>('/campaigns');
+    return response.data;
+  },
+
+  createCampaign: async (data: Omit<Campaign, 'id' | 'created_at'>): Promise<Campaign> => {
+    const response = await apiClient.post<Campaign>('/campaigns', data);
+    return response.data;
+  },
+
+  updateCampaign: async (id: number, data: Partial<Campaign>): Promise<Campaign> => {
+    const response = await apiClient.put<Campaign>(`/campaigns/${id}`, data);
+    return response.data;
+  },
+
+  deleteCampaign: async (id: number): Promise<void> => {
+    await apiClient.delete(`/campaigns/${id}`);
+  },
+
   // ── Settings ────────────────────────────────────────────────
   async getSettings(): Promise<ReferralSettings> {
     const response = await apiClient.get('/admin/settings');
@@ -309,4 +329,35 @@ export interface AdPost {
   category: string;
   is_active: boolean;
   created_at: string;
+}
+
+export interface Campaign {
+  id: number;
+  slug: string;
+  title: string;
+  description: string | null;
+  start_date: string;
+  end_date: string;
+  incentive_type: string;
+  incentive_value: number;
+  asset_video_url: string | null;
+  asset_image_url: string | null;
+  og_image_url: string | null;
+  banner_text: string | null;
+  theme_color_hex: string | null;
+  use_splash_screen: boolean;
+  use_floating_badge: boolean;
+  use_particle_effects: boolean;
+  use_custom_icons: boolean;
+  is_active: boolean;
+  created_at: string;
+}
+
+export async function uploadCampaignAsset(file: File): Promise<string> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await apiClient.post('/campaigns/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return response.data.url;
 }
