@@ -24,8 +24,10 @@ async def get_mpesa_access_token() -> str:
     else:
         url = "https://api.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials"
 
+    key = settings.MPESA_CONSUMER_KEY.replace("\n", "").replace("\r", "").replace(" ", "").strip()
+    secret = settings.MPESA_CONSUMER_SECRET.replace("\n", "").replace("\r", "").replace(" ", "").strip()
     credentials = base64.b64encode(
-        f"{settings.MPESA_CONSUMER_KEY}:{settings.MPESA_CONSUMER_SECRET}".encode()
+        f"{key}:{secret}".encode()
     ).decode()
 
     async with httpx.AsyncClient(timeout=60.0) as client:
@@ -91,8 +93,10 @@ async def get_paypal_access_token() -> str:
     else:
         url = "https://api-m.paypal.com/v1/oauth2/token"
 
+    client_id = settings.PAYPAL_CLIENT_ID.replace("\n", "").replace("\r", "").replace(" ", "").strip()
+    client_secret = settings.PAYPAL_CLIENT_SECRET.replace("\n", "").replace("\r", "").replace(" ", "").strip()
     credentials = base64.b64encode(
-        f"{settings.PAYPAL_CLIENT_ID}:{settings.PAYPAL_CLIENT_SECRET}".encode()
+        f"{client_id}:{client_secret}".encode()
     ).decode()
 
     async with httpx.AsyncClient() as client:

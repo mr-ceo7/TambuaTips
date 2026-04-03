@@ -5,7 +5,7 @@ Authentication routes: register, login, refresh, me.
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Response, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update
+from sqlalchemy import select, update, delete
 from datetime import datetime, timedelta, UTC
 import random
 import os
@@ -246,6 +246,7 @@ async def push_subscribe(
 
 async def cleanup_old_visitors_task():
     try:
+        async with AsyncSessionLocal() as session:
             cutoff = datetime.now(UTC).replace(tzinfo=None) - timedelta(days=30)
             await session.execute(delete(AnonymousVisitor).where(AnonymousVisitor.last_seen < cutoff))
             await session.commit()

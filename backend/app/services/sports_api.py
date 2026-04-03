@@ -60,7 +60,8 @@ async def _api_fetch(endpoint: str) -> dict:
     """Make a request to API-Football with automatic key rotation."""
     keys = settings.api_football_key_list
     if not keys:
-        raise Exception("No API-Football keys configured")
+        print("No API-Football keys configured")
+        return {}
 
     today = _get_today()
 
@@ -94,7 +95,8 @@ async def _api_fetch(endpoint: str) -> dict:
             except Exception:
                 continue
 
-    raise Exception("ALL_KEYS_EXHAUSTED")
+    print("ALL_KEYS_EXHAUSTED")
+    return {}
 
 
 def _map_fixture(item: dict) -> dict:

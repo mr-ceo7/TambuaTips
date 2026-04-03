@@ -271,10 +271,13 @@ async def pay_paypal(body: PaymentRequest, db: AsyncSession = Depends(get_db), u
                 
             await db.commit()
         except Exception as e:
+            payment.status = "error"
+            payment.gateway_response = str(e)
+            await db.commit()
             err_msg = str(e)
             print(f"PayPal Order Error: {err_msg}")
             detail = f"PayPal gateway error: {err_msg}" if settings.DEBUG else "PayPal gateway error. Please try again later."
-            raise HTTPException(status_code=500, detail=detail)
+            raise HTTPException(status_code=502, detail=detail)
     else:
         await asyncio.sleep(1)
         payment.status = "completed"
