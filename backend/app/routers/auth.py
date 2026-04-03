@@ -165,6 +165,12 @@ async def google_auth(body: GoogleLoginRequest, request: Request, response: Resp
     except ValueError as e:
         detail = f"Invalid Google Token: {e}" if settings.DEBUG else "Invalid identity token. Access denied."
         raise HTTPException(status_code=401, detail=detail)
+    except Exception as e:
+        import logging
+        logging.error(f"Google Auth Error: {e}")
+        if "retries exceeded" in str(e) or "Temporary failure" in str(e):
+            raise HTTPException(status_code=502, detail="Could not reach Google securely to verify login. Please check network connection.")
+        raise HTTPException(status_code=500, detail="An unexpected authentication error occurred.")
 
 @router.post("/logout")
 async def logout(response: Response):
