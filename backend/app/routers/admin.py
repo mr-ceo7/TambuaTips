@@ -106,6 +106,66 @@ async def update_settings(body: SettingsUpdateProps, db: AsyncSession = Depends(
     return await get_referral_settings(db)
 
 
+
+
+# ═══════════════════════════════════════════════════════════════
+#  SMS SETTINGS — OTP Configuration
+# ═══════════════════════════════════════════════════════════════
+
+SMS_DEFAULTS = {
+    "SMS_SRC": "ARVOCAP",
+    "SMS_ENABLED": "true",
+}
+
+SMS_DESCRIPTIONS = {
+    "SMS_SRC": "SMS Provider Sender ID (from Trackomgroup)",
+    "SMS_ENABLED": "Enable/disable SMS OTP feature",
+}
+
+
+class SMSSettingsUpdate(BaseModel):
+    SMS_SRC: Optional[str] = None
+    SMS_ENABLED: Optional[bool] = None
+
+
+async def get_sms_settings(db: AsyncSession) -> dict:
+    """Helper to read all SMS settings as a typed dict."""
+    result = await db.execute(select(AdminSetting).where(AdminSetting.key.in_(SMS_DEFAULTS.keys())))
+    settings_db = {s.key: s.value for s in result.scalars().all()}
+    out = {}
+    for key, default in SMS_DEFAULTS.items():
+        raw = settings_db.get(key, default)
+        # Type coerce based on default
+        if default in ("true", "false"):
+            out[key] = raw.lower() == "true"
+        else:
+            out[key] = raw
+    return out
+
+
+@router.get("/settings/sms")
+async def get_sms_settings_endpoint(db: AsyncSession = Depends(get_db), admin: User = Depends(require_admin)):
+    """Get current SMS settings."""
+    return await get_sms_settings(db)
+
+
+@router.put("/settings/sms")
+async def update_sms_settings(body: SMSSettingsUpdate, db: AsyncSession = Depends(get_db), admin: User = Depends(require_admin)):
+    """Update SMS settings."""
+    updates = body.model_dump(exclude_none=True)
+    for key, value in updates.items():
+        # Serialize booleans as "true"/"false", strings as-is
+        str_value = str(value).lower() if isinstance(value, bool) else str(value)
+        res = await db.execute(select(AdminSetting).where(AdminSetting.key == key))
+        setting = res.scalar_one_or_none()
+        if not setting:
+            setting = AdminSetting(key=key, value=str_value, description=SMS_DESCRIPTIONS.get(key, ""))
+            db.add(setting)
+        else:
+            setting.value = str_value
+    await db.commit()
+    return await get_sms_settings(db)
+
 # ═══════════════════════════════════════════════════════════════
 #  REFERRAL ANALYTICS
 # ═══════════════════════════════════════════════════════════════

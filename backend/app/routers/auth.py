@@ -18,7 +18,8 @@ from app.database import AsyncSessionLocal
 from app.dependencies import get_db, get_current_user, get_current_user_optional, get_unverified_user
 from app.models.user import User, UserSession
 from app.models.setting import AdminSetting
-from app.routers.admin import get_referral_settings
+from app.config import settings
+from app.routers.admin import get_referral_settings, get_sms_settings
 from app.models.activity import UserActivity, AnonymousVisitor, AnonymousActivity
 from app.schemas.auth import GoogleLoginRequest, PhoneLoginRequest, PhoneVerifyRequest, RefreshRequest, UserResponse, UpdateFavoritesRequest, PushSubscribeRequest, ActivityRequest
 from app.security import hash_password, verify_password, create_access_token, create_refresh_token, decode_token
@@ -52,6 +53,9 @@ async def create_user_session(user: User, db: AsyncSession) -> tuple[str, str]:
     if not user.is_admin and user.sessions:
         for old_session in user.sessions:
             await db.delete(old_session)
+        await db.commit()  # Commit deletions first
+        # Refresh user to clear relationship cache
+        await db.refresh(user)
     
     # Create new session
     new_session = UserSession(
@@ -74,6 +78,9 @@ async def create_user_session(user: User, db: AsyncSession) -> tuple[str, str]:
         if len(sessions) >= max_sessions:
             for old_session in sessions[:len(sessions) - max_sessions + 1]:
                 await db.delete(old_session)
+            await db.commit()  # Commit deletions first
+            # Refresh user to clear relationship cache
+            await db.refresh(user)
     
     await db.commit()
     
@@ -261,15 +268,59 @@ def _normalize_phone(phone: str) -> str:
         phone = '+' + phone
     return phone
 
-async def _send_otp_sms(phone: str, code: str):
+async def _get_sms_src(db: AsyncSession) -> str:
     """
-    Placeholder SMS sender. Replace this function body with your real
-    SMS provider (Africa's Talking, Twilio, etc.) when ready.
+    Fetch the SMS sender ID (src) from admin settings.
+    Defaults to 'ARVOCAP' if not configured.
     """
-    _logging.warning(f"[OTP PLACEHOLDER] Phone: {phone} | Code: {code}")
-    print(f"\n{'='*50}")
-    print(f"  OTP CODE for {phone}: {code}")
-    print(f"{'='*50}\n")
+    sms_settings = await get_sms_settings(db)
+    return sms_settings.get("SMS_SRC", "ARVOCAP")
+
+
+async def _send_otp_sms(phone: str, code: str, db: AsyncSession):
+    """
+    Send OTP via custom SMS provider (trackomgroup.com).
+    
+    API Endpoint: https://trackomgroup.com/sms_old/sendSmsApi/sendsms_v15.php
+    Parameters:
+    - src: Sender ID (configurable via admin settings)
+    - phone_number: Phone number without + prefix (e.g., 254746957502)
+    - sms_message: Message content
+    
+    Phone format: Strip + and format as just digits (e.g., +254712345678 → 254712345678)
+    """
+    try:
+        # Get SMS sender ID from admin settings
+        sms_src = await _get_sms_src(db)
+        
+        # Strip phone to just digits (remove + and spaces)
+        stripped_phone = re.sub(r'[\D]', '', phone)  # Keep only digits
+        
+        # Craft SMS message
+        sms_message = f"Your TambuaTips verification code is: {code}"
+        
+        # Build request to SMS provider
+        sms_url = "https://trackomgroup.com/sms_old/sendSmsApi/sendsms_v15.php"
+        params = {
+            "src": sms_src,
+            "phone_number": stripped_phone,
+            "sms_message": sms_message
+        }
+        
+        # Send SMS asynchronously
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.post(sms_url, params=params)
+            
+            if response.status_code == 200:
+                _logging.info(f"SMS sent successfully to {stripped_phone}")
+            else:
+                _logging.warning(f"SMS provider returned status {response.status_code} for {stripped_phone}")
+    
+    except Exception as e:
+        # Log error but don't crash the OTP request flow
+        _logging.error(f"Failed to send OTP SMS to {phone}: {e}")
+        # Still allow OTP to be created even if SMS fails
+        pass
 
 @router.post("/phone/request-otp")
 async def request_phone_otp(body: PhoneLoginRequest, db: AsyncSession = Depends(get_db)):
@@ -308,8 +359,8 @@ async def request_phone_otp(body: PhoneLoginRequest, db: AsyncSession = Depends(
     
     await db.commit()
     
-    # Send OTP (placeholder — logs to console)
-    await _send_otp_sms(phone, code)
+    # Send OTP via SMS provider
+    await _send_otp_sms(phone, code, db)
     
     return {"status": "success", "message": "OTP sent"}
 
