@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Loader2, Settings, ShieldAlert, ToggleLeft, ToggleRight, Users, Gift, TrendingUp, Crown, UserPlus, MessageSquare, Smartphone, Eye } from 'lucide-react';
-import { adminService, type ReferralSettings, type ReferralStatsResponse, type SMSSettings } from '../../services/adminService';
+import { Save, Loader2, Settings, ShieldAlert, ToggleLeft, ToggleRight, Users, Gift, TrendingUp, Crown, UserPlus, MessageSquare, Smartphone, Eye, Mail, Info } from 'lucide-react';
+import { adminService, type ReferralSettings, type ReferralStatsResponse, type SMSSettings, type EmailSettings } from '../../services/adminService';
 import { toast } from 'sonner';
 
 const TIER_OPTIONS = [
@@ -27,7 +27,12 @@ export function SettingsManagePage() {
     SMS_ENABLED: true,
     SMS_TEMPLATE: '[TambuaTips] Your verification code is {code}. This code expires in 5 minutes. Do NOT share this code with anyone. Visit {url} to access your account.',
   });
+  const [emailSettings, setEmailSettings] = useState<EmailSettings>({
+    SMTP_EMAIL: '',
+    SMTP_PASSWORD: '',
+  });
   const [savingSms, setSavingSms] = useState(false);
+  const [savingEmail, setSavingEmail] = useState(false);
 
   useEffect(() => {
     fetchAll();
@@ -36,14 +41,16 @@ export function SettingsManagePage() {
   const fetchAll = async () => {
     try {
       setLoading(true);
-      const [settingsData, statsData, smsData] = await Promise.all([
+      const [settingsData, statsData, smsData, emailData] = await Promise.all([
         adminService.getSettings(),
         adminService.getReferralStats(),
         adminService.getSmsSettings(),
+        adminService.getEmailSettings(),
       ]);
       setSettings(settingsData);
       setStats(statsData);
       setSmsSettings(smsData);
+      setEmailSettings(emailData);
     } catch (e) {
       toast.error('Failed to load settings');
     } finally {
@@ -74,6 +81,18 @@ export function SettingsManagePage() {
       toast.error('Failed to save SMS settings');
     } finally {
       setSavingSms(false);
+    }
+  };
+
+  const handleSaveEmail = async () => {
+    setSavingEmail(true);
+    try {
+      await adminService.updateEmailSettings(emailSettings);
+      toast.success('Email settings updated successfully!');
+    } catch (error) {
+      toast.error('Failed to update email settings');
+    } finally {
+      setSavingEmail(false);
     }
   };
 
@@ -415,6 +434,68 @@ export function SettingsManagePage() {
             <p className="text-zinc-400">
               SMS messages are sent via <span className="text-white font-bold">Trackomgroup</span> using sender ID <span className="text-white font-bold font-mono">{smsSettings.SMS_SRC || '—'}</span>. Each OTP is valid for <span className="text-white font-bold">5 minutes</span> and auto-expires.
             </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Email Settings Section */}
+      <div className="bg-zinc-900/60 border border-zinc-800 rounded-2xl overflow-hidden">
+        <div className="border-b border-zinc-800 p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-blue-500/20 text-blue-400">
+              <Mail className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-white uppercase">App Email Configuration</h2>
+              <p className="text-xs text-zinc-400">Connect a Gmail account to dispatch platform emails.</p>
+            </div>
+          </div>
+          <button
+            onClick={handleSaveEmail}
+            disabled={savingEmail}
+            className="flex items-center justify-center gap-2 px-6 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 text-sm font-bold rounded-xl transition-all disabled:opacity-50"
+          >
+            <Save className="w-4 h-4" />
+            {savingEmail ? 'Saving...' : 'Save Config'}
+          </button>
+        </div>
+
+        <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-6 items-start">
+          <div className="space-y-2">
+            <label className="block text-xs font-bold text-zinc-300 uppercase tracking-wider">Email Address</label>
+            <input
+              type="text"
+              placeholder="tambuatips@gmail.com"
+              value={emailSettings.SMTP_EMAIL}
+              onChange={e => setEmailSettings({ ...emailSettings, SMTP_EMAIL: e.target.value })}
+              className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
+            />
+            <p className="text-[10px] text-zinc-600">The Gmail address used for authenticating.</p>
+          </div>
+          
+          <div className="space-y-2">
+            <label className="block text-xs font-bold text-zinc-300 uppercase tracking-wider">App Password</label>
+            <input
+              type="password"
+              placeholder="xxxx xxxx xxxx xxxx"
+              value={emailSettings.SMTP_PASSWORD}
+              onChange={e => setEmailSettings({ ...emailSettings, SMTP_PASSWORD: e.target.value })}
+              className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-red-500 transition-colors"
+            />
+            <p className="text-[10px] text-zinc-600">Generated 16-character App Password (Not your actual Gmail password).</p>
+          </div>
+          
+          <div className="col-span-1 sm:col-span-2 bg-blue-500/10 border border-blue-500/20 rounded-xl p-4 flex gap-3">
+            <Info className="w-5 h-5 text-blue-400 shrink-0" />
+            <div>
+              <h4 className="text-sm font-bold text-blue-400 mb-1">How to obtain an App Password:</h4>
+              <ol className="text-xs text-zinc-400 space-y-1 ml-4 list-decimal">
+                <li>Go to your Google Account (Manage your Google Account).</li>
+                <li>Go to <strong>Security</strong> and ensure <strong>2-Step Verification</strong> is ON.</li>
+                <li>Search for "App passwords" in the search bar.</li>
+                <li>Create a new app (e.g. "TambuaTips Platform") and copy the 16 digit code here.</li>
+              </ol>
+            </div>
           </div>
         </div>
       </div>

@@ -131,6 +131,21 @@ class SMSSettingsUpdate(BaseModel):
     SMS_TEMPLATE: Optional[str] = None
 
 
+EMAIL_DEFAULTS = {
+    "SMTP_EMAIL": "",
+    "SMTP_PASSWORD": ""
+}
+
+EMAIL_DESCRIPTIONS = {
+    "SMTP_EMAIL": "The email address or username used to log into the SMTP server (e.g. Gmail).",
+    "SMTP_PASSWORD": "The app password generated for the email account."
+}
+
+class EmailSettingsUpdate(BaseModel):
+    SMTP_EMAIL: Optional[str] = None
+    SMTP_PASSWORD: Optional[str] = None
+
+
 async def get_sms_settings(db: AsyncSession) -> dict:
     """Helper to read all SMS settings as a typed dict."""
     result = await db.execute(select(AdminSetting).where(AdminSetting.key.in_(SMS_DEFAULTS.keys())))
@@ -143,6 +158,16 @@ async def get_sms_settings(db: AsyncSession) -> dict:
             out[key] = raw.lower() == "true"
         else:
             out[key] = raw
+    return out
+
+
+async def get_email_settings(db: AsyncSession) -> dict:
+    """Helper to read all Email settings as a typed dict."""
+    result = await db.execute(select(AdminSetting).where(AdminSetting.key.in_(EMAIL_DEFAULTS.keys())))
+    settings_db = {s.key: s.value for s in result.scalars().all()}
+    out = {}
+    for key, default in EMAIL_DEFAULTS.items():
+        out[key] = settings_db.get(key, default)
     return out
 
 
@@ -167,7 +192,30 @@ async def update_sms_settings(body: SMSSettingsUpdate, db: AsyncSession = Depend
         else:
             setting.value = str_value
     await db.commit()
-    return await get_sms_settings(db)
+    return {"message": "SMS settings updated successfully"}
+
+
+@router.get("/settings/email")
+async def get_email_settings_endpoint(db: AsyncSession = Depends(get_db), admin: User = Depends(require_admin)):
+    """Get current Email settings."""
+    return await get_email_settings(db)
+
+
+@router.put("/settings/email")
+async def update_email_settings(body: EmailSettingsUpdate, db: AsyncSession = Depends(get_db), admin: User = Depends(require_admin)):
+    """Update Email settings."""
+    updates = body.model_dump(exclude_none=True)
+    for key, value in updates.items():
+        str_value = str(value)
+        res = await db.execute(select(AdminSetting).where(AdminSetting.key == key))
+        setting = res.scalar_one_or_none()
+        if not setting:
+            setting = AdminSetting(key=key, value=str_value, description=EMAIL_DESCRIPTIONS.get(key, ""))
+            db.add(setting)
+        else:
+            setting.value = str_value
+    await db.commit()
+    return {"message": "Email settings updated successfully"}
 
 # ═══════════════════════════════════════════════════════════════
 #  REFERRAL ANALYTICS

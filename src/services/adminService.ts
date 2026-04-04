@@ -162,6 +162,11 @@ export interface SMSSettings {
   SMS_TEMPLATE: string;
 }
 
+export interface EmailSettings {
+  SMTP_EMAIL: string;
+  SMTP_PASSWORD: string;
+}
+
 export interface ReferralStatsResponse {
   total_referrals: number;
   referred_users: number;
@@ -334,6 +339,16 @@ export const adminService = {
 
   async updateSmsSettings(data: Partial<SMSSettings>): Promise<SMSSettings> {
     const response = await apiClient.put('/admin/settings/sms', data);
+    return response.data;
+  },
+
+  getEmailSettings: async (): Promise<EmailSettings> => {
+    const response = await apiClient.get('/admin/settings/email');
+    return response.data;
+  },
+
+  updateEmailSettings: async (settings: Partial<EmailSettings>): Promise<{ message: string }> => {
+    const response = await apiClient.put('/admin/settings/email', settings);
     return response.data;
   },
 };

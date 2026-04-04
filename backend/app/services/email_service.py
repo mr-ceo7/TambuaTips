@@ -2,6 +2,7 @@ import logging
 from email.message import EmailMessage
 import aiosmtplib
 from app.config import settings
+from app.database import AsyncSessionLocal
 
 logger = logging.getLogger(__name__)
 
@@ -70,13 +71,23 @@ def _generate_html_template(title: str, body: str, cta_text: str = None, cta_url
 
 async def _send_smtp_email(to_email: str, subject: str, html_content: str):
     """Core function to dispatch emails via aiosmtplib."""
-    if not settings.SMTP_PASSWORD:
-        logger.warning(f"SMTP_PASSWORD not set. Simulating email to {to_email}")
+    
+    # Grab settings from DB
+    from app.routers.admin import get_email_settings
+    async with AsyncSessionLocal() as db:
+        email_settings = await get_email_settings(db)
+        
+    smtp_email = email_settings.get("SMTP_EMAIL") or settings.SMTP_USERNAME
+    smtp_pass = email_settings.get("SMTP_PASSWORD") or settings.SMTP_PASSWORD
+    from_email = smtp_email or settings.FROM_EMAIL
+    
+    if not smtp_pass:
+        logger.warning(f"SMTP_PASSWORD not set in env or admin settings. Simulating email to {to_email}")
         logger.info(f"Subject: {subject}")
         return
 
     message = EmailMessage()
-    message["From"] = settings.FROM_EMAIL
+    message["From"] = from_email
     message["To"] = to_email
     message["Subject"] = subject
     message.set_content(html_content, subtype="html")
@@ -89,8 +100,8 @@ async def _send_smtp_email(to_email: str, subject: str, html_content: str):
             message,
             hostname=settings.SMTP_SERVER,
             port=settings.SMTP_PORT,
-            username=settings.SMTP_USERNAME,
-            password=settings.SMTP_PASSWORD,
+            username=smtp_email,
+            password=smtp_pass,
             use_tls=use_tls,
             start_tls=start_tls,
         )
