@@ -75,8 +75,9 @@ async def create_user_session(user: User, db: AsyncSession) -> tuple[str, str]:
         sessions = result.scalars().all()
         
         # Delete oldest sessions if we exceed the limit
-        if len(sessions) >= max_sessions:
-            for old_session in sessions[:len(sessions) - max_sessions + 1]:
+        if len(sessions) > max_sessions:
+            delete_count = len(sessions) - max_sessions
+            for old_session in sessions[:delete_count]:
                 await db.delete(old_session)
             await db.commit()  # Commit deletions first
             # Refresh user to clear relationship cache
@@ -194,16 +195,7 @@ async def google_auth(body: GoogleLoginRequest, request: Request, response: Resp
                         user.referrer_id = referrer.id
                         
                         referrer.referrals_count += 1
-                        
-                        reward_days = ref_settings.get("referral_reward_days", 7)
-                        reward_tier = ref_settings.get("referral_reward_tier", "basic")
-
-                        # Grant referrer: set BOTH tier and expiry (fixes critical bug)
-                        referrer.subscription_tier = reward_tier
-                        if not referrer.subscription_expires_at or referrer.subscription_expires_at < datetime.now(UTC).replace(tzinfo=None):
-                            referrer.subscription_expires_at = datetime.now(UTC).replace(tzinfo=None) + timedelta(days=reward_days)
-                        else:
-                            referrer.subscription_expires_at += timedelta(days=reward_days)
+                        referrer.referral_points += 1
                         
                         # Conditionally reward the new user too (admin-controlled)
                         if ref_settings.get("referral_new_user_reward", False):
@@ -409,13 +401,7 @@ async def verify_phone_otp(body: PhoneVerifyRequest, request: Request, response:
             if ref_settings.get("referral_enabled", True):
                 user.referrer_id = referrer.id
                 referrer.referrals_count += 1
-                reward_days = ref_settings.get("referral_reward_days", 7)
-                reward_tier = ref_settings.get("referral_reward_tier", "basic")
-                referrer.subscription_tier = reward_tier
-                if not referrer.subscription_expires_at or referrer.subscription_expires_at < datetime.now(UTC).replace(tzinfo=None):
-                    referrer.subscription_expires_at = datetime.now(UTC).replace(tzinfo=None) + timedelta(days=reward_days)
-                else:
-                    referrer.subscription_expires_at += timedelta(days=reward_days)
+                referrer.referral_points += 1
                 
                 if ref_settings.get("referral_new_user_reward", False):
                     new_user_days = ref_settings.get("referral_new_user_reward_days", 7)

@@ -85,8 +85,11 @@ async def list_tips(
             if lost_counter % 4 != 0:
                 continue
 
-        # Always unlock perfectly if they bought it OR if the tip is historically decided
-        if has_normal_access or is_decided:
+        # Check if the user has specifically unlocked this tip via their referral points
+        is_specifically_unlocked = user and tip.id in (user.unlocked_tip_ids or [])
+
+        # Always unlock perfectly if they bought it, specifically unlocked it, OR if the tip is historically decided
+        if has_normal_access or is_specifically_unlocked or is_decided:
             response.append(TipResponse.model_validate(tip))
         else:
             response.append(TipLockedResponse(

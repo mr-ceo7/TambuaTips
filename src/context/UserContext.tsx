@@ -24,6 +24,9 @@ export interface UserData {
   profile_picture?: string;
   referral_code?: string;
   referrals_count?: number;
+  referral_points?: number;
+  referral_discount_active?: boolean;
+  unlocked_tip_ids?: number[];
 }
 
 interface UserContextType {

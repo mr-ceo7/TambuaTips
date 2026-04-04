@@ -255,7 +255,7 @@ export function TipsPage() {
   const [tipsByCategory, setTipsByCategory] = useState<Record<string, Tip[]>>({});
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
   const [showScreenshotWarning, setShowScreenshotWarning] = useState(false);
-  const [showReferralModal, setShowReferralModal] = useState(false);
+  const [showReferralModal, setShowReferralModal] = useState<boolean | string | number>(false);
   const [loadingTips, setLoadingTips] = useState(true);
   const [loadingJackpot, setLoadingJackpot] = useState(true);
 
@@ -314,7 +314,8 @@ export function TipsPage() {
       {/* Detached: Stats Banner */}
 
       {/* Referral Modal (opened from locked tip cards) */}
-      <ReferralModal isOpen={showReferralModal} onClose={() => setShowReferralModal(false)} />
+      <ReferralModal isOpen={!!showReferralModal} onClose={() => setShowReferralModal(false)} tipId={(typeof showReferralModal === 'number' || typeof showReferralModal === 'string') ? Number(showReferralModal) : undefined} />
+
 
       {/* Tab Bar */}
       <div className="flex bg-zinc-900/60 border border-zinc-800 rounded-xl p-1 mb-6">
@@ -382,15 +383,18 @@ export function TipsPage() {
                     const displayedHistory = isExpanded ? historyTips : historyTips.slice(0, 2);
                     const displayedTips = [...pendingTips, ...displayedHistory];
 
-                    return displayedTips.map(tip => (
-                      <TipCard 
-                        key={tip.id} 
-                        tip={tip} 
-                        // It is ONLY locked if they dont have access AND the match hasnt finished yet
-                        locked={!userHasAccess && tip.result === 'pending'}
-                        onGetFree={(!userHasAccess && tip.result === 'pending' && user) ? () => setShowReferralModal(true) : undefined}
-                      />
-                    ));
+                    return displayedTips.map(tip => {
+                      const isTipUnlocked = user?.unlocked_tip_ids?.includes(Number(tip.id));
+                      return (
+                        <TipCard 
+                          key={tip.id} 
+                          tip={tip} 
+                          // It is ONLY locked if they dont have access AND the match hasnt finished yet AND it's not explicitly unlocked
+                          locked={!userHasAccess && tip.result === 'pending' && !isTipUnlocked}
+                          onGetFree={(!userHasAccess && tip.result === 'pending' && !isTipUnlocked && user) ? () => setShowReferralModal(tip.id) : undefined}
+                        />
+                      );
+                    });
                   })()}
                 </div>
                 

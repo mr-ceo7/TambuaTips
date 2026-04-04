@@ -1,15 +1,30 @@
-import React, { useState } from 'react';
-import { X, Gift, Copy, CheckCircle2, Users, Share2, MessageCircle, Send, ExternalLink } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Gift, Copy, CheckCircle2, Users, Share2, MessageCircle, Send, ExternalLink, Loader2, Crown, Percent } from 'lucide-react';
 import { useUser } from '../context/UserContext';
+import { rewardsService, type RewardsConfig } from '../services/rewardsService';
+import { toast } from 'sonner';
 
 interface ReferralModalProps {
   isOpen: boolean;
   onClose: () => void;
+  tipId?: number; // Optional tip ID if they opened it from a specific locked tip
 }
 
-export function ReferralModal({ isOpen, onClose }: ReferralModalProps) {
+export function ReferralModal({ isOpen, onClose, tipId }: ReferralModalProps) {
   const [copied, setCopied] = useState(false);
-  const { user } = useUser();
+  const [config, setConfig] = useState<RewardsConfig | null>(null);
+  const [loadingConfig, setLoadingConfig] = useState(false);
+  const [redeeming, setRedeeming] = useState(false);
+  const { user, refreshUser } = useUser();
+
+  useEffect(() => {
+    if (isOpen && user) {
+      setLoadingConfig(true);
+      rewardsService.getConfig().then(setConfig).catch(e => {
+        console.error("Failed to load rewards config", e);
+      }).finally(() => setLoadingConfig(false));
+    }
+  }, [isOpen, user]);
 
   if (!isOpen || !user) return null;
 
@@ -37,13 +52,21 @@ export function ReferralModal({ isOpen, onClose }: ReferralModalProps) {
     window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareMessage)}`, '_blank');
   };
 
-  // Milestone progress
-  const milestones = [1, 3, 5, 10];
-  const currentMilestone = milestones.find(m => referralsCount < m) || milestones[milestones.length - 1];
-  const prevMilestone = milestones[milestones.indexOf(currentMilestone) - 1] || 0;
-  const progressPct = currentMilestone > prevMilestone 
-    ? Math.min(((referralsCount - prevMilestone) / (currentMilestone - prevMilestone)) * 100, 100) 
-    : 100;
+  const handleRedeem = async (action: 'unlock_tip' | 'get_discount' | 'get_premium') => {
+    setRedeeming(true);
+    try {
+      const res = await rewardsService.redeem(action, tipId);
+      toast.success(res.message);
+      await refreshUser(); // Update balance
+      if (action === 'unlock_tip') {
+        onClose(); // Close modal on tip unlock so they can see the tip
+      }
+    } catch (e: any) {
+      toast.error(e.response?.data?.detail || "Redemption failed");
+    } finally {
+      setRedeeming(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -52,7 +75,7 @@ export function ReferralModal({ isOpen, onClose }: ReferralModalProps) {
       
       {/* Modal */}
       <div 
-        className="relative w-full max-w-md bg-zinc-950 border border-emerald-500/30 rounded-2xl shadow-2xl shadow-emerald-500/10 overflow-hidden"
+        className="relative w-full max-w-md bg-zinc-950 border border-emerald-500/30 rounded-2xl shadow-2xl shadow-emerald-500/10 overflow-y-auto overflow-x-hidden max-h-[calc(100vh-2rem)]"
         onClick={e => e.stopPropagation()}
       >
         {/* Glow Background */}
@@ -145,31 +168,70 @@ export function ReferralModal({ isOpen, onClose }: ReferralModalProps) {
             </button>
           </div>
 
-          {/* Stats & Milestone */}
+          {/* Rewards Hub */}
           <div className="bg-zinc-900/80 border border-zinc-800 rounded-xl p-4">
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-4 border-b border-zinc-800 pb-3">
               <div className="flex items-center gap-2">
-                <Users className="w-4 h-4 text-zinc-500" />
-                <span className="text-sm text-zinc-300">
-                  <span className="font-bold text-white">{referralsCount}</span> friend{referralsCount !== 1 ? 's' : ''} invited
-                </span>
+                <Gift className="w-5 h-5 text-emerald-500" />
+                <span className="text-sm font-bold text-white uppercase tracking-wider">Rewards Hub</span>
               </div>
-              <span className="text-sm font-bold text-emerald-400">
-                {referralsCount * 7}d earned
-              </span>
+              <div className="text-right">
+                <div className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Unspent Points</div>
+                <div className="text-xl font-bold text-emerald-400">{user.referral_points || 0}</div>
+              </div>
             </div>
 
-            {/* Progress Bar */}
-            <div className="h-2 bg-zinc-800 rounded-full overflow-hidden mb-2">
-              <div
-                className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-full transition-all duration-700 ease-out"
-                style={{ width: `${progressPct}%` }}
-              />
-            </div>
-            <div className="flex items-center justify-between text-[10px]">
-              <span className="text-zinc-600">{referralsCount} referral{referralsCount !== 1 ? 's' : ''}</span>
-              <span className="text-emerald-500/80 font-bold">Next milestone: {currentMilestone} 🎯</span>
-            </div>
+            {loadingConfig ? (
+              <div className="flex justify-center py-4"><Loader2 className="w-6 h-6 animate-spin text-emerald-500" /></div>
+            ) : config ? (
+              <div className="space-y-3">
+                {/* Unlock Tip */}
+                <div className="flex items-center justify-between bg-zinc-950 border border-zinc-800 p-3 rounded-xl">
+                  <div>
+                    <div className="text-sm font-bold text-white flex items-center gap-1.5"><Gift className="w-3.5 h-3.5 text-emerald-500" /> Unlock Single Tip</div>
+                    <div className="text-[10px] text-zinc-500 mt-0.5">Reveal one premium locked tip</div>
+                  </div>
+                  <button 
+                    onClick={() => handleRedeem('unlock_tip')}
+                    disabled={redeeming || (user.referral_points || 0) < config.points_per_tip || !tipId}
+                    className="shrink-0 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-emerald-500 hover:text-zinc-950 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {!tipId ? 'Select Tip First' : `${config.points_per_tip} Points`}
+                  </button>
+                </div>
+                
+                {/* Get Discount */}
+                <div className="flex items-center justify-between bg-zinc-950 border border-zinc-800 p-3 rounded-xl">
+                  <div>
+                    <div className="text-sm font-bold text-white flex items-center gap-1.5"><Percent className="w-3.5 h-3.5 text-blue-500" /> {config.discount_percentage}% M-Pesa Discount</div>
+                    <div className="text-[10px] text-zinc-500 mt-0.5">Applies heavily to your next purchase</div>
+                  </div>
+                  <button 
+                    onClick={() => handleRedeem('get_discount')}
+                    disabled={redeeming || (user.referral_points || 0) < config.points_per_discount}
+                    className="shrink-0 bg-blue-500/10 text-blue-400 border border-blue-500/20 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-blue-500 hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {config.points_per_discount} Points
+                  </button>
+                </div>
+
+                {/* Get Premium */}
+                <div className="flex items-center justify-between bg-zinc-950 border border-zinc-800 p-3 rounded-xl relative overflow-hidden">
+                  <div className="absolute top-0 left-0 w-1 h-full bg-gold-400" />
+                  <div className="pl-2">
+                    <div className="text-sm font-bold text-white flex items-center gap-1.5"><Crown className="w-3.5 h-3.5 text-gold-400" /> {config.premium_days_reward} Days Premium VIP</div>
+                    <div className="text-[10px] text-zinc-500 mt-0.5">Full access to all premium features</div>
+                  </div>
+                  <button 
+                    onClick={() => handleRedeem('get_premium')}
+                    disabled={redeeming || (user.referral_points || 0) < config.points_per_premium}
+                    className="shrink-0 bg-gold-500/10 text-gold-400 border border-gold-500/20 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-gold-500 hover:text-black transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {config.points_per_premium} Points
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
       </div>

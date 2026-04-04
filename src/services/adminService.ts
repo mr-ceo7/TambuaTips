@@ -148,12 +148,14 @@ export interface FixtureSearchResult {
 
 export interface ReferralSettings {
   referral_enabled: boolean;
-  referral_reward_tier: string;
-  referral_reward_days: number;
+  points_per_tip: number;
+  points_per_discount: number;
+  discount_percentage: number;
+  points_per_premium: number;
+  premium_days_reward: number;
   referral_new_user_reward: boolean;
   referral_new_user_reward_tier: string;
   referral_new_user_reward_days: number;
-  referral_free_tips_count: number;
 }
 
 export interface SMSSettings {
@@ -170,6 +172,8 @@ export interface EmailSettings {
 export interface ReferralStatsResponse {
   total_referrals: number;
   referred_users: number;
+  total_tips_unlocked: number;
+  total_discounts_claimed: number;
   top_referrers: {
     id: number;
     name: string;

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Loader2, Settings, ShieldAlert, ToggleLeft, ToggleRight, Users, Gift, TrendingUp, Crown, UserPlus, MessageSquare, Smartphone, Eye, Mail, Info } from 'lucide-react';
+import { Save, Loader2, Settings, ShieldAlert, ToggleLeft, ToggleRight, Users, Gift, TrendingUp, Crown, UserPlus, MessageSquare, Smartphone, Eye, Mail, Info, Percent } from 'lucide-react';
 import { adminService, type ReferralSettings, type ReferralStatsResponse, type SMSSettings, type EmailSettings } from '../../services/adminService';
 import { toast } from 'sonner';
 
@@ -123,17 +123,19 @@ export function SettingsManagePage() {
 
       {/* ═══ Referral Analytics Summary ═══ */}
       {stats && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           {[
             { label: 'Total Referrals', value: stats.total_referrals, icon: TrendingUp, color: 'text-emerald-400' },
             { label: 'Users via Referral', value: stats.referred_users, icon: UserPlus, color: 'text-blue-400' },
+            { label: 'Tips Unlocked', value: stats.total_tips_unlocked || 0, icon: Gift, color: 'text-purple-400' },
+            { label: 'Discounts Claimed', value: stats.total_discounts_claimed || 0, icon: Percent, color: 'text-cyan-400' },
             { label: 'Top Referrers', value: stats.top_referrers.length, icon: Crown, color: 'text-yellow-400' },
-            { label: 'System', value: settings.referral_enabled ? 'Active' : 'Disabled', icon: Gift, color: settings.referral_enabled ? 'text-emerald-400' : 'text-red-400' },
+            { label: 'System', value: settings.referral_enabled ? 'Active' : 'Disabled', icon: Settings, color: settings.referral_enabled ? 'text-emerald-400' : 'text-red-400' },
           ].map(stat => (
             <div key={stat.label} className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
               <div className="flex items-center gap-2 mb-2">
                 <stat.icon className={`w-4 h-4 ${stat.color}`} />
-                <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-bold">{stat.label}</span>
+                <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-bold truncate">{stat.label}</span>
               </div>
               <p className={`text-xl font-bold ${stat.color}`}>{stat.value}</p>
             </div>
@@ -161,62 +163,87 @@ export function SettingsManagePage() {
 
         {settings.referral_enabled && (
           <div className="space-y-6">
-            {/* ─── Referrer Rewards ─── */}
+            {/* ─── The Points Economy ─── */}
             <div className="bg-zinc-950/50 border border-zinc-800/60 rounded-xl p-5">
               <h3 className="text-xs font-bold text-emerald-400 uppercase tracking-wider mb-4 flex items-center gap-2">
                 <Crown className="w-3.5 h-3.5" />
-                Referrer Rewards
+                The Points Economy
               </h3>
               <p className="text-[11px] text-zinc-500 mb-4">
-                What the referring user earns when someone signs up using their link.
+                Configure how many "Invite Points" users must spend to redeem rewards. 1 Friend Invited = 1 Point.
               </p>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {/* Tier */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
                 <div className="space-y-2">
-                  <label className="block text-xs font-bold text-zinc-300">Subscription Tier</label>
-                  <select
-                    value={settings.referral_reward_tier}
-                    onChange={e => setSettings({ ...settings, referral_reward_tier: e.target.value })}
-                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-white font-bold focus:outline-none focus:border-emerald-500 transition-colors appearance-none cursor-pointer"
-                  >
-                    {TIER_OPTIONS.map(t => (
-                      <option key={t.value} value={t.value}>{t.label}</option>
-                    ))}
-                  </select>
+                  <label className="block text-xs font-bold text-zinc-300">Unlock a Single Tip</label>
+                  <div className="relative">
+                    <input
+                      type="number" min="1" max="100"
+                      value={settings.points_per_tip || 0}
+                      onChange={e => setSettings({ ...settings, points_per_tip: parseInt(e.target.value) || 1 })}
+                      className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-white font-bold pl-10 focus:outline-none focus:border-emerald-500 transition-colors"
+                    />
+                    <Gift className="w-4 h-4 text-emerald-500/50 absolute left-3 top-3" />
+                  </div>
+                  <p className="text-[9px] text-zinc-500">Points cost to unlock one locked tip</p>
                 </div>
 
-                {/* Days */}
                 <div className="space-y-2">
-                  <label className="block text-xs font-bold text-zinc-300">Days Granted</label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="365"
-                    value={settings.referral_reward_days}
-                    onChange={e => setSettings({ ...settings, referral_reward_days: parseInt(e.target.value) || 1 })}
-                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-white font-bold focus:outline-none focus:border-emerald-500 transition-colors"
-                  />
+                  <label className="block text-xs font-bold text-zinc-300">Unlock 7 Days Premium</label>
+                  <div className="relative">
+                    <input
+                      type="number" min="1" max="100"
+                      value={settings.points_per_premium || 0}
+                      onChange={e => setSettings({ ...settings, points_per_premium: parseInt(e.target.value) || 1 })}
+                      className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-white font-bold pl-10 focus:outline-none focus:border-gold-500 transition-colors"
+                    />
+                    <Crown className="w-4 h-4 text-gold-500/50 absolute left-3 top-3" />
+                  </div>
+                  <p className="text-[9px] text-zinc-500">Points cost to buy premium access</p>
                 </div>
 
-                {/* Free Tips */}
                 <div className="space-y-2">
-                  <label className="block text-xs font-bold text-zinc-300">Free Tips Unlocked</label>
+                  <label className="block text-xs font-bold text-zinc-300">Payment Discount</label>
+                  <div className="relative">
+                    <input
+                      type="number" min="0" max="100"
+                      value={settings.points_per_discount || 0}
+                      onChange={e => setSettings({ ...settings, points_per_discount: parseInt(e.target.value) || 1 })}
+                      className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-white font-bold pl-10 focus:outline-none focus:border-blue-500 transition-colors"
+                    />
+                    <Percent className="w-4 h-4 text-blue-500/50 absolute left-3 top-3" />
+                  </div>
+                  <p className="text-[9px] text-zinc-500">Points cost to generate M-Pesa discount</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="block text-xs font-bold text-zinc-300">Discount Amount (%)</label>
                   <input
-                    type="number"
-                    min="0"
-                    max="50"
-                    value={settings.referral_free_tips_count}
-                    onChange={e => setSettings({ ...settings, referral_free_tips_count: parseInt(e.target.value) || 0 })}
-                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-white font-bold focus:outline-none focus:border-emerald-500 transition-colors"
+                    type="number" min="1" max="100"
+                    value={settings.discount_percentage || 0}
+                    onChange={e => setSettings({ ...settings, discount_percentage: parseInt(e.target.value) || 50 })}
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-white font-bold focus:outline-none focus:border-blue-500 transition-colors"
                   />
+                  <p className="text-[9px] text-zinc-500">How much gets slashed off the standard price.</p>
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-xs font-bold text-zinc-300">Premium Days Granted</label>
+                  <input
+                    type="number" min="1" max="365"
+                    value={settings.premium_days_reward || 0}
+                    onChange={e => setSettings({ ...settings, premium_days_reward: parseInt(e.target.value) || 7 })}
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-white font-bold focus:outline-none focus:border-gold-500 transition-colors"
+                  />
+                  <p className="text-[9px] text-zinc-500">How long the redeemed premium access lasts.</p>
                 </div>
               </div>
 
               <div className="mt-4 bg-emerald-500/5 border border-emerald-500/10 rounded-lg p-3 flex gap-3 text-[11px]">
                 <ShieldAlert className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
                 <p className="text-zinc-400">
-                  Each successful referral grants the referrer <span className="text-white font-bold">{settings.referral_reward_days} days</span> of <span className="text-white font-bold capitalize">{settings.referral_reward_tier}</span> access and unlocks <span className="text-white font-bold">{settings.referral_free_tips_count}</span> premium tip{settings.referral_free_tips_count !== 1 ? 's' : ''}.
+                  Users collect <span className="text-white font-bold">1 Point</span> for every friend they invite. They can spend these points via the Rewards Hub.
                 </p>
               </div>
             </div>

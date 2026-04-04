@@ -22,7 +22,6 @@ from app.models.setting import AdminSetting
 from app.routers.auth import (
     _normalize_phone, 
     _send_otp_sms, 
-    _get_sms_src,
     request_phone_otp,
     verify_phone_otp,
 )

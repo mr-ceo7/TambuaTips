@@ -47,6 +47,9 @@ export const authService = {
       profile_picture: data.profile_picture,
       referral_code: data.referral_code,
       referrals_count: data.referrals_count || 0,
+      referral_points: data.referral_points || 0,
+      referral_discount_active: data.referral_discount_active || false,
+      unlocked_tip_ids: data.unlocked_tip_ids || [],
     };
   },
 

@@ -62,6 +62,9 @@ class UserResponse(BaseModel):
     profile_picture: Optional[str] = None
     referral_code: Optional[str] = None
     referrals_count: int = 0
+    referral_points: int = 0
+    referral_discount_active: bool = False
+    unlocked_tip_ids: Optional[list[int]] = None
     phone: Optional[str] = None
 
     model_config = {"from_attributes": True}

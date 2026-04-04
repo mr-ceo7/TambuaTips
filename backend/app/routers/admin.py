@@ -39,22 +39,26 @@ router = APIRouter(prefix="/api/admin", tags=["Admin"])
 # Default referral settings (used when no AdminSetting row exists yet)
 REFERRAL_DEFAULTS = {
     "referral_enabled": "true",
-    "referral_reward_tier": "basic",
-    "referral_reward_days": "7",
+    "points_per_tip": "2",
+    "points_per_discount": "5",
+    "discount_percentage": "50",
+    "points_per_premium": "10",
+    "premium_days_reward": "7",
     "referral_new_user_reward": "false",
     "referral_new_user_reward_tier": "basic",
     "referral_new_user_reward_days": "7",
-    "referral_free_tips_count": "1",
 }
 
 REFERRAL_DESCRIPTIONS = {
     "referral_enabled": "Master toggle for the referral system",
-    "referral_reward_tier": "Subscription tier granted to the referrer",
-    "referral_reward_days": "Days of access granted to the referrer per referral",
+    "points_per_tip": "Points required to unlock a single locked tip",
+    "points_per_discount": "Points required to generate a payment discount",
+    "discount_percentage": "Percentage discount applied to standard price when discount is redeemed",
+    "points_per_premium": "Points required to redeem free premium access",
+    "premium_days_reward": "Days of premium access granted on premium redemption",
     "referral_new_user_reward": "Whether the new user also gets rewarded on sign-up",
     "referral_new_user_reward_tier": "Subscription tier granted to the new user",
     "referral_new_user_reward_days": "Days of access granted to the new user",
-    "referral_free_tips_count": "Number of premium tips unlocked per successful referral",
 }
 
 async def get_referral_settings(db: AsyncSession) -> dict:
@@ -76,12 +80,14 @@ async def get_referral_settings(db: AsyncSession) -> dict:
 
 class SettingsUpdateProps(BaseModel):
     referral_enabled: Optional[bool] = None
-    referral_reward_tier: Optional[str] = None
-    referral_reward_days: Optional[int] = None
+    points_per_tip: Optional[int] = None
+    points_per_discount: Optional[int] = None
+    discount_percentage: Optional[int] = None
+    points_per_premium: Optional[int] = None
+    premium_days_reward: Optional[int] = None
     referral_new_user_reward: Optional[bool] = None
     referral_new_user_reward_tier: Optional[str] = None
     referral_new_user_reward_days: Optional[int] = None
-    referral_free_tips_count: Optional[int] = None
 
 
 @router.get("/settings")
@@ -252,12 +258,24 @@ async def referral_stats(db: AsyncSession = Depends(get_db), admin: User = Depen
     )
     referred_users_count = referred_users_res.scalar() or 0
 
+    # Aggregate array fields
+    all_users_res = await db.execute(select(User.unlocked_tip_ids, User.referral_discount_active))
+    total_tips_unlocked = 0
+    pending_discounts = 0
+    for unlocked, discount_active in all_users_res.all():
+        if unlocked:
+            total_tips_unlocked += len(unlocked)
+        if discount_active:
+            pending_discounts += 1
+
     # Current settings
     ref_settings = await get_referral_settings(db)
 
     return {
         "total_referrals": total_referrals,
         "referred_users": referred_users_count,
+        "total_tips_unlocked": total_tips_unlocked,
+        "total_discounts_claimed": pending_discounts,
         "top_referrers": top_referrers,
         "settings": ref_settings,
     }

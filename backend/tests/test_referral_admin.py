@@ -37,11 +37,11 @@ async def test_admin_settings_lifecycle(client: AsyncClient, db_session: AsyncSe
     assert "referral_enabled" in settings
     
     # 3. Update settings
-    put_res = await client.put("/api/admin/settings", json={"referral_enabled": False, "referral_reward_days": 14}, headers=headers)
+    put_res = await client.put("/api/admin/settings", json={"referral_enabled": False, "points_per_tip": 14}, headers=headers)
     assert put_res.status_code == 200
     new_settings = put_res.json()
     assert new_settings["referral_enabled"] == False
-    assert new_settings["referral_reward_days"] == 14
+    assert new_settings["points_per_tip"] == 14
 
 @pytest.mark.asyncio
 async def test_admin_gating(client: AsyncClient, db_session: AsyncSession):

@@ -37,10 +37,13 @@ class User(Base):
     # Anti-screenshot / One-device policies
     session_id = Column(String(100), nullable=True, unique=True, index=True)
     
-    # Referral / Affiliate Marketing
+    # Referral / Affiliate Marketing / Loyalty Economy
     referral_code = Column(String(20), unique=True, nullable=True, index=True)
     referrer_id = Column(BigInteger, ForeignKey('users.id'), nullable=True)
     referrals_count = Column(Integer, default=0, nullable=False, server_default="0")
+    referral_points = Column(Integer, default=0, nullable=False, server_default="0")
+    referral_discount_active = Column(Boolean, default=False, nullable=False, server_default="0")
+    unlocked_tip_ids = Column(JSON, default=list)
     
     # Self-referential relationship for referrals
     referred_users = relationship("User", backref="referrer", remote_side=[id])

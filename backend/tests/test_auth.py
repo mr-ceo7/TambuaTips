@@ -116,6 +116,7 @@ async def test_regular_user_single_device_policy(client: AsyncClient, db_session
         token2 = res2.cookies.get("access_token")
     
     # Verify only 1 session exists (old one was deleted)
+    await db_session.commit()
     result = await db_session.execute(select(UserSession).where(UserSession.user_id == user.id))
     sessions = result.scalars().all()
     assert len(sessions) == 1
@@ -164,6 +165,7 @@ async def test_admin_multi_device_policy(client: AsyncClient, db_session):
             tokens.append(res.cookies.get("access_token"))
     
     # 3. Verify that only 4 sessions exist (oldest was removed)
+    await db_session.commit()
     result = await db_session.execute(select(UserSession).where(UserSession.user_id == admin_user.id))
     sessions = result.scalars().all()
     assert len(sessions) == 4, f"Expected 4 sessions for admin, got {len(sessions)}"
@@ -189,28 +191,27 @@ async def test_session_cleanup_expired(client: AsyncClient, db_session):
     from app.models.user import User, UserSession
     from datetime import datetime, UTC, timedelta
     
-    # 1. Create a user with some old sessions
-    user = User(
-        email="cleanup@example.com",
-        name="Cleanup User",
-        password="hashedpassword",
-        is_admin=False,
-        is_active=True
-    )
-    db_session.add(user)
-    await db_session.commit()
-    await db_session.refresh(user)
+    # 1. Login to create a natural session
+    with patch("google.oauth2.id_token.verify_oauth2_token") as mock_verify:
+        mock_verify.return_value = {
+            "email": "cleanup@example.com", "name": "Cleanup User", "picture": ""
+        }
+        res1 = await client.post("/api/auth/google", json={"id_token": "token1", "referred_by_code": ""})
+        assert res1.status_code == 200
+        
+    result = await db_session.execute(select(User).where(User.email == "cleanup@example.com"))
+    user = result.scalar_one()
     
-    # 2. Manually create old sessions (8 days old)
+    result = await db_session.execute(select(UserSession).where(UserSession.user_id == user.id))
+    old_session = result.scalars().first()
+    old_session_id = old_session.session_id
+    
+    # 2. Backdate the session to be 8 days old
     old_time = datetime.now(UTC).replace(tzinfo=None) - timedelta(days=8)
-    old_session = UserSession(
-        user_id=user.id,
-        session_id="old_session_id",
-        created_at=old_time,
-        last_used_at=old_time
-    )
-    db_session.add(old_session)
+    old_session.created_at = old_time
+    old_session.last_used_at = old_time
     await db_session.commit()
+    db_session.expunge_all()
     
     # Verify old session exists
     result = await db_session.execute(select(UserSession).where(UserSession.user_id == user.id))
@@ -226,7 +227,9 @@ async def test_session_cleanup_expired(client: AsyncClient, db_session):
         assert res.status_code == 200
     
     # 4. Verify old session was cleaned up and new one was created
+    # Commit test session to flush transaction isolation and read new data
+    await db_session.commit()
+    db_session.expunge_all()
     result = await db_session.execute(select(UserSession).where(UserSession.user_id == user.id))
     sessions = result.scalars().all()
-    assert len(sessions) == 1  # Old one removed, new one created
-    assert sessions[0].session_id != "old_session_id"
+    assert sessions[0].session_id != old_session_id

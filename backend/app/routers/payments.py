@@ -62,6 +62,14 @@ async def _resolve_amount(body: PaymentRequest, user: User, db: AsyncSession) ->
             discount = amount * (campaign.incentive_value / 100.0)
             amount = max(0, amount - discount)
             
+        # Check Referral Economy Discounts
+        if user.referral_discount_active:
+            from app.routers.admin import get_referral_settings
+            ref_settings = await get_referral_settings(db)
+            disc_pct = ref_settings.get("discount_percentage", 50)
+            discount = amount * (disc_pct / 100.0)
+            amount = max(0, amount - discount)
+            
         return float(amount), currency
         
     elif body.item_type == "jackpot":
@@ -80,6 +88,14 @@ async def _resolve_amount(body: PaymentRequest, user: User, db: AsyncSession) ->
             overrides = jp.regional_prices[region.region_code]
             amount = overrides.get("price", amount)
             
+        # Check Referral Economy Discounts for Jackpots too
+        if user.referral_discount_active:
+            from app.routers.admin import get_referral_settings
+            ref_settings = await get_referral_settings(db)
+            disc_pct = ref_settings.get("discount_percentage", 50)
+            discount = amount * (disc_pct / 100.0)
+            amount = max(0, amount - discount)
+            
         return float(amount), currency
     else:
         raise HTTPException(status_code=400, detail="Invalid item_type")
@@ -90,6 +106,10 @@ async def _fulfill_payment(payment: Payment, user: User, db: AsyncSession):
     # Ensure user is fully locked for this transaction to prevent overlapping updates
     user_res = await db.execute(select(User).where(User.id == user.id).with_for_update())
     locked_user = user_res.scalar_one()
+
+    # Consume active referral discount upon successful purchase
+    if locked_user.referral_discount_active:
+        locked_user.referral_discount_active = False
 
     if payment.item_type == "subscription":
         weeks = 2  # Default
