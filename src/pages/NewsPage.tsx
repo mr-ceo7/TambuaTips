@@ -121,8 +121,8 @@ export function NewsPage() {
       </div>
 
       {/* Search & Filters */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-6">
-        <div className="relative flex-1">
+      <div className="space-y-4 mb-6">
+        <div className="relative w-full max-w-xl">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
           <input
             type="text"
@@ -132,10 +132,12 @@ export function NewsPage() {
             className="w-full bg-zinc-900 border border-zinc-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
           />
         </div>
-        <div className="flex flex-wrap gap-2">
+        
+        {/* Scrollable Categories Row */}
+        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none w-full">
           <button
             onClick={() => setSelectedCategory(null)}
-            className={`px-3 py-2 rounded-xl text-xs font-bold transition-all ${!selectedCategory ? 'bg-emerald-500 text-zinc-950' : 'bg-zinc-900 border border-zinc-800 text-zinc-400'}`}
+            className={`shrink-0 px-3 py-2 rounded-xl text-xs font-bold transition-all ${!selectedCategory ? 'bg-emerald-500 text-zinc-950' : 'bg-zinc-900 border border-zinc-800 text-zinc-400'}`}
           >
             All
           </button>
@@ -143,7 +145,7 @@ export function NewsPage() {
             <button
               key={cat}
               onClick={() => setSelectedCategory(cat === selectedCategory ? null : cat)}
-              className={`px-3 py-2 rounded-xl text-xs font-bold transition-all ${cat === selectedCategory ? 'bg-emerald-500 text-zinc-950' : 'bg-zinc-900 border border-zinc-800 text-zinc-400'}`}
+              className={`shrink-0 px-3 py-2 rounded-xl text-xs font-bold transition-all ${cat === selectedCategory ? 'bg-emerald-500 text-zinc-950' : 'bg-zinc-900 border border-zinc-800 text-zinc-400'}`}
             >
               {cat}
             </button>
