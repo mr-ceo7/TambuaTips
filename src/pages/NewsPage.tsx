@@ -202,8 +202,20 @@ export function NewsPage() {
             })}
           </div>
           {hasMore && loadingMore && (
-            <div className="text-center mt-8 py-4">
-              <Loader2 className="h-6 w-6 animate-spin inline text-emerald-500" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mt-8 animate-pulse">
+              {[1, 2, 3].map(i => (
+                <div key={`more-${i}`} className="bg-zinc-900/60 border border-zinc-800 rounded-2xl overflow-hidden">
+                  <div className="h-44 bg-zinc-800 w-full" />
+                  <div className="p-4 space-y-3">
+                    <div className="h-4 bg-zinc-800 rounded w-full" />
+                    <div className="h-4 bg-zinc-800 rounded w-2/3" />
+                    <div className="flex gap-2 pt-2">
+                      <div className="h-3 w-16 bg-zinc-800 rounded" />
+                      <div className="h-3 w-16 bg-zinc-800 rounded" />
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </>
