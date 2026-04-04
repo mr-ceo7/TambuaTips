@@ -70,7 +70,7 @@ class UserSession(Base):
     __tablename__ = "user_sessions"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey('users.id'), nullable=False, index=True)
+    user_id = Column(BigInteger, ForeignKey('users.id'), nullable=False, index=True)
     session_id = Column(String(100), unique=True, nullable=False, index=True)
     created_at = Column(DateTime, default=lambda: datetime.now(UTC), nullable=False)
     last_used_at = Column(DateTime, default=lambda: datetime.now(UTC), nullable=False)
