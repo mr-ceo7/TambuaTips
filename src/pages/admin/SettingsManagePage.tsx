@@ -25,6 +25,7 @@ export function SettingsManagePage() {
   const [smsSettings, setSmsSettings] = useState<SMSSettings>({
     SMS_SRC: 'ARVOCAP',
     SMS_ENABLED: true,
+    SMS_TEMPLATE: '[TambuaTips] Your verification code is {code}. This code expires in 5 minutes. Do NOT share this code with anyone. Visit {url} to access your account.',
   });
   const [savingSms, setSavingSms] = useState(false);
 
@@ -373,6 +374,16 @@ export function SettingsManagePage() {
               </div>
               <p className="text-[10px] text-zinc-600">SMS gateway. Contact admin to change provider.</p>
             </div>
+            <div className="space-y-2 sm:col-span-2">
+              <label className="block text-xs font-bold text-zinc-300">Message Template</label>
+              <textarea
+                value={smsSettings.SMS_TEMPLATE}
+                onChange={e => setSmsSettings({ ...smsSettings, SMS_TEMPLATE: e.target.value })}
+                className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-cyan-500 transition-colors"
+                rows={3}
+              />
+              <p className="text-[10px] text-zinc-600">Use {'{code}'} for the OTP code and {'{url}'} for the site URL.</p>
+            </div>
           </div>
 
           {/* SMS Preview */}
@@ -387,7 +398,14 @@ export function SettingsManagePage() {
                 <span className="text-[10px] text-zinc-600">• just now</span>
               </div>
               <p className="text-sm text-zinc-200 leading-relaxed font-mono">
-                [TambuaTips] Your verification code is <span className="text-cyan-400 font-bold">847291</span>. This code expires in 5 minutes. Do NOT share this code with anyone. Visit tambuatips.co.ke to access your account.
+                {smsSettings.SMS_TEMPLATE?.replace('{code}', '847291')
+                  .replace('{url}', 'tambuatips.co.ke')
+                  .split('847291').map((part, i, arr) => 
+                    <React.Fragment key={i}>
+                      {part}
+                      {i < arr.length - 1 && <span className="text-cyan-400 font-bold">847291</span>}
+                    </React.Fragment>
+                  )}
               </p>
             </div>
           </div>

@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useMemo } from 'react';
-import { Loader2, Search, ExternalLink, X, ChevronRight, ArrowLeft, Facebook, Twitter, MessageCircle } from 'lucide-react';
+import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
+import { Loader2, Search, ExternalLink, ArrowLeft, Facebook, Twitter, MessageCircle } from 'lucide-react';
 import { fetchNews, FALLBACK_IMAGE, type NewsItem } from '../services/newsService';
 import { usePageTitle } from '../hooks/usePageTitle';
 
@@ -23,6 +23,20 @@ export function NewsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedArticle, setSelectedArticle] = useState<NewsItem | null>(null);
+
+  const observer = useRef<IntersectionObserver | null>(null);
+  const lastArticleElementRef = useCallback((node: HTMLDivElement) => {
+    if (loadingMore || loading) return;
+    if (observer.current) observer.current.disconnect();
+    
+    observer.current = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && hasMore) {
+        setPage(prevPage => prevPage + 1);
+      }
+    }, { rootMargin: '200px' }); // Load a bit early
+    
+    if (node) observer.current.observe(node);
+  }, [loadingMore, loading, hasMore]);
 
   useEffect(() => {
     const load = async () => {
@@ -161,38 +175,35 @@ export function NewsPage() {
       ) : (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-            {filteredArticles.map(article => (
-              <div
-                key={article.id}
-                onClick={() => setSelectedArticle(article)}
-                className="bg-zinc-900/60 border border-zinc-800 rounded-2xl overflow-hidden cursor-pointer group hover:border-emerald-500/30 transition-all hover:-translate-y-1 hover:shadow-lg hover:shadow-emerald-500/5"
-              >
-                <div className="relative h-44 overflow-hidden">
-                  <img src={article.image} alt={article.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" onError={(e) => { e.currentTarget.src = FALLBACK_IMAGE; }} />
-                  <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/80 to-transparent" />
-                  <span className="absolute bottom-3 left-3 px-2.5 py-1 bg-emerald-500/90 text-zinc-950 text-[10px] font-bold uppercase tracking-wider rounded">{article.category}</span>
-                </div>
-                <div className="p-4">
-                  <h3 className="text-sm font-bold text-zinc-200 leading-snug mb-2 line-clamp-2 group-hover:text-emerald-400 transition-colors">{article.title}</h3>
-                  <div className="flex items-center gap-2 text-xs text-zinc-500">
-                    <span className="font-medium text-emerald-400/70">{article.source}</span>
-                    <span className="w-1 h-1 rounded-full bg-zinc-700" />
-                    <span>{article.time}</span>
+            {filteredArticles.map((article, index) => {
+              const isLast = index === filteredArticles.length - 1;
+              return (
+                <div
+                  key={article.id}
+                  ref={isLast ? lastArticleElementRef : null}
+                  onClick={() => setSelectedArticle(article)}
+                  className="bg-zinc-900/60 border border-zinc-800 rounded-2xl overflow-hidden cursor-pointer group hover:border-emerald-500/30 transition-all hover:-translate-y-1 hover:shadow-lg hover:shadow-emerald-500/5"
+                >
+                  <div className="relative h-44 overflow-hidden">
+                    <img src={article.image} alt={article.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" onError={(e) => { e.currentTarget.src = FALLBACK_IMAGE; }} />
+                    <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/80 to-transparent" />
+                    <span className="absolute bottom-3 left-3 px-2.5 py-1 bg-emerald-500/90 text-zinc-950 text-[10px] font-bold uppercase tracking-wider rounded">{article.category}</span>
+                  </div>
+                  <div className="p-4">
+                    <h3 className="text-sm font-bold text-zinc-200 leading-snug mb-2 line-clamp-2 group-hover:text-emerald-400 transition-colors">{article.title}</h3>
+                    <div className="flex items-center gap-2 text-xs text-zinc-500">
+                      <span className="font-medium text-emerald-400/70">{article.source}</span>
+                      <span className="w-1 h-1 rounded-full bg-zinc-700" />
+                      <span>{article.time}</span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
-          {hasMore && (
-            <div className="text-center mt-8">
-              <button
-                onClick={() => setPage(p => p + 1)}
-                disabled={loadingMore}
-                className="px-6 py-3 bg-zinc-900 border border-zinc-800 text-zinc-300 rounded-xl font-bold text-sm hover:bg-zinc-800 transition-all hover:scale-105 disabled:opacity-50"
-              >
-                {loadingMore ? <Loader2 className="h-4 w-4 animate-spin inline mr-2" /> : null}
-                Load More
-              </button>
+          {hasMore && loadingMore && (
+            <div className="text-center mt-8 py-4">
+              <Loader2 className="h-6 w-6 animate-spin inline text-emerald-500" />
             </div>
           )}
         </>

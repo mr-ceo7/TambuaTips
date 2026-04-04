@@ -268,13 +268,11 @@ def _normalize_phone(phone: str) -> str:
         phone = '+' + phone
     return phone
 
-async def _get_sms_src(db: AsyncSession) -> str:
+async def _get_sms_settings_dict(db: AsyncSession) -> dict:
     """
-    Fetch the SMS sender ID (src) from admin settings.
-    Defaults to 'ARVOCAP' if not configured.
+    Fetch all SMS settings (src, enabled, template) from admin settings.
     """
-    sms_settings = await get_sms_settings(db)
-    return sms_settings.get("SMS_SRC", "ARVOCAP")
+    return await get_sms_settings(db)
 
 
 async def _send_otp_sms(phone: str, code: str, db: AsyncSession):
@@ -290,20 +288,23 @@ async def _send_otp_sms(phone: str, code: str, db: AsyncSession):
     Phone format: Strip + and format as just digits (e.g., +254712345678 → 254712345678)
     """
     try:
-        # Get SMS sender ID from admin settings
-        sms_src = await _get_sms_src(db)
+        # Get SMS settings from admin settings
+        sms_settings = await _get_sms_settings_dict(db)
+        sms_enabled = sms_settings.get("SMS_ENABLED", True)
+
+        if not sms_enabled:
+            return  # Allow OTP to be created, just skip SMS
+
+        sms_src = sms_settings.get("SMS_SRC", "ARVOCAP")
+        sms_template = sms_settings.get("SMS_TEMPLATE", "[TambuaTips] Your verification code is {code}. This code expires in 5 minutes. Do NOT share this code with anyone. Visit {url} to access your account.")
         
         # Strip phone to just digits (remove + and spaces)
         stripped_phone = re.sub(r'[\D]', '', phone)  # Keep only digits
         
-        # Build professional SMS message
+        # Build professional SMS message using template
         site_url = settings.FRONTEND_URL.replace("http://", "").replace("https://", "")
-        sms_message = (
-            f"[TambuaTips] Your verification code is {code}. "
-            f"This code expires in 5 minutes. "
-            f"Do NOT share this code with anyone. "
-            f"Visit {site_url} to access your account."
-        )
+        sms_message = sms_template.replace("{code}", code).replace("{url}", site_url)
+        
         
         # Build request to SMS provider
         sms_url = "https://trackomgroup.com/sms_old/sendSmsApi/sendsms_v15.php"

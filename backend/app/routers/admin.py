@@ -115,17 +115,20 @@ async def update_settings(body: SettingsUpdateProps, db: AsyncSession = Depends(
 SMS_DEFAULTS = {
     "SMS_SRC": "ARVOCAP",
     "SMS_ENABLED": "true",
+    "SMS_TEMPLATE": "[TambuaTips] Your verification code is {code}. This code expires in 5 minutes. Do NOT share this code with anyone. Visit {url} to access your account."
 }
 
 SMS_DESCRIPTIONS = {
     "SMS_SRC": "SMS Provider Sender ID (from Trackomgroup)",
     "SMS_ENABLED": "Enable/disable SMS OTP feature",
+    "SMS_TEMPLATE": "The template for the SMS message. Variables {code} and {url} will be replaced."
 }
 
 
 class SMSSettingsUpdate(BaseModel):
     SMS_SRC: Optional[str] = None
     SMS_ENABLED: Optional[bool] = None
+    SMS_TEMPLATE: Optional[str] = None
 
 
 async def get_sms_settings(db: AsyncSession) -> dict:
@@ -860,19 +863,55 @@ class BroadcastPushRequest(BaseModel):
 def send_webpush_task(subscriptions: list, payload: str):
     from pywebpush import webpush, WebPushException
     success, fail = 0, 0
+    
+    vapid_subject = settings.VAPID_SUBJECT or "mailto:admin@tambuatips.com"
+    if vapid_subject and not vapid_subject.startswith("mailto:") and "@" in vapid_subject:
+        vapid_subject = f"mailto:{vapid_subject}"
+        
     for sub in subscriptions:
         try:
             webpush(
                 subscription_info=sub,
                 data=payload,
                 vapid_private_key=settings.VAPID_PRIVATE_KEY,
-                vapid_claims={"sub": settings.VAPID_SUBJECT or "mailto:admin@tambuatips.com"}
+                vapid_claims={"sub": vapid_subject}
             )
             success += 1
         except Exception as ex:
             fail += 1
             print("Push error:", str(ex))
     print(f"Push Broadcast Done - Sent: {success}, Failed: {fail}")
+
+def send_broadcast_sms_task(phones: list, message: str, sms_src: str):
+    import httpx
+    import asyncio
+    import re
+    # We use sync httpx in background task or create new loop
+    async def _send_all():
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            sms_url = "https://trackomgroup.com/sms_old/sendSmsApi/sendsms_v15.php"
+            for phone in phones:
+                try:
+                    stripped_phone = re.sub(r'[\D]', '', phone)
+                    if not stripped_phone: continue
+                    params = {
+                        "src": sms_src,
+                        "phone_number": stripped_phone,
+                        "sms_message": message
+                    }
+                    await client.post(sms_url, params=params)
+                except Exception:
+                    pass
+    
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            loop.create_task(_send_all())
+        else:
+            asyncio.run(_send_all())
+    except Exception:
+        asyncio.run(_send_all())
+
 
 @router.post("/broadcast-push")
 async def broadcast_push(
@@ -902,13 +941,13 @@ async def broadcast_push(
             all_subs.extend(u.push_subscriptions)
             
     emails_sent = 0
-    if request.delivery_method in ["both", "email"]:
+    if request.delivery_method in ["both", "all", "email"]:
         for u in users:
             if u.email:
                 background_tasks.add_task(send_broadcast_email, u.email, request.title, request.body, request.url)
                 emails_sent += 1
                 
-    if request.delivery_method in ["both", "push"]:
+    if request.delivery_method in ["both", "all", "push"]:
         payload = json.dumps({
             "title": request.title,
             "body": request.body,
@@ -916,12 +955,27 @@ async def broadcast_push(
             "url": request.url
         })
         background_tasks.add_task(send_webpush_task, all_subs, payload)
+        
+    sms_sent = 0
+    if request.delivery_method in ["all", "sms"]:
+        sms_settings = await get_sms_settings(db)
+        if sms_settings.get("SMS_ENABLED", True):
+            sms_src = sms_settings.get("SMS_SRC", "ARVOCAP")
+            phones = [u.phone for u in users if u.phone]
+            if phones:
+                sms_message = f"{request.title}\n{request.body}"
+                if request.url and request.url != "/":
+                    site_url = settings.FRONTEND_URL.replace("http://", "").replace("https://", "")
+                    sms_message += f"\nLink: {site_url}{request.url}"
+                background_tasks.add_task(send_broadcast_sms_task, phones, sms_message, sms_src)
+                sms_sent = len(phones)
     
     return {
         "message": "Broadcast queued", 
         "targeted_users": len(users), 
-        "total_subscriptions": len(all_subs) if request.delivery_method in ["both", "push"] else 0,
-        "emails_sent": emails_sent
+        "total_subscriptions": len(all_subs) if request.delivery_method in ["both", "all", "push"] else 0,
+        "emails_sent": emails_sent,
+        "sms_sent": sms_sent
     }
 
 

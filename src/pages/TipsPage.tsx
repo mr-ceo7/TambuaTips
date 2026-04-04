@@ -256,6 +256,8 @@ export function TipsPage() {
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
   const [showScreenshotWarning, setShowScreenshotWarning] = useState(false);
   const [showReferralModal, setShowReferralModal] = useState(false);
+  const [loadingTips, setLoadingTips] = useState(true);
+  const [loadingJackpot, setLoadingJackpot] = useState(true);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -283,8 +285,13 @@ export function TipsPage() {
 
   useEffect(() => {
     // Detached: getTipStats().then(setStats);
-    getAllJackpots().then(setJackpots);
+    setLoadingJackpot(true);
+    getAllJackpots().then((data) => {
+      setJackpots(data);
+      setLoadingJackpot(false);
+    });
     
+    setLoadingTips(true);
     Promise.all(CATEGORY_ORDER.map(async cat => {
       const tips = await getTipsByCategory(cat);
       return { cat, tips };
@@ -292,6 +299,7 @@ export function TipsPage() {
       const newMap: Record<string, Tip[]> = {};
       results.forEach(r => { newMap[r.cat] = r.tips; });
       setTipsByCategory(newMap);
+      setLoadingTips(false);
     });
   }, [user?.subscription.tier, JSON.stringify(user?.purchasedJackpotIds)]);
 
@@ -331,7 +339,20 @@ export function TipsPage() {
       {/* Daily Tips Tab */}
       {activeTab === 'tips' && (
         <div className="space-y-8">
-          {CATEGORY_ORDER.map(cat => {
+          {loadingTips ? (
+            <div className="space-y-6 animate-pulse">
+              {[1, 2, 3].map(i => (
+                <div key={i}>
+                  <div className="h-6 w-32 bg-zinc-800 rounded mb-4" />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="h-32 bg-zinc-900/60 border border-zinc-800 rounded-2xl" />
+                    <div className="h-32 bg-zinc-900/60 border border-zinc-800 rounded-2xl" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            CATEGORY_ORDER.map(cat => {
             const tips = tipsByCategory[cat] || [];
             if (tips.length === 0) return null;
             const catInfo = CATEGORY_LABELS[cat];
@@ -386,7 +407,7 @@ export function TipsPage() {
                 )}
               </section>
             );
-          })}
+          }))}
         </div>
       )}
 
@@ -398,7 +419,12 @@ export function TipsPage() {
             <p className="text-xs text-zinc-400">Double chance predictions for Midweek (13 matches) and Mega (17 matches) jackpots. Choose your DC level.</p>
           </div>
 
-          {jackpots.length > 0 ? (
+          {loadingJackpot ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 animate-pulse">
+              <div className="h-64 bg-zinc-900/60 border border-zinc-800 rounded-2xl" />
+              <div className="h-64 bg-zinc-900/60 border border-zinc-800 rounded-2xl" />
+            </div>
+          ) : jackpots.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {jackpots.map(j => {
                 const isUnlocked = hasJackpotAccess(j.id);

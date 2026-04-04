@@ -188,9 +188,8 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             className="relative w-full max-w-lg bg-zinc-900 border border-emerald-500/20 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
           >
-            {/* Header */}
-            <div className="bg-linear-to-r from-emerald-600 to-emerald-800 p-6 relative">
-              <button onClick={onClose} className="absolute top-4 right-4 text-emerald-100 hover:text-white transition-colors" disabled={processing}>
+            <div className="bg-linear-to-r from-emerald-600 to-emerald-800 p-4 sm:p-6 relative">
+              <button onClick={onClose} className="absolute top-3 right-3 sm:top-4 sm:right-4 text-emerald-100 hover:text-white transition-colors" disabled={processing}>
                 <X className="w-5 h-5" />
               </button>
               <div className="flex items-center justify-center mb-2">
@@ -200,13 +199,13 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
               <p className="text-emerald-100 text-center text-sm">Join thousands of winning members today.</p>
             </div>
 
-            <div className="p-6 overflow-y-auto min-h-[400px]">
+            <div className="p-4 sm:p-6 overflow-y-auto min-h-[400px]">
               <AnimatePresence mode="wait">
                 {paymentView === 'selection' && (
                   <motion.div key="selection" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }}>
-                    <div className="flex bg-zinc-800 rounded-xl p-1 mb-5">
-                      <button onClick={() => setDuration(2)} className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${duration === 2 ? 'bg-emerald-500 text-zinc-950' : 'text-zinc-400'}`}>2 Weeks</button>
-                      <button onClick={() => setDuration(4)} className={`relative flex-1 py-2 rounded-lg text-sm font-bold transition-all ${duration === 4 ? 'bg-emerald-500 text-zinc-950' : 'text-zinc-400'}`}>
+                    <div className="flex bg-zinc-800 rounded-xl p-1 mb-4 sm:mb-5">
+                      <button onClick={() => setDuration(2)} className={`flex-1 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-bold transition-all ${duration === 2 ? 'bg-emerald-500 text-zinc-950' : 'text-zinc-400'}`}>2 Weeks</button>
+                      <button onClick={() => setDuration(4)} className={`relative flex-1 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-bold transition-all ${duration === 4 ? 'bg-emerald-500 text-zinc-950' : 'text-zinc-400'}`}>
                         4 Weeks
                         <span className="absolute -top-2.5 -right-2 bg-emerald-400 text-emerald-950 text-[10px] px-2 py-0.5 rounded-full shadow border border-emerald-300">Save 22%</span>
                       </button>
@@ -223,14 +222,20 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
                           <button
                             key={tier.id}
                             onClick={() => setSelectedTier(tier)}
-                            className={`w-full flex items-center gap-3 p-4 rounded-xl border-2 transition-all text-left ${
+                            className={`w-full flex flex-col sm:flex-row items-start sm:items-center gap-3 p-3 sm:p-4 rounded-xl border-2 transition-all text-left ${
                               isSelected ? 'border-emerald-500 bg-emerald-500/10' : 'border-zinc-800 hover:border-zinc-700'
                             }`}
                           >
-                            <div className={`p-2 rounded-lg ${isSelected ? 'bg-emerald-500 text-zinc-950' : 'bg-zinc-800 text-zinc-400'}`}>
-                              <Icon className="w-5 h-5" />
+                            <div className="w-full flex items-center justify-between sm:w-auto">
+                              <div className={`p-1.5 sm:p-2 rounded-lg ${isSelected ? 'bg-emerald-500 text-zinc-950' : 'bg-zinc-800 text-zinc-400'}`}>
+                                <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
+                              </div>
+                              <div className="sm:hidden text-right flex flex-col items-end">
+                                <div className="text-[10px] text-zinc-500 line-through decoration-red-500/50">{tier.currency_symbol} {defaultOriginalPrice.toLocaleString(undefined, {minimumFractionDigits: defaultOriginalPrice % 1 !== 0 ? 2 : 0})}</div>
+                                <div className={`font-bold text-sm ${originalPrice ? 'text-emerald-400' : 'text-white'}`}>{tier.currency_symbol} {dprice.toLocaleString(undefined, {minimumFractionDigits: dprice % 1 !== 0 ? 2 : 0})}</div>
+                              </div>
                             </div>
-                            <div className="flex-1">
+                            <div className="flex-1 w-full">
                               <div className="flex items-center gap-2 mb-1">
                                 <span className="font-bold text-white text-sm">{tier.name}</span>
                                 {tier.popular && (
@@ -244,7 +249,7 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
                                   .join(', ')}
                               </div>
                             </div>
-                            <div className="text-right flex flex-col items-end">
+                            <div className="hidden sm:flex text-right flex-col items-end">
                               <div className="text-[10px] text-zinc-500 line-through decoration-red-500/50">{tier.currency_symbol} {defaultOriginalPrice.toLocaleString(undefined, {minimumFractionDigits: defaultOriginalPrice % 1 !== 0 ? 2 : 0})}</div>
                               <div className={`font-bold text-sm ${originalPrice ? 'text-emerald-400' : 'text-white'}`}>{tier.currency_symbol} {dprice.toLocaleString(undefined, {minimumFractionDigits: dprice % 1 !== 0 ? 2 : 0})}</div>
                               <div className="text-[9px] text-emerald-500 font-bold uppercase">{duration} Weeks</div>
@@ -271,15 +276,15 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
                         <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Pay With</h3>
                         {selectedMethod && <button onClick={() => setSelectedMethod(null)} className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider">Change</button>}
                       </div>
-                      <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-2 sm:gap-3">
                         {(!selectedMethod || selectedMethod === 'mpesa') && allowMpesa && (
-                          <button onClick={() => setSelectedMethod('mpesa')} className={`relative w-full flex items-center justify-center p-4 rounded-xl border-2 transition-all ${selectedMethod === 'mpesa' ? 'border-emerald-500 bg-emerald-500/10' : 'border-zinc-800 hover:border-zinc-700'}`}>
-                            <img src="/mpesa.svg" alt="M-Pesa" className="h-9 object-contain" />
+                          <button onClick={() => setSelectedMethod('mpesa')} className={`relative w-full flex items-center justify-center p-3 sm:p-4 rounded-xl border-2 transition-all ${selectedMethod === 'mpesa' ? 'border-emerald-500 bg-emerald-500/10 col-span-2' : 'border-zinc-800 hover:border-zinc-700'}`}>
+                            <img src="/mpesa.svg" alt="M-Pesa" className="h-7 sm:h-9 object-contain" />
                             {selectedMethod === 'mpesa' && <Check className="absolute right-4 w-5 h-5 text-emerald-500" />}
                           </button>
                         )}
                         {(!selectedMethod || selectedMethod === 'paystack') && (
-                          <button onClick={() => toast.info('Paystack integration is coming soon!')} className="relative w-full flex items-center justify-center p-4 rounded-xl border-2 transition-all border-zinc-800 hover:border-zinc-700 opacity-50 cursor-not-allowed">
+                          <button onClick={() => toast.info('Paystack integration is coming soon!')} className={`relative w-full flex items-center justify-center p-3 sm:p-4 rounded-xl border-2 transition-all border-zinc-800 hover:border-zinc-700 opacity-50 cursor-not-allowed ${selectedMethod === 'paystack' ? 'col-span-2' : ''}`}>
                             <div className="flex items-center gap-3">
                               <div className="flex gap-2">
                                 <div className="bg-linear-to-r from-blue-700 to-blue-900 rounded-[4px] px-2 py-0.5 shadow-xs border border-blue-600 flex items-center justify-center">
@@ -301,13 +306,13 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
                           </button>
                         )}
                         {(!selectedMethod || selectedMethod === 'paypal') && (
-                          <button onClick={() => setSelectedMethod('paypal')} className={`relative w-full flex items-center justify-center p-4 rounded-xl border-2 transition-all ${selectedMethod === 'paypal' ? 'border-blue-500 bg-blue-500/10' : 'border-zinc-800 hover:border-zinc-700'}`}>
-                            <img src="/paypal.svg" alt="PayPal" className="h-7 object-contain" />
+                          <button onClick={() => setSelectedMethod('paypal')} className={`relative w-full flex items-center justify-center p-3 sm:p-4 rounded-xl border-2 transition-all ${selectedMethod === 'paypal' ? 'border-blue-500 bg-blue-500/10 col-span-2' : 'border-zinc-800 hover:border-zinc-700'}`}>
+                            <img src="/paypal.svg" alt="PayPal" className="h-5 sm:h-7 object-contain" />
                             {selectedMethod === 'paypal' && <Check className="absolute right-4 w-5 h-5 text-blue-500" />}
                           </button>
                         )}
                         {(!selectedMethod || selectedMethod === 'skrill') && (
-                          <button onClick={() => toast.info('Skrill integration is coming soon!')} className="relative w-full flex items-center justify-center p-4 rounded-xl border-2 transition-all border-zinc-800 hover:border-zinc-700 opacity-50 cursor-not-allowed">
+                          <button onClick={() => toast.info('Skrill integration is coming soon!')} className={`relative w-full flex items-center justify-center p-3 sm:p-4 rounded-xl border-2 transition-all border-zinc-800 hover:border-zinc-700 opacity-50 cursor-not-allowed ${selectedMethod === 'skrill' ? 'col-span-2' : ''}`}>
                             <img src="/skrill.svg" alt="Skrill" className="h-9 object-contain" />
                             <div className="absolute right-4 text-[9px] font-bold text-purple-400 bg-purple-500/10 border border-purple-500/20 px-2 py-1 rounded-full uppercase tracking-wider">Coming Soon</div>
                           </button>

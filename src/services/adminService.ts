@@ -159,6 +159,7 @@ export interface ReferralSettings {
 export interface SMSSettings {
   SMS_SRC: string;
   SMS_ENABLED: boolean;
+  SMS_TEMPLATE: string;
 }
 
 export interface ReferralStatsResponse {

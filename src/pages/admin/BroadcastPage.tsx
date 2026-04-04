@@ -9,7 +9,7 @@ export function BroadcastPage() {
     targetTier: 'all', targetCountry: '', deliveryMethod: 'both'
   });
   const [isSending, setIsSending] = useState(false);
-  const [lastResult, setLastResult] = useState<{ targeted_users: number; total_subscriptions: number; emails_sent: number } | null>(null);
+  const [lastResult, setLastResult] = useState<{ targeted_users: number; total_subscriptions: number; emails_sent: number; sms_sent: number } | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -151,9 +151,11 @@ export function BroadcastPage() {
                 onChange={e => setForm({ ...form, deliveryMethod: e.target.value })}
                 className="admin-input"
               >
+                <option value="all">Every Channel (Push + Email + SMS)</option>
                 <option value="both">Push + Email</option>
                 <option value="push">Push Notification Only</option>
                 <option value="email">Email Only</option>
+                <option value="sms">SMS Only</option>
               </select>
             </div>
           </div>
@@ -185,7 +187,7 @@ export function BroadcastPage() {
           <p className="text-emerald-400 font-bold mb-1">✅ Last Broadcast Result</p>
           <p className="text-zinc-400">
             Targeted <span className="font-bold text-white">{lastResult.targeted_users}</span> users
-            ({lastResult.total_subscriptions} push subscriptions, {lastResult.emails_sent} emails)
+            ({lastResult.total_subscriptions} push subscriptions, {lastResult.emails_sent} emails, {lastResult.sms_sent} SMS)
           </p>
         </div>
       )}
