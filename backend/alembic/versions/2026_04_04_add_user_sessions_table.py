@@ -23,7 +23,7 @@ def upgrade() -> None:
     op.create_table(
         'user_sessions',
         sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('user_id', sa.Integer(), nullable=False),
+        sa.Column('user_id', sa.BigInteger(), nullable=False),
         sa.Column('session_id', sa.String(length=100), nullable=False),
         sa.Column('created_at', sa.DateTime(), nullable=False),
         sa.Column('last_used_at', sa.DateTime(), nullable=False),
