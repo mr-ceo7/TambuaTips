@@ -799,7 +799,7 @@ async def list_users(db: AsyncSession = Depends(get_db), admin: User = Depends(r
         activities = activity_res.all()
         
         most_visited_page = activities[0].path if activities else None
-        total_time_spent = sum(act.total for act in activities) if activities else 0
+        total_time_spent = int(sum(act.total for act in activities) if activities else 0)
         
         resp_obj = AdminUserResponse.model_validate(u)
         resp_obj.most_visited_page = most_visited_page
