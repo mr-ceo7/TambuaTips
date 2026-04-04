@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Loader2, Settings, ShieldAlert, ToggleLeft, ToggleRight, Users, Gift, TrendingUp, Crown, UserPlus } from 'lucide-react';
-import { adminService, type ReferralSettings, type ReferralStatsResponse } from '../../services/adminService';
+import { Save, Loader2, Settings, ShieldAlert, ToggleLeft, ToggleRight, Users, Gift, TrendingUp, Crown, UserPlus, MessageSquare, Smartphone, Eye } from 'lucide-react';
+import { adminService, type ReferralSettings, type ReferralStatsResponse, type SMSSettings } from '../../services/adminService';
 import { toast } from 'sonner';
 
 const TIER_OPTIONS = [
@@ -22,6 +22,11 @@ export function SettingsManagePage() {
     referral_free_tips_count: 1,
   });
   const [stats, setStats] = useState<ReferralStatsResponse | null>(null);
+  const [smsSettings, setSmsSettings] = useState<SMSSettings>({
+    SMS_SRC: 'ARVOCAP',
+    SMS_ENABLED: true,
+  });
+  const [savingSms, setSavingSms] = useState(false);
 
   useEffect(() => {
     fetchAll();
@@ -30,12 +35,14 @@ export function SettingsManagePage() {
   const fetchAll = async () => {
     try {
       setLoading(true);
-      const [settingsData, statsData] = await Promise.all([
+      const [settingsData, statsData, smsData] = await Promise.all([
         adminService.getSettings(),
         adminService.getReferralStats(),
+        adminService.getSmsSettings(),
       ]);
       setSettings(settingsData);
       setStats(statsData);
+      setSmsSettings(smsData);
     } catch (e) {
       toast.error('Failed to load settings');
     } finally {
@@ -53,6 +60,19 @@ export function SettingsManagePage() {
       toast.error('Failed to save settings');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSaveSms = async () => {
+    try {
+      setSavingSms(true);
+      const updated = await adminService.updateSmsSettings(smsSettings);
+      setSmsSettings(updated);
+      toast.success('SMS settings saved successfully');
+    } catch (e) {
+      toast.error('Failed to save SMS settings');
+    } finally {
+      setSavingSms(false);
     }
   };
 
@@ -288,6 +308,98 @@ export function SettingsManagePage() {
           </div>
         </div>
       )}
+
+      {/* ═══ SMS / OTP Configuration ═══ */}
+      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+              <MessageSquare className="w-4 h-4 text-cyan-500" />
+              SMS / OTP Configuration
+            </h2>
+            <p className="text-xs text-zinc-500 mt-1">Configure the SMS provider for phone number verification</p>
+          </div>
+          <button
+            onClick={handleSaveSms}
+            disabled={savingSms}
+            className="flex items-center gap-2 px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-zinc-950 rounded-xl font-bold text-sm transition-all hover:-translate-y-0.5 active:translate-y-0 shadow-lg shadow-cyan-500/20 disabled:opacity-50"
+          >
+            {savingSms ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            {savingSms ? 'Saving...' : 'Save SMS'}
+          </button>
+        </div>
+
+        {/* SMS Enabled Toggle */}
+        <div className="flex items-center justify-between bg-zinc-950/50 border border-zinc-800/60 rounded-xl p-4 mb-4">
+          <div className="flex items-center gap-3">
+            <div className={`w-2.5 h-2.5 rounded-full ${smsSettings.SMS_ENABLED ? 'bg-cyan-400 animate-pulse' : 'bg-zinc-600'}`} />
+            <div>
+              <p className="text-sm font-bold text-white">SMS OTP System</p>
+              <p className="text-[11px] text-zinc-500">When disabled, OTP codes will still be generated but not sent via SMS</p>
+            </div>
+          </div>
+          <button
+            onClick={() => setSmsSettings({ ...smsSettings, SMS_ENABLED: !smsSettings.SMS_ENABLED })}
+            className={`transition-all ${smsSettings.SMS_ENABLED ? 'text-cyan-500' : 'text-zinc-600'}`}
+          >
+            {smsSettings.SMS_ENABLED ? <ToggleRight className="w-10 h-10" /> : <ToggleLeft className="w-10 h-10" />}
+          </button>
+        </div>
+
+        {/* SMS Provider Settings */}
+        <div className="bg-zinc-950/50 border border-zinc-800/60 rounded-xl p-5 space-y-4">
+          <h3 className="text-xs font-bold text-cyan-400 uppercase tracking-wider flex items-center gap-2">
+            <Smartphone className="w-3.5 h-3.5" />
+            Provider Settings
+          </h3>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="block text-xs font-bold text-zinc-300">Sender ID (SMS_SRC)</label>
+              <input
+                type="text"
+                value={smsSettings.SMS_SRC}
+                onChange={e => setSmsSettings({ ...smsSettings, SMS_SRC: e.target.value.toUpperCase() })}
+                placeholder="ARVOCAP"
+                maxLength={11}
+                className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-white font-bold focus:outline-none focus:border-cyan-500 transition-colors font-mono tracking-wider"
+              />
+              <p className="text-[10px] text-zinc-600">The name recipients see as the sender. Max 11 characters.</p>
+            </div>
+            <div className="space-y-2">
+              <label className="block text-xs font-bold text-zinc-300">SMS Provider</label>
+              <div className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-zinc-500 font-mono">
+                trackomgroup.com
+              </div>
+              <p className="text-[10px] text-zinc-600">SMS gateway. Contact admin to change provider.</p>
+            </div>
+          </div>
+
+          {/* SMS Preview */}
+          <div className="mt-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Eye className="w-3.5 h-3.5 text-zinc-500" />
+              <span className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold">Live Message Preview</span>
+            </div>
+            <div className="bg-zinc-950 border border-zinc-700/50 rounded-xl p-4 space-y-1">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-[10px] font-bold text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded">{smsSettings.SMS_SRC || 'SENDER'}</span>
+                <span className="text-[10px] text-zinc-600">• just now</span>
+              </div>
+              <p className="text-sm text-zinc-200 leading-relaxed font-mono">
+                [TambuaTips] Your verification code is <span className="text-cyan-400 font-bold">847291</span>. This code expires in 5 minutes. Do NOT share this code with anyone. Visit tambuatips.co.ke to access your account.
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-cyan-500/5 border border-cyan-500/10 rounded-lg p-3 flex gap-3 text-[11px]">
+            <ShieldAlert className="w-4 h-4 text-cyan-500 shrink-0 mt-0.5" />
+            <p className="text-zinc-400">
+              SMS messages are sent via <span className="text-white font-bold">Trackomgroup</span> using sender ID <span className="text-white font-bold font-mono">{smsSettings.SMS_SRC || '—'}</span>. Each OTP is valid for <span className="text-white font-bold">5 minutes</span> and auto-expires.
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

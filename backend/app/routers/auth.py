@@ -296,8 +296,14 @@ async def _send_otp_sms(phone: str, code: str, db: AsyncSession):
         # Strip phone to just digits (remove + and spaces)
         stripped_phone = re.sub(r'[\D]', '', phone)  # Keep only digits
         
-        # Craft SMS message
-        sms_message = f"Your TambuaTips verification code is: {code}"
+        # Build professional SMS message
+        site_url = settings.FRONTEND_URL.replace("http://", "").replace("https://", "")
+        sms_message = (
+            f"[TambuaTips] Your verification code is {code}. "
+            f"This code expires in 5 minutes. "
+            f"Do NOT share this code with anyone. "
+            f"Visit {site_url} to access your account."
+        )
         
         # Build request to SMS provider
         sms_url = "https://trackomgroup.com/sms_old/sendSmsApi/sendsms_v15.php"

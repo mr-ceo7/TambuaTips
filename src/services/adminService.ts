@@ -156,6 +156,11 @@ export interface ReferralSettings {
   referral_free_tips_count: number;
 }
 
+export interface SMSSettings {
+  SMS_SRC: string;
+  SMS_ENABLED: boolean;
+}
+
 export interface ReferralStatsResponse {
   total_referrals: number;
   referred_users: number;
@@ -317,6 +322,17 @@ export const adminService = {
   // ── Referral Analytics ─────────────────────────────────────
   async getReferralStats(): Promise<ReferralStatsResponse> {
     const response = await apiClient.get('/admin/referral-stats');
+    return response.data;
+  },
+
+  // ── SMS Settings ────────────────────────────────────────────
+  async getSmsSettings(): Promise<SMSSettings> {
+    const response = await apiClient.get('/admin/settings/sms');
+    return response.data;
+  },
+
+  async updateSmsSettings(data: Partial<SMSSettings>): Promise<SMSSettings> {
+    const response = await apiClient.put('/admin/settings/sms', data);
     return response.data;
   },
 };
