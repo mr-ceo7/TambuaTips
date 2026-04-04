@@ -21,6 +21,7 @@ class User(Base):
     verification_code = Column(String(6), nullable=True)
     verification_code_expires_at = Column(DateTime, nullable=True)
     profile_picture = Column(String(500), nullable=True)
+    phone = Column(String(20), unique=True, nullable=True, index=True)
 
     # New fields (will be added via Alembic migration)
     is_active = Column(Boolean, default=True, nullable=False, server_default="1")

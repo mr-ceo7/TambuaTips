@@ -15,6 +15,20 @@ export const authService = {
     return response.data;
   },
 
+  async requestPhoneOtp(phone: string, referred_by_code?: string): Promise<AuthResponse> {
+    const payload: any = { phone };
+    if (referred_by_code) payload.referred_by_code = referred_by_code;
+    const response = await apiClient.post<AuthResponse>('/auth/phone/request-otp', payload);
+    return response.data;
+  },
+
+  async verifyPhoneOtp(phone: string, code: string, referred_by_code?: string): Promise<AuthResponse> {
+    const payload: any = { phone, code };
+    if (referred_by_code) payload.referred_by_code = referred_by_code;
+    const response = await apiClient.post<AuthResponse>('/auth/phone/verify-otp', payload);
+    return response.data;
+  },
+
   async me(): Promise<UserData> {
     const response = await apiClient.get<any>('/auth/me');
     const data = response.data;

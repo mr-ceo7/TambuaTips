@@ -13,6 +13,15 @@ class GoogleLoginRequest(BaseModel):
     id_token: str
     referred_by_code: Optional[str] = None
 
+class PhoneLoginRequest(BaseModel):
+    phone: str
+    referred_by_code: Optional[str] = None
+
+class PhoneVerifyRequest(BaseModel):
+    phone: str
+    code: str
+    referred_by_code: Optional[str] = None
+
 
 class RefreshRequest(BaseModel):
     refresh_token: str
@@ -53,6 +62,7 @@ class UserResponse(BaseModel):
     profile_picture: Optional[str] = None
     referral_code: Optional[str] = None
     referrals_count: int = 0
+    phone: Optional[str] = None
 
     model_config = {"from_attributes": True}
 

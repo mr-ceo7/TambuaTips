@@ -20,7 +20,7 @@ from app.models.user import User
 from app.models.setting import AdminSetting
 from app.routers.admin import get_referral_settings
 from app.models.activity import UserActivity, AnonymousVisitor, AnonymousActivity
-from app.schemas.auth import GoogleLoginRequest, RefreshRequest, UserResponse, UpdateFavoritesRequest, PushSubscribeRequest, ActivityRequest
+from app.schemas.auth import GoogleLoginRequest, PhoneLoginRequest, PhoneVerifyRequest, RefreshRequest, UserResponse, UpdateFavoritesRequest, PushSubscribeRequest, ActivityRequest
 from app.security import hash_password, verify_password, create_access_token, create_refresh_token, decode_token
 from app.services.email_service import send_welcome_email
 
@@ -171,6 +171,146 @@ async def google_auth(body: GoogleLoginRequest, request: Request, response: Resp
         if "retries exceeded" in str(e) or "Temporary failure" in str(e):
             raise HTTPException(status_code=502, detail="Could not reach Google securely to verify login. Please check network connection.")
         raise HTTPException(status_code=500, detail="An unexpected authentication error occurred.")
+
+import re
+import logging as _logging
+
+def _normalize_phone(phone: str) -> str:
+    """Strip spaces/dashes, ensure it starts with +"""
+    phone = re.sub(r'[\s\-\(\)]', '', phone)
+    if not phone.startswith('+'):
+        phone = '+' + phone
+    return phone
+
+async def _send_otp_sms(phone: str, code: str):
+    """
+    Placeholder SMS sender. Replace this function body with your real
+    SMS provider (Africa's Talking, Twilio, etc.) when ready.
+    """
+    _logging.warning(f"[OTP PLACEHOLDER] Phone: {phone} | Code: {code}")
+    print(f"\n{'='*50}")
+    print(f"  OTP CODE for {phone}: {code}")
+    print(f"{'='*50}\n")
+
+@router.post("/phone/request-otp")
+async def request_phone_otp(body: PhoneLoginRequest, db: AsyncSession = Depends(get_db)):
+    phone = _normalize_phone(body.phone)
+    
+    if len(phone) < 10 or len(phone) > 15:
+        raise HTTPException(status_code=400, detail="Invalid phone number format")
+
+    # Find or prepare user
+    result = await db.execute(select(User).where(User.phone == phone))
+    user = result.scalar_one_or_none()
+
+    # Generate 6-digit OTP
+    code = "".join(random.choices(string.digits, k=6))
+    expires_at = datetime.now(UTC).replace(tzinfo=None) + timedelta(minutes=5)
+
+    if user:
+        user.verification_code = code
+        user.verification_code_expires_at = expires_at
+        db.add(user)
+    else:
+        # Create a minimal placeholder user (will be fully set up on verify)
+        placeholder_email = f"phone_{phone.replace('+', '')}@tambuatips.local"
+        rand_pass = "".join(random.choices(string.ascii_letters + string.digits, k=32))
+        user = User(
+            name=f"User {phone[-4:]}",
+            email=placeholder_email,
+            password=hash_password(rand_pass),
+            phone=phone,
+            subscription_tier="free",
+            is_active=True,
+            verification_code=code,
+            verification_code_expires_at=expires_at,
+        )
+        db.add(user)
+    
+    await db.commit()
+    
+    # Send OTP (placeholder — logs to console)
+    await _send_otp_sms(phone, code)
+    
+    return {"status": "success", "message": "OTP sent"}
+
+
+@router.post("/phone/verify-otp")
+async def verify_phone_otp(body: PhoneVerifyRequest, request: Request, response: Response, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)):
+    phone = _normalize_phone(body.phone)
+    
+    result = await db.execute(select(User).where(User.phone == phone))
+    user = result.scalar_one_or_none()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="No OTP was requested for this number")
+    
+    if not user.verification_code or not user.verification_code_expires_at:
+        raise HTTPException(status_code=400, detail="No pending OTP. Please request a new one.")
+    
+    if datetime.now(UTC).replace(tzinfo=None) > user.verification_code_expires_at:
+        raise HTTPException(status_code=400, detail="OTP has expired. Please request a new one.")
+    
+    if user.verification_code != body.code:
+        raise HTTPException(status_code=400, detail="Invalid OTP code")
+    
+    # OTP is valid — clear it
+    user.verification_code = None
+    user.verification_code_expires_at = None
+    
+    # Mark verified
+    if not user.email_verified_at:
+        user.email_verified_at = datetime.now(UTC).replace(tzinfo=None)
+    
+    # Referral fulfillment (same logic as Google auth)
+    is_new_user = user.referral_code is None
+    if is_new_user and body.referred_by_code:
+        result_ref = await db.execute(select(User).where(User.referral_code == body.referred_by_code).with_for_update())
+        referrer = result_ref.scalar_one_or_none()
+        if referrer and referrer.id != user.id:
+            ref_settings = await get_referral_settings(db)
+            if ref_settings.get("referral_enabled", True):
+                user.referrer_id = referrer.id
+                referrer.referrals_count += 1
+                reward_days = ref_settings.get("referral_reward_days", 7)
+                reward_tier = ref_settings.get("referral_reward_tier", "basic")
+                referrer.subscription_tier = reward_tier
+                if not referrer.subscription_expires_at or referrer.subscription_expires_at < datetime.now(UTC).replace(tzinfo=None):
+                    referrer.subscription_expires_at = datetime.now(UTC).replace(tzinfo=None) + timedelta(days=reward_days)
+                else:
+                    referrer.subscription_expires_at += timedelta(days=reward_days)
+                
+                if ref_settings.get("referral_new_user_reward", False):
+                    new_user_days = ref_settings.get("referral_new_user_reward_days", 7)
+                    new_user_tier = ref_settings.get("referral_new_user_reward_tier", "basic")
+                    user.subscription_tier = new_user_tier
+                    user.subscription_expires_at = datetime.now(UTC).replace(tzinfo=None) + timedelta(days=new_user_days)
+                
+                db.add(referrer)
+
+    # Session management (same as Google auth)
+    user.session_id = uuid.uuid4().hex
+    if not user.referral_code:
+        safe_name = "".join([c for c in user.name if c.isalpha()])[:3].upper()
+        if len(safe_name) < 3: safe_name = "VIP"
+        user.referral_code = f"{safe_name}{uuid.uuid4().hex[:5].upper()}"
+    
+    db.add(user)
+    await db.commit()
+
+    # Geo lookup
+    client_ip = get_real_ip(request)
+    background_tasks.add_task(fetch_user_country, user.id, client_ip)
+
+    # Issue JWT tokens (identical to Google flow)
+    access_token = create_access_token(str(user.id), extra={"session_id": user.session_id})
+    refresh_token = create_refresh_token(str(user.id))
+
+    response.set_cookie(key="access_token", value=access_token, httponly=True, secure=True, samesite="none", max_age=3600)
+    response.set_cookie(key="refresh_token", value=refresh_token, httponly=True, secure=True, samesite="none", max_age=604800)
+
+    return {"status": "success"}
+
 
 @router.post("/logout")
 async def logout(response: Response):

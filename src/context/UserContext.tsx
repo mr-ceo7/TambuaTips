@@ -36,6 +36,8 @@ interface UserContextType {
   setShowPricingModal: (show: boolean, category?: TipCategory) => void;
   targetCategory: TipCategory | null;
   googleLogin: (idToken: string) => Promise<{ success: boolean; error?: string }>;
+  phoneLogin: (phone: string, code: string) => Promise<{ success: boolean; error?: string }>;
+  requestPhoneOtp: (phone: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   refreshUser: () => Promise<void>;
   showAuthModal: boolean;
@@ -184,6 +186,42 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const requestPhoneOtp = useCallback(async (phone: string) => {
+    try {
+      const refCode = localStorage.getItem('tambua_referral_code') || undefined;
+      await authService.requestPhoneOtp(phone, refCode);
+      return { success: true };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.detail || 'Failed to send OTP'
+      };
+    }
+  }, []);
+
+  const phoneLogin = useCallback(async (phone: string, code: string) => {
+    try {
+      const refCode = localStorage.getItem('tambua_referral_code') || undefined;
+      await authService.verifyPhoneOtp(phone, code, refCode);
+      localStorage.removeItem('tambua_referral_code');
+      
+      const userData = await authService.me();
+      setUser(userData);
+      if (userData.favorite_teams) {
+        setFavoriteTeams(userData.favorite_teams);
+        localStorage.setItem('tambua_fav_teams', JSON.stringify(userData.favorite_teams));
+      }
+      setShowAuthModal(false);
+      enablePushNotifications();
+      return { success: true };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.detail || 'Phone verification failed'
+      };
+    }
+  }, []);
+
   useGoogleOneTapLogin({
     onSuccess: async (credentialResponse) => {
       if (credentialResponse.credential) {
@@ -316,7 +354,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <UserContext.Provider value={{
-      user, isLoggedIn: !!user, googleLogin, logout, refreshUser, upgradeToPremium, subscribeTo, hasAccess,
+      user, isLoggedIn: !!user, googleLogin, phoneLogin, requestPhoneOtp, logout, refreshUser, upgradeToPremium, subscribeTo, hasAccess,
       showAuthModal, setShowAuthModal,
       showPricingModal, setShowPricingModal, targetCategory,
       purchaseJackpot, hasAccessToCategory, hasJackpotAccess,
