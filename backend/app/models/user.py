@@ -52,6 +52,7 @@ class User(Base):
     payments = relationship("Payment", back_populates="user", lazy="selectin")
     jackpot_purchases = relationship("JackpotPurchase", back_populates="user", lazy="selectin")
     match_subscriptions = relationship("MatchSubscription", back_populates="user", cascade="all, delete-orphan")
+    sessions = relationship("UserSession", back_populates="user", cascade="all, delete-orphan", lazy="selectin")
 
     @property
     def is_subscription_active(self) -> bool:
@@ -59,3 +60,20 @@ class User(Base):
             return False
             
         return self.subscription_expires_at > datetime.now(UTC).replace(tzinfo=None)
+
+
+class UserSession(Base):
+    """
+    Model to track multiple sessions per user (for admin multi-device support).
+    Admins can have up to 4 active sessions; regular users have only 1.
+    """
+    __tablename__ = "user_sessions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False, index=True)
+    session_id = Column(String(100), unique=True, nullable=False, index=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC), nullable=False)
+    last_used_at = Column(DateTime, default=lambda: datetime.now(UTC), nullable=False)
+
+    # Relationship back to User
+    user = relationship("User", back_populates="sessions")

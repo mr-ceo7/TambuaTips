@@ -16,7 +16,7 @@ from google.auth.transport import requests as google_requests
 
 from app.database import AsyncSessionLocal
 from app.dependencies import get_db, get_current_user, get_current_user_optional, get_unverified_user
-from app.models.user import User
+from app.models.user import User, UserSession
 from app.models.setting import AdminSetting
 from app.routers.admin import get_referral_settings
 from app.models.activity import UserActivity, AnonymousVisitor, AnonymousActivity
@@ -32,6 +32,80 @@ def get_real_ip(request: Request) -> str:
     if x_real_ip:
         return x_real_ip.strip()
     return request.client.host if request.client else ""
+
+async def create_user_session(user: User, db: AsyncSession) -> tuple[str, str]:
+    """
+    Create a new session for a user, handling admin multi-device limits.
+    - Admins can have up to 4 active sessions
+    - Regular users have only 1 active session (old one is deleted)
+    
+    Returns:
+        Tuple of (session_id, access_token)
+    """
+    MAX_ADMIN_SESSIONS = 4
+    MAX_REGULAR_SESSIONS = 1
+    
+    session_id = uuid.uuid4().hex
+    max_sessions = MAX_ADMIN_SESSIONS if user.is_admin else MAX_REGULAR_SESSIONS
+    
+    # For non-admins, delete the old session first
+    if not user.is_admin and user.sessions:
+        for old_session in user.sessions:
+            await db.delete(old_session)
+    
+    # Create new session
+    new_session = UserSession(
+        user_id=user.id,
+        session_id=session_id,
+        created_at=datetime.now(UTC).replace(tzinfo=None),
+        last_used_at=datetime.now(UTC).replace(tzinfo=None)
+    )
+    db.add(new_session)
+    
+    # For admins, enforce max sessions by deleting oldest if limit exceeded
+    if user.is_admin:
+        # Get all sessions ordered by creation time (oldest first)
+        result = await db.execute(
+            select(UserSession).where(UserSession.user_id == user.id).order_by(UserSession.created_at)
+        )
+        sessions = result.scalars().all()
+        
+        # Delete oldest sessions if we exceed the limit
+        if len(sessions) >= max_sessions:
+            for old_session in sessions[:len(sessions) - max_sessions + 1]:
+                await db.delete(old_session)
+    
+    await db.commit()
+    
+    # Keep session_id in user model for backward compatibility (will be cleaned up later)
+    user.session_id = session_id
+    db.add(user)
+    await db.commit()
+    
+    return session_id
+
+
+async def cleanup_expired_sessions(user: User, db: AsyncSession):
+    """
+    Clean up inactive/expired sessions for a user.
+    Removes sessions that haven't been used for 7+ days (matching refresh token expiry).
+    """
+    from datetime import timedelta
+    expiry_threshold = datetime.now(UTC).replace(tzinfo=None) - timedelta(days=7)
+    
+    result = await db.execute(
+        select(UserSession).where(
+            UserSession.user_id == user.id,
+            UserSession.last_used_at < expiry_threshold
+        )
+    )
+    expired_sessions = result.scalars().all()
+    
+    for session in expired_sessions:
+        await db.delete(session)
+    
+    if expired_sessions:
+        await db.commit()
 
 router = APIRouter(prefix="/api/auth", tags=["Auth"])
 
@@ -139,7 +213,6 @@ async def google_auth(body: GoogleLoginRequest, request: Request, response: Resp
         if picture and user.profile_picture != picture:
             user.profile_picture = picture
             
-        user.session_id = uuid.uuid4().hex
         if not user.referral_code:
             # Generate a clean short referral code
             safe_name = "".join([c for c in user.name if c.isalpha()])[:3].upper()
@@ -149,12 +222,18 @@ async def google_auth(body: GoogleLoginRequest, request: Request, response: Resp
         db.add(user)
         await db.commit()
 
+        # Clean up expired sessions before creating new one
+        await cleanup_expired_sessions(user, db)
+
+        # Create new session (handles multi-device logic)
+        session_id = await create_user_session(user, db)
+
         # Update login mechanics tracking IP and Geo via background tasks
         client_ip = get_real_ip(request)
         background_tasks.add_task(fetch_user_country, user.id, client_ip)
 
         # Issue securely with session tracking
-        access_token = create_access_token(str(user.id), extra={"session_id": user.session_id})
+        access_token = create_access_token(str(user.id), extra={"session_id": session_id})
         refresh_token = create_refresh_token(str(user.id))
 
         response.set_cookie(key="access_token", value=access_token, httponly=True, secure=True, samesite="none", max_age=3600)
@@ -288,8 +367,7 @@ async def verify_phone_otp(body: PhoneVerifyRequest, request: Request, response:
                 
                 db.add(referrer)
 
-    # Session management (same as Google auth)
-    user.session_id = uuid.uuid4().hex
+    # Session management
     if not user.referral_code:
         safe_name = "".join([c for c in user.name if c.isalpha()])[:3].upper()
         if len(safe_name) < 3: safe_name = "VIP"
@@ -298,12 +376,18 @@ async def verify_phone_otp(body: PhoneVerifyRequest, request: Request, response:
     db.add(user)
     await db.commit()
 
+    # Clean up expired sessions before creating new one
+    await cleanup_expired_sessions(user, db)
+
+    # Create new session (handles multi-device logic)
+    session_id = await create_user_session(user, db)
+
     # Geo lookup
     client_ip = get_real_ip(request)
     background_tasks.add_task(fetch_user_country, user.id, client_ip)
 
     # Issue JWT tokens (identical to Google flow)
-    access_token = create_access_token(str(user.id), extra={"session_id": user.session_id})
+    access_token = create_access_token(str(user.id), extra={"session_id": session_id})
     refresh_token = create_refresh_token(str(user.id))
 
     response.set_cookie(key="access_token", value=access_token, httponly=True, secure=True, samesite="none", max_age=3600)
@@ -336,11 +420,10 @@ async def refresh(request: Request, response: Response, db: AsyncSession = Depen
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
 
-    user.session_id = uuid.uuid4().hex
-    db.add(user)
-    await db.commit()
+    # Create new session (handles multi-device logic)
+    session_id = await create_user_session(user, db)
 
-    access_token = create_access_token(str(user.id), extra={"session_id": user.session_id})
+    access_token = create_access_token(str(user.id), extra={"session_id": session_id})
     new_refresh_token = create_refresh_token(str(user.id))
 
     response.set_cookie(key="access_token", value=access_token, httponly=True, secure=True, samesite="none", max_age=3600)

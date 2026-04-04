@@ -31,7 +31,7 @@ export function DeviceConflictModal() {
           
           <h2 className="text-xl sm:text-2xl font-display font-bold text-white mb-2 tracking-tight">Security Halt: Session Paused</h2>
           <p className="text-sm text-zinc-400 mb-6 leading-relaxed">
-            Your account was just logged into from another device. To protect your premium access, we strictly enforce a one-device policy.
+            Your active session has expired. This can happen when your account is accessed from too many devices or when your session becomes inactive. Please log in again to continue.
           </p>
 
           <div className="flex flex-col gap-3">

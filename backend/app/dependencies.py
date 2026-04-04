@@ -8,6 +8,7 @@ from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from datetime import datetime, UTC
 
 from app.database import AsyncSessionLocal
 from app.security import decode_token
@@ -32,6 +33,10 @@ async def get_current_user(
     """
     Extract and validate the current user from the cookie token (or Bearer fallback).
     Returns the User ORM object or raises 401.
+    
+    Validates multi-session support:
+    - Admins can have up to 4 active sessions
+    - Regular users have only 1 active session
     """
     token = request.cookies.get("access_token")
     if not token and credentials:
@@ -57,7 +62,7 @@ async def get_current_user(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload")
 
     # Import here to avoid circular imports
-    from app.models.user import User
+    from app.models.user import User, UserSession
 
     result = await db.execute(select(User).where(User.id == int(user_id)))
     user = result.scalar_one_or_none()
@@ -68,12 +73,33 @@ async def get_current_user(
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account disabled")
 
-    # Anti-screenshot / Concurrent Device strict lockout
-    if user.session_id and payload.get("session_id") != user.session_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, 
-            detail="Session expired. Device logged in elsewhere."
+    # Multi-device session validation
+    session_id_from_token = payload.get("session_id")
+    
+    if session_id_from_token:
+        # Check if session exists in the UserSession table
+        result = await db.execute(
+            select(UserSession).where(UserSession.session_id == session_id_from_token)
         )
+        session = result.scalar_one_or_none()
+        
+        if not session:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, 
+                detail="Session expired. Device logged in elsewhere."
+            )
+        
+        # Update last_used_at timestamp
+        session.last_used_at = datetime.now(UTC).replace(tzinfo=None)
+        db.add(session)
+        await db.commit()
+    else:
+        # Fallback for backward compatibility (old single-session system)
+        if user.session_id:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, 
+                detail="Session expired. Device logged in elsewhere."
+            )
 
     return user
 
@@ -85,6 +111,8 @@ async def get_unverified_user(
     """
     Extract current user from context but bypass is_active validation.
     Used strictly for verification routes.
+    
+    Validates multi-session support (same as get_current_user).
     """
     token = request.cookies.get("access_token")
     if not token and credentials:
@@ -105,18 +133,40 @@ async def get_unverified_user(
     if not user_id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid payload")
 
-    from app.models.user import User
+    from app.models.user import User, UserSession
     result = await db.execute(select(User).where(User.id == int(user_id)))
     user = result.scalar_one_or_none()
 
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
 
-    if user.session_id and payload.get("session_id") != user.session_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, 
-            detail="Session expired. Device logged in elsewhere."
+    # Multi-device session validation
+    session_id_from_token = payload.get("session_id")
+    
+    if session_id_from_token:
+        # Check if session exists in the UserSession table
+        result = await db.execute(
+            select(UserSession).where(UserSession.session_id == session_id_from_token)
         )
+        session = result.scalar_one_or_none()
+        
+        if not session:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, 
+                detail="Session expired. Device logged in elsewhere."
+            )
+        
+        # Update last_used_at timestamp
+        session.last_used_at = datetime.now(UTC).replace(tzinfo=None)
+        db.add(session)
+        await db.commit()
+    else:
+        # Fallback for backward compatibility
+        if user.session_id:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, 
+                detail="Session expired. Device logged in elsewhere."
+            )
 
     return user
 
@@ -129,6 +179,8 @@ async def get_current_user_optional(
     """
     Like get_current_user, but returns None instead of raising if not authenticated.
     Useful for endpoints that are public but show extra data for logged-in users.
+    
+    Validates multi-session support (same as get_current_user).
     """
     token = request.cookies.get("access_token")
     if not token and credentials:
@@ -145,16 +197,39 @@ async def get_current_user_optional(
     if user_id is None:
         return None
 
-    from app.models.user import User
+    from app.models.user import User, UserSession
 
     result = await db.execute(select(User).where(User.id == int(user_id)))
     user = result.scalar_one_or_none()
     
     if user and not user.is_active:
         return None
+    
+    if user:
+        # Multi-device session validation
+        session_id_from_token = payload.get("session_id")
         
-    if user and user.session_id and payload.get("session_id") != user.session_id:
-        return None
+        if session_id_from_token:
+            # Check if session exists in the UserSession table
+            result = await db.execute(
+                select(UserSession).where(UserSession.session_id == session_id_from_token)
+            )
+            session = result.scalar_one_or_none()
+            
+            if not session:
+                return None
+            
+            # Update last_used_at timestamp
+            session.last_used_at = datetime.now(UTC).replace(tzinfo=None)
+            db.add(session)
+            try:
+                await db.commit()
+            except Exception:
+                pass  # Ignore errors in optional endpoint
+        else:
+            # Fallback for backward compatibility
+            if user.session_id:
+                return None
         
     return user
 

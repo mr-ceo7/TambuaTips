@@ -1,4 +1,4 @@
-from app.models.user import User
+from app.models.user import User, UserSession
 from app.models.payment import Payment
 from app.models.jackpot import Jackpot, JackpotPurchase
 from app.models.subscription import SubscriptionTier
