@@ -22,6 +22,8 @@ if sync_url.startswith("mysql+asyncmy"):
     sync_url = sync_url.replace("+asyncmy", "+pymysql")
 elif sync_url.startswith("sqlite+aiosqlite"):
     sync_url = sync_url.replace("sqlite+aiosqlite", "sqlite")
+
+sync_url = sync_url.replace("%", "%%")
 config.set_main_option("sqlalchemy.url", sync_url)
 
 # Logging
