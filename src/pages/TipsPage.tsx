@@ -312,24 +312,77 @@ export function TipsPage() {
     setExpandedCategories(prev => ({ ...prev, [cat]: !prev[cat] }));
   };
 
+  // ─── Auto-polling: fetch tips & jackpots every 30s ────────
   useEffect(() => {
-    // Detached: getTipStats().then(setStats);
-    setLoadingJackpot(true);
-    getAllJackpots().then((data) => {
-      setJackpots(data);
-      setLoadingJackpot(false);
-    });
-    
-    setLoadingTips(true);
-    Promise.all(CATEGORY_ORDER.map(async cat => {
-      const tips = await getTipsByCategory(cat);
-      return { cat, tips };
-    })).then(results => {
+    let isMounted = true;
+
+    const fetchData = async (isInitial = false) => {
+      if (isInitial) {
+        setLoadingTips(true);
+        setLoadingJackpot(true);
+      }
+
+      // Fetch all tip categories in parallel
+      const tipsPromise = Promise.all(
+        CATEGORY_ORDER.map(async cat => {
+          const tips = await getTipsByCategory(cat);
+          return { cat, tips };
+        })
+      );
+      const jackpotPromise = getAllJackpots();
+
+      const [tipsResults, jackpotResults] = await Promise.all([tipsPromise, jackpotPromise]);
+
+      if (!isMounted) return;
+
       const newMap: Record<string, Tip[]> = {};
-      results.forEach(r => { newMap[r.cat] = r.tips; });
+      tipsResults.forEach(r => { newMap[r.cat] = r.tips; });
       setTipsByCategory(newMap);
-      setLoadingTips(false);
-    });
+      setJackpots(jackpotResults);
+
+      if (isInitial) {
+        setLoadingTips(false);
+        setLoadingJackpot(false);
+      }
+    };
+
+    // Initial fetch
+    fetchData(true);
+
+    // Poll every 30 seconds, but only when the tab is visible
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+
+    const startPolling = () => {
+      if (!intervalId) {
+        intervalId = setInterval(() => fetchData(false), 15_000);
+      }
+    };
+
+    const stopPolling = () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+        intervalId = null;
+      }
+    };
+
+    const handleVisibility = () => {
+      if (document.hidden) {
+        stopPolling();
+      } else {
+        // Fetch immediately on return, then resume interval
+        fetchData(false);
+        startPolling();
+      }
+    };
+
+    startPolling();
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      isMounted = false;
+      stopPolling();
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, [user?.subscription.tier, JSON.stringify(user?.purchasedJackpotIds)]);
 
   return (

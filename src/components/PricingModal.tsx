@@ -188,68 +188,67 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             className="relative w-full max-w-lg bg-zinc-900 border border-emerald-500/20 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
           >
-            <div className="bg-linear-to-r from-emerald-600 to-emerald-800 p-4 sm:p-6 relative">
-              <button onClick={onClose} className="absolute top-3 right-3 sm:top-4 sm:right-4 text-emerald-100 hover:text-white transition-colors" disabled={processing}>
+            <div className="bg-linear-to-r from-emerald-600 to-emerald-800 px-4 py-3 relative flex items-center gap-3">
+              <Shield className="w-7 h-7 text-emerald-100 shrink-0" />
+              <div className="flex-1">
+                <h2 className="text-lg font-display font-bold text-white leading-tight">Get Premium Tips</h2>
+                <p className="text-emerald-100 text-[11px]">Join thousands of winning members today.</p>
+              </div>
+              <button onClick={onClose} className="text-emerald-100 hover:text-white transition-colors" disabled={processing}>
                 <X className="w-5 h-5" />
               </button>
-              <div className="flex items-center justify-center mb-2">
-                <Shield className="w-10 h-10 text-emerald-100" />
-              </div>
-              <h2 className="text-2xl font-display font-bold text-center text-white mb-1">Get Premium Tips</h2>
-              <p className="text-emerald-100 text-center text-sm">Join thousands of winning members today.</p>
             </div>
 
-            <div className="p-4 sm:p-6 overflow-y-auto min-h-[400px]">
+            <div className="p-4 overflow-y-auto">
               <AnimatePresence mode="wait">
                 {paymentView === 'selection' && (
                   <motion.div key="selection" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }}>
-                    <div className="flex bg-zinc-800 rounded-xl p-1 mb-4 sm:mb-5">
-                      <button onClick={() => setDuration(2)} className={`flex-1 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-bold transition-all ${duration === 2 ? 'bg-emerald-500 text-zinc-950' : 'text-zinc-400'}`}>2 Weeks</button>
-                      <button onClick={() => setDuration(4)} className={`relative flex-1 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-bold transition-all ${duration === 4 ? 'bg-emerald-500 text-zinc-950' : 'text-zinc-400'}`}>
+                    <div className="flex bg-zinc-800 rounded-lg p-0.5 mb-3">
+                      <button onClick={() => setDuration(2)} className={`flex-1 py-1.5 rounded-md text-xs font-bold transition-all ${duration === 2 ? 'bg-emerald-500 text-zinc-950' : 'text-zinc-400'}`}>2 Weeks</button>
+                      <button onClick={() => setDuration(4)} className={`relative flex-1 py-1.5 rounded-md text-xs font-bold transition-all ${duration === 4 ? 'bg-emerald-500 text-zinc-950' : 'text-zinc-400'}`}>
                         4 Weeks
-                        <span className="absolute -top-2.5 -right-2 bg-emerald-400 text-emerald-950 text-[10px] px-2 py-0.5 rounded-full shadow border border-emerald-300">Save 22%</span>
+                        <span className="absolute -top-2 -right-1 bg-emerald-400 text-emerald-950 text-[9px] px-1.5 py-0.5 rounded-full shadow border border-emerald-300">Save 22%</span>
                       </button>
                     </div>
 
-                    <div className="space-y-3 mb-5">
-                      {tiers.map(tier => {
+                    <div className="mb-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Choose Plan</h3>
+                        {selectedTier && <button onClick={() => setSelectedTier(null)} className="text-[10px] text-gold-400 hover:text-gold-300 font-bold uppercase tracking-wider py-1 pl-4">Change</button>}
+                      </div>
+                      <div className="space-y-2">
+                      {tiers.filter(tier => !selectedTier || selectedTier.id === tier.id).map(tier => {
                         const Icon = TIER_ICONS[tier.id] || Zap;
                         const dprice = duration === 2 ? tier.price2wk : tier.price4wk;
                         const originalPrice = duration === 2 ? tier.originalPrice2wk : tier.originalPrice4wk;
-                        const defaultOriginalPrice = originalPrice || (dprice * 1.25); // fallback to small padding
+                        const defaultOriginalPrice = originalPrice || (dprice * 1.25);
                         const isSelected = selectedTier?.id === tier.id;
                         return (
                           <button
                             key={tier.id}
                             onClick={() => setSelectedTier(tier)}
-                            className={`w-full flex flex-col sm:flex-row items-start sm:items-center gap-3 p-3 sm:p-4 rounded-xl border-2 transition-all text-left ${
+                            className={`w-full flex items-center gap-3 p-2.5 rounded-xl border-2 transition-all text-left ${
                               isSelected ? 'border-emerald-500 bg-emerald-500/10' : 'border-zinc-800 hover:border-zinc-700'
                             }`}
                           >
-                            <div className="w-full flex items-center justify-between sm:w-auto">
-                              <div className={`p-1.5 sm:p-2 rounded-lg ${isSelected ? 'bg-emerald-500 text-zinc-950' : 'bg-zinc-800 text-zinc-400'}`}>
-                                <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
-                              </div>
-                              <div className="sm:hidden text-right flex flex-col items-end">
-                                <div className="text-[10px] text-zinc-500 line-through decoration-red-500/50">{tier.currency_symbol} {defaultOriginalPrice.toLocaleString(undefined, {minimumFractionDigits: defaultOriginalPrice % 1 !== 0 ? 2 : 0})}</div>
-                                <div className={`font-bold text-sm ${originalPrice ? 'text-emerald-400' : 'text-white'}`}>{tier.currency_symbol} {dprice.toLocaleString(undefined, {minimumFractionDigits: dprice % 1 !== 0 ? 2 : 0})}</div>
-                              </div>
+                            <div className={`p-1.5 rounded-lg shrink-0 ${isSelected ? 'bg-emerald-500 text-zinc-950' : 'bg-zinc-800 text-zinc-400'}`}>
+                              <Icon className="w-4 h-4" />
                             </div>
-                            <div className="flex-1 w-full">
-                              <div className="flex items-center gap-2 mb-1">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
                                 <span className="font-bold text-white text-sm">{tier.name}</span>
                                 {tier.popular && (
                                   <span className="bg-emerald-500 text-emerald-950 text-[8px] font-black px-1.5 py-0.5 rounded-full uppercase">Popular</span>
                                 )}
                               </div>
-                              <div className="text-[10px] text-zinc-500 truncate max-w-[200px]">
+                              <div className="text-[10px] text-zinc-500 truncate">
                                 {tier.categories
                                   .filter(c => c !== 'free')
                                   .map(c => CATEGORY_LABELS[c]?.label || c)
                                   .join(', ')}
                               </div>
                             </div>
-                            <div className="hidden sm:flex text-right flex-col items-end">
+                            <div className="text-right shrink-0">
                               <div className="text-[10px] text-zinc-500 line-through decoration-red-500/50">{tier.currency_symbol} {defaultOriginalPrice.toLocaleString(undefined, {minimumFractionDigits: defaultOriginalPrice % 1 !== 0 ? 2 : 0})}</div>
                               <div className={`font-bold text-sm ${originalPrice ? 'text-emerald-400' : 'text-white'}`}>{tier.currency_symbol} {dprice.toLocaleString(undefined, {minimumFractionDigits: dprice % 1 !== 0 ? 2 : 0})}</div>
                               <div className="text-[9px] text-emerald-500 font-bold uppercase">{duration} Weeks</div>
@@ -257,64 +256,59 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
                           </button>
                         );
                       })}
+                      </div>
                     </div>
 
                     {targetCategory && selectedTier && !hasAccessToCategory(selectedTier.id as SubscriptionTier, targetCategory) && (
-                      <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 mb-5 flex gap-3">
-                        <AlertCircle className="w-5 h-5 text-amber-500 shrink-0" />
-                        <div className="flex-1">
-                          <p className="text-[11px] text-amber-100/70">
-                            The <span className="text-white font-bold">{CATEGORY_LABELS[targetCategory].label}</span> tip requires a higher plan.
-                          </p>
-                          <button onClick={() => setSelectedTier(tiers.find(t => t.id === CATEGORY_LABELS[targetCategory].minTier) || selectedTier)} className="text-[10px] font-bold text-amber-400 uppercase mt-1 flex items-center gap-1">Upgrade Plan <ArrowRight className="w-3 h-3"/></button>
-                        </div>
+                      <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-2.5 mb-3 flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />
+                        <p className="text-[11px] text-amber-100/70 flex-1">
+                          <span className="text-white font-bold">{CATEGORY_LABELS[targetCategory].label}</span> requires a higher plan.
+                        </p>
+                        <button onClick={() => setSelectedTier(tiers.find(t => t.id === CATEGORY_LABELS[targetCategory].minTier) || selectedTier)} className="text-[10px] font-bold text-amber-400 uppercase shrink-0 flex items-center gap-1">Upgrade <ArrowRight className="w-3 h-3"/></button>
                       </div>
                     )}
 
-                    <div className="mb-6">
-                      <div className="flex items-center justify-between mb-3">
-                        <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Pay With</h3>
-                        {selectedMethod && <button onClick={() => setSelectedMethod(null)} className="text-xs text-gold-400 hover:text-gold-300 font-bold uppercase tracking-wider py-2 pl-4">Change</button>}
+                    <div className="mb-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Pay With</h3>
+                        {selectedMethod && <button onClick={() => setSelectedMethod(null)} className="text-[10px] text-gold-400 hover:text-gold-300 font-bold uppercase tracking-wider py-1 pl-4">Change</button>}
                       </div>
-                      <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                      <div className="grid grid-cols-2 gap-2">
                         {(!selectedMethod || selectedMethod === 'mpesa') && allowMpesa && (
-                          <button onClick={() => setSelectedMethod('mpesa')} className={`relative w-full flex items-center justify-center p-3 sm:p-4 rounded-xl border-2 transition-all ${selectedMethod === 'mpesa' ? 'border-emerald-500 bg-emerald-500/10 col-span-2' : 'border-zinc-800 hover:border-zinc-700'}`}>
-                            <img src="/mpesa.svg" alt="M-Pesa" className="h-7 sm:h-9 object-contain" />
-                            {selectedMethod === 'mpesa' && <Check className="absolute right-4 w-5 h-5 text-emerald-500" />}
+                          <button onClick={() => setSelectedMethod('mpesa')} className={`relative w-full flex items-center justify-center p-2.5 rounded-xl border-2 transition-all ${selectedMethod === 'mpesa' ? 'border-emerald-500 bg-emerald-500/10 col-span-2' : 'border-zinc-800 hover:border-zinc-700'}`}>
+                            <img src="/mpesa.svg" alt="M-Pesa" className="h-6 object-contain" />
+                            {selectedMethod === 'mpesa' && <Check className="absolute right-3 w-4 h-4 text-emerald-500" />}
                           </button>
                         )}
                         {(!selectedMethod || selectedMethod === 'paystack') && (
-                          <button onClick={() => toast.info('Paystack integration is coming soon!')} className={`relative w-full flex items-center justify-center p-3 sm:p-4 rounded-xl border-2 transition-all border-zinc-800 hover:border-zinc-700 opacity-50 cursor-not-allowed ${selectedMethod === 'paystack' ? 'col-span-2' : ''}`}>
-                            <div className="flex items-center gap-3">
-                              <div className="flex gap-2">
-                                <div className="bg-linear-to-r from-blue-700 to-blue-900 rounded-[4px] px-2 py-0.5 shadow-xs border border-blue-600 flex items-center justify-center">
-                                  <span className="text-[10px] font-black italic text-white tracking-widest leading-none">VISA</span>
+                          <button onClick={() => toast.info('Paystack integration is coming soon!')} className={`relative w-full flex items-center justify-center p-2.5 rounded-xl border-2 transition-all border-zinc-800 hover:border-zinc-700 opacity-50 cursor-not-allowed ${selectedMethod === 'paystack' ? 'col-span-2' : ''}`}>
+                            <div className="flex items-center gap-2">
+                              <div className="flex gap-1.5">
+                                <div className="bg-linear-to-r from-blue-700 to-blue-900 rounded-[3px] px-1.5 py-0.5 shadow-xs border border-blue-600 flex items-center justify-center">
+                                  <span className="text-[9px] font-black italic text-white tracking-widest leading-none">VISA</span>
                                 </div>
-                                <div className="bg-zinc-100 rounded-[4px] px-1.5 py-0.5 flex items-center justify-center shadow-xs border border-zinc-200">
-                                  <svg width="22" height="14" viewBox="0 0 32 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <div className="bg-zinc-100 rounded-[3px] px-1 py-0.5 flex items-center justify-center shadow-xs border border-zinc-200">
+                                  <svg width="18" height="12" viewBox="0 0 32 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                                     <circle cx="10" cy="10" r="10" fill="#EB001B" />
                                     <circle cx="22" cy="10" r="10" fill="#F79E1B" fillOpacity="0.8" />
                                   </svg>
                                 </div>
                               </div>
-                              <div className="flex items-center gap-2 opacity-50 ml-1">
-                                <span className="text-zinc-500 text-[9px] uppercase font-bold tracking-widest">via</span>
-                                <img src="/paystack.svg" alt="Paystack" className="h-2.5 object-contain brightness-0 invert" />
-                              </div>
                             </div>
-                            <div className="absolute right-4 text-[9px] font-bold text-purple-400 bg-purple-500/10 border border-purple-500/20 px-2 py-1 rounded-full uppercase tracking-wider">Coming Soon</div>
+                            <div className="absolute right-2 text-[8px] font-bold text-purple-400 bg-purple-500/10 border border-purple-500/20 px-1.5 py-0.5 rounded-full uppercase tracking-wider">Soon</div>
                           </button>
                         )}
                         {(!selectedMethod || selectedMethod === 'paypal') && (
-                          <button onClick={() => setSelectedMethod('paypal')} className={`relative w-full flex items-center justify-center p-3 sm:p-4 rounded-xl border-2 transition-all ${selectedMethod === 'paypal' ? 'border-blue-500 bg-blue-500/10 col-span-2' : 'border-zinc-800 hover:border-zinc-700'}`}>
-                            <img src="/paypal.svg" alt="PayPal" className="h-5 sm:h-7 object-contain" />
-                            {selectedMethod === 'paypal' && <Check className="absolute right-4 w-5 h-5 text-blue-500" />}
+                          <button onClick={() => setSelectedMethod('paypal')} className={`relative w-full flex items-center justify-center p-2.5 rounded-xl border-2 transition-all ${selectedMethod === 'paypal' ? 'border-blue-500 bg-blue-500/10 col-span-2' : 'border-zinc-800 hover:border-zinc-700'}`}>
+                            <img src="/paypal.svg" alt="PayPal" className="h-5 object-contain" />
+                            {selectedMethod === 'paypal' && <Check className="absolute right-3 w-4 h-4 text-blue-500" />}
                           </button>
                         )}
                         {(!selectedMethod || selectedMethod === 'skrill') && (
-                          <button onClick={() => toast.info('Skrill integration is coming soon!')} className={`relative w-full flex items-center justify-center p-3 sm:p-4 rounded-xl border-2 transition-all border-zinc-800 hover:border-zinc-700 opacity-50 cursor-not-allowed ${selectedMethod === 'skrill' ? 'col-span-2' : ''}`}>
-                            <img src="/skrill.svg" alt="Skrill" className="h-9 object-contain" />
-                            <div className="absolute right-4 text-[9px] font-bold text-purple-400 bg-purple-500/10 border border-purple-500/20 px-2 py-1 rounded-full uppercase tracking-wider">Coming Soon</div>
+                          <button onClick={() => toast.info('Skrill integration is coming soon!')} className={`relative w-full flex items-center justify-center p-2.5 rounded-xl border-2 transition-all border-zinc-800 hover:border-zinc-700 opacity-50 cursor-not-allowed ${selectedMethod === 'skrill' ? 'col-span-2' : ''}`}>
+                            <img src="/skrill.svg" alt="Skrill" className="h-7 object-contain" />
+                            <div className="absolute right-2 text-[8px] font-bold text-purple-400 bg-purple-500/10 border border-purple-500/20 px-1.5 py-0.5 rounded-full uppercase tracking-wider">Soon</div>
                           </button>
                         )}
                       </div>
@@ -322,14 +316,14 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
 
                     <AnimatePresence>
                       {selectedMethod === 'mpesa' && (
-                        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="mb-5 overflow-hidden">
-                          <label className="block text-xs font-bold text-zinc-500 uppercase mb-2">Safaricom Number</label>
-                          <div className="flex bg-zinc-800 border border-zinc-700 rounded-xl overflow-hidden focus-within:border-emerald-500 transition-all">
-                            <div className="px-4 py-3 bg-zinc-900 border-r border-zinc-700 text-sm text-zinc-400 flex items-center gap-2">
+                        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="mb-3 overflow-hidden">
+                          <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-1.5">Safaricom Number</label>
+                          <div className="flex bg-zinc-800 border border-zinc-700 rounded-lg overflow-hidden focus-within:border-emerald-500 transition-all">
+                            <div className="px-3 py-2.5 bg-zinc-900 border-r border-zinc-700 text-xs text-zinc-400 flex items-center gap-1.5">
                               <span>🇰🇪</span>
                               <span>+254</span>
                             </div>
-                            <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="712345678" className="w-full bg-transparent px-4 py-3 text-white focus:outline-hidden font-mono" />
+                            <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="712345678" className="w-full bg-transparent px-3 py-2.5 text-white text-sm focus:outline-hidden font-mono" />
                           </div>
                         </motion.div>
                       )}
@@ -338,11 +332,11 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
                     <button
                       onClick={handleCheckout}
                       disabled={processing || !selectedTier || !selectedMethod || loadingGeo}
-                      className="w-full bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold py-4 rounded-xl transition-all shadow-lg hover:shadow-emerald-500/25 disabled:opacity-50"
+                      className="w-full bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold py-3 rounded-xl transition-all shadow-lg hover:shadow-emerald-500/25 disabled:opacity-50"
                     >
                       {processing ? 'Processing...' : `Get ${selectedTier?.name || 'Started'}`}
                     </button>
-                    <p className="text-center text-[10px] text-zinc-500 mt-4 uppercase tracking-widest">Instant access granted after payment</p>
+                    <p className="text-center text-[9px] text-zinc-500 mt-2 uppercase tracking-widest">Instant access granted after payment</p>
                   </motion.div>
                 )}
 
