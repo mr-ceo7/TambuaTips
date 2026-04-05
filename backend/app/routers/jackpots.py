@@ -20,8 +20,8 @@ router = APIRouter(prefix="/api/jackpots", tags=["Jackpots"])
 async def user_has_jackpot_access(user: Optional[User], jackpot_id: int, db: AsyncSession) -> bool:
     if not user:
         return False
-    # Premium subscribers get all jackpots
-    if user.is_subscription_active and user.subscription_tier == "premium":
+    # Admins and Premium subscribers get all jackpots
+    if user.is_admin or (user.is_subscription_active and user.subscription_tier == "premium"):
         return True
     # Check individual purchase
     result = await db.execute(

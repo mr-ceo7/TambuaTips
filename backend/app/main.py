@@ -122,12 +122,13 @@ async def seed_default_jackpots():
         if result.scalar_one_or_none() is not None:
             return  # Already seeded or has data
 
+        # Keep as empty list so admin can add via UI
         jackpots_data = [
             {
                 "type": "midweek",
                 "dc_level": 3,
                 "price": 99.0,
-                "matches": [], # Empty list placeholder
+                "matches": [],
             }
         ]
         for val in jackpots_data:
