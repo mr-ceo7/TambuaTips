@@ -7,7 +7,7 @@ from app.database import Base
 class MatchSubscription(Base):
     __tablename__ = "match_subscriptions"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(BigInteger, primary_key=True, index=True)
     user_id = Column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     match_id = Column(Integer, index=True, nullable=False)
     home_team = Column(String(100), nullable=True)

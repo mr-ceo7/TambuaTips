@@ -11,7 +11,7 @@ from app.database import Base
 class SubscriptionTier(Base):
     __tablename__ = "subscription_tiers"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     tier_id = Column(String(20), unique=True, nullable=False)  # basic, standard, premium
     name = Column(String(100), nullable=False)
     description = Column(String(500), nullable=True)

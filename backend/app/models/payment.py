@@ -12,7 +12,7 @@ from app.database import Base
 class Payment(Base):
     __tablename__ = "payments"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     user_id = Column(BigInteger, ForeignKey("users.id"), nullable=False, index=True)
     amount = Column(Float, nullable=False)  # KES or USD
     currency = Column(String(10), default="KES", nullable=False)

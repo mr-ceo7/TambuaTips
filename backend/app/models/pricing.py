@@ -3,7 +3,7 @@ Pricing configuration model for Geo-Fair dynamic pricing.
 """
 
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, Boolean, JSON, DateTime
+from sqlalchemy import Column, Integer, String, Boolean, JSON, DateTime, BigInteger
 
 from app.database import Base
 
@@ -11,7 +11,7 @@ from app.database import Base
 class PricingRegion(Base):
     __tablename__ = "pricing_regions"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     region_code = Column(String(50), unique=True, nullable=False, index=True) # e.g. "local", "international"
     name = Column(String(100), nullable=False) # e.g. "East Africa", "Rest of World"
     currency = Column(String(10), nullable=False) # e.g. "KES", "USD"

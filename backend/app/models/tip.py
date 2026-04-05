@@ -11,7 +11,7 @@ from app.database import Base
 class Tip(Base):
     __tablename__ = "tips"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     fixture_id = Column(BigInteger, nullable=False, index=True)
     home_team = Column(String(255), nullable=False)
     away_team = Column(String(255), nullable=False)

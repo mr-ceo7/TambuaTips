@@ -12,7 +12,7 @@ from app.database import Base
 class User(Base):
     __tablename__ = "users"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     name = Column(String(255), nullable=False)
     email = Column(String(255), unique=True, nullable=False, index=True)
     email_verified_at = Column(DateTime, nullable=True)
@@ -72,7 +72,7 @@ class UserSession(Base):
     """
     __tablename__ = "user_sessions"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     user_id = Column(BigInteger, ForeignKey('users.id'), nullable=False, index=True)
     session_id = Column(String(100), unique=True, nullable=False, index=True)
     created_at = Column(DateTime, default=lambda: datetime.now(UTC), nullable=False)

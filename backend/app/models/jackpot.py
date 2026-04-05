@@ -12,7 +12,7 @@ from app.database import Base
 class Jackpot(Base):
     __tablename__ = "jackpots"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     type = Column(String(20), nullable=False)  # midweek, mega
     dc_level = Column(Integer, nullable=False)  # 3, 4, 5, 6, 7, 10
     matches = Column(JSON, nullable=False)  # [{homeTeam, awayTeam, result?}]
@@ -30,7 +30,7 @@ class Jackpot(Base):
 class JackpotPurchase(Base):
     __tablename__ = "jackpot_purchases"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     user_id = Column(BigInteger, ForeignKey("users.id"), nullable=False, index=True)
     jackpot_id = Column(BigInteger, ForeignKey("jackpots.id"), nullable=False, index=True)
     payment_id = Column(BigInteger, ForeignKey("payments.id"), nullable=True)
