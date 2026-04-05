@@ -124,7 +124,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const refreshUser = useCallback(async () => {
     try {
       const userData = await authService.me();
-      console.log("DEBUG USER CONTEXT: userData received:", userData);
       setUser(userData);
       if (userData.favorite_teams) {
         setFavoriteTeams(userData.favorite_teams);

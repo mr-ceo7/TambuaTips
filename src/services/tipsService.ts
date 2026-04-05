@@ -32,7 +32,6 @@ export interface Tip {
 export interface JackpotMatch {
   homeTeam: string;
   awayTeam: string;
-  pick: string;
   result?: string; // won, lost, void — per-match result
 }
 
@@ -41,6 +40,7 @@ export interface JackpotPrediction {
   type: JackpotType;
   dcLevel: DCLevel;
   matches: JackpotMatch[];
+  variations: string[][]; // Each inner array is a row of picks
   price: number;
   result: string; // pending, won, lost, void, bonus
   createdAt: string;
@@ -48,6 +48,10 @@ export interface JackpotPrediction {
   currency?: string;
   currency_symbol?: string;
   regional_prices?: Record<string, any>;
+  // Locked-only fields
+  locked?: boolean;
+  match_count?: number;
+  variation_count?: number;
 }
 
 // ─── Mapping Helpers ─────────────────────────────────────────
@@ -79,8 +83,8 @@ function mapJackpot(data: any): JackpotPrediction {
     id: String(data.id),
     type: data.type as JackpotType,
     dcLevel: data.dc_level as DCLevel,
-    // Provide an empty array if matches are hidden behind premium lock
-    matches: Array.isArray(data.matches) ? data.matches : (data.matches ? JSON.parse(data.matches) : []),
+    matches: Array.isArray(data.matches) ? data.matches : [],
+    variations: Array.isArray(data.variations) ? data.variations : [],
     price: data.price,
     result: data.result || 'pending',
     createdAt: data.created_at,
@@ -88,6 +92,9 @@ function mapJackpot(data: any): JackpotPrediction {
     currency: data.currency || 'KES',
     currency_symbol: data.currency_symbol || 'KES',
     regional_prices: data.regional_prices || {},
+    locked: !!data.locked,
+    match_count: data.match_count,
+    variation_count: data.variation_count,
   };
 }
 
@@ -155,7 +162,7 @@ export async function getTipStats(): Promise<{ total: number; won: number; lost:
   }
 }
 
-// ─── Jackpots Fetching ───────────────────────────────────────
+// ─── Tips CRUD ───────────────────────────────────────────────
 
 export async function addTip(tip: Partial<Tip>): Promise<Tip | null> {
   try {
@@ -248,6 +255,7 @@ export async function addJackpot(jackpot: any): Promise<JackpotPrediction> {
     dc_level: jackpot.dcLevel,
     price: jackpot.price,
     matches: jackpot.matches,
+    variations: jackpot.variations || [],
     regional_prices: jackpot.regional_prices || {},
   };
   const res = await apiClient.post('/jackpots', payload);
@@ -266,6 +274,7 @@ export async function updateJackpot(id: string, data: any): Promise<JackpotPredi
   if (data.price !== undefined) payload.price = data.price;
   if (data.result !== undefined) payload.result = data.result;
   if (data.matches !== undefined) payload.matches = data.matches;
+  if (data.variations !== undefined) payload.variations = data.variations;
   if (data.regional_prices !== undefined) payload.regional_prices = data.regional_prices;
   const res = await apiClient.put(`/jackpots/${id}`, payload);
   return mapJackpot(res.data);

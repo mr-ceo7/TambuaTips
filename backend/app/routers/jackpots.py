@@ -49,6 +49,10 @@ async def list_jackpots(
     for jp in jackpots:
         jp_dict = jp.__dict__.copy()
         
+        # Ensure variations is always a list
+        if not jp_dict.get("variations"):
+            jp_dict["variations"] = []
+        
         # Determine override
         if region and jp.regional_prices and region.region_code in jp.regional_prices:
             overrides = jp.regional_prices[region.region_code]
@@ -62,6 +66,7 @@ async def list_jackpots(
             response.append(JackpotResponse.model_validate(jp_dict))
         else:
             jp_dict["match_count"] = len(jp_dict.get("matches", []))
+            jp_dict["variation_count"] = len(jp_dict.get("variations", []))
             jp_dict["locked"] = True
             response.append(JackpotLockedResponse.model_validate(jp_dict))
             
@@ -82,6 +87,9 @@ async def get_jackpot(
 
     jp_dict = jp.__dict__.copy()
     
+    if not jp_dict.get("variations"):
+        jp_dict["variations"] = []
+    
     region = await get_pricing_region(db, country or "US")
     if region and jp.regional_prices and region.region_code in jp.regional_prices:
         overrides = jp.regional_prices[region.region_code]
@@ -95,6 +103,7 @@ async def get_jackpot(
         return JackpotResponse.model_validate(jp_dict)
     else:
         jp_dict["match_count"] = len(jp_dict.get("matches", []))
+        jp_dict["variation_count"] = len(jp_dict.get("variations", []))
         jp_dict["locked"] = True
         return JackpotLockedResponse.model_validate(jp_dict)
 
@@ -105,7 +114,9 @@ async def create_jackpot(body: JackpotCreate, db: AsyncSession = Depends(get_db)
         type=body.type,
         dc_level=body.dc_level,
         matches=[m.model_dump() for m in body.matches],
+        variations=[list(v) for v in body.variations],
         price=body.price,
+        regional_prices=body.regional_prices or {},
     )
     db.add(jp)
     await db.commit()
@@ -137,6 +148,8 @@ async def update_jackpot(
         jp.regional_prices = body.regional_prices
     if body.matches is not None:
         jp.matches = [m.model_dump() for m in body.matches]
+    if body.variations is not None:
+        jp.variations = [list(v) for v in body.variations]
 
     await db.commit()
     await db.refresh(jp)

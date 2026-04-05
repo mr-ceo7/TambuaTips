@@ -152,8 +152,9 @@ function TipCard({ tip, locked = false, onGetFree }: { tip: Tip; locked?: boolea
 
 // ─── Jackpot Card ────────────────────────────────────────────
 function JackpotCard({ jackpot, onGetFree }: { jackpot: JackpotPrediction; key?: React.Key; onGetFree?: () => void }) {
-  const { user, setShowAuthModal, setSelectedJackpot, setShowJackpotModal, hasJackpotAccess } = useUser();
-  const isUnlocked = hasJackpotAccess(jackpot.id);
+  const { user, setShowAuthModal, setSelectedJackpot, setShowJackpotModal } = useUser();
+  const isUnlocked = !jackpot.locked;
+  const variationCount = jackpot.variations?.length || jackpot.variation_count || 0;
 
   const handlePurchase = () => {
     if (!user) {
@@ -177,7 +178,7 @@ function JackpotCard({ jackpot, onGetFree }: { jackpot: JackpotPrediction; key?:
                 {jackpot.type === 'midweek' ? 'Midweek Jackpot' : 'Mega Jackpot'}
               </h4>
               <p className="text-[10px] text-zinc-500">
-                {jackpot.type === 'midweek' ? '13 Matches' : '17 Matches'} • {jackpot.dcLevel}DC
+                {jackpot.type === 'midweek' ? '13 Matches' : '17 Matches'} • {jackpot.dcLevel}DC • {variationCount} Variation{variationCount !== 1 ? 's' : ''}
               </p>
             </div>
           </div>
@@ -187,32 +188,56 @@ function JackpotCard({ jackpot, onGetFree }: { jackpot: JackpotPrediction; key?:
         </div>
 
         <p className="text-xs text-zinc-400 mb-3">
-          Double chance predictions covering {jackpot.dcLevel} outcomes per match for maximum coverage.
+          {variationCount} unique prediction variation{variationCount !== 1 ? 's' : ''} covering {jackpot.dcLevel} outcomes per match for maximum coverage.
         </p>
 
         {/* Locked/Unlocked Content */}
-        {isUnlocked ? (
+        {isUnlocked && jackpot.variations && jackpot.variations.length > 0 ? (
           <div className="bg-zinc-950/50 border border-emerald-500/20 rounded-xl overflow-hidden mb-4">
-            <div className="max-h-48 overflow-y-auto px-4 py-2 space-y-2">
-              {jackpot.matches.map((m, idx) => (
-                <div key={idx} className="flex items-center justify-between py-1 border-b border-zinc-800 last:border-0">
-                  <span className="text-[10px] text-zinc-400 truncate mr-2 inline-flex items-center gap-1">
-                    <TeamWithLogo teamName={m.homeTeam} size={14} textClassName="text-[10px]" />
-                    <span className="text-zinc-600">vs</span>
-                    <TeamWithLogo teamName={m.awayTeam} size={14} textClassName="text-[10px]" />
-                  </span>
-                  <span className="text-xs font-mono font-bold text-emerald-400 shrink-0">
-                    {m.pick}
-                  </span>
-                </div>
-              ))}
+            <div className="max-h-64 overflow-auto">
+              <table className="w-full text-[10px]">
+                <thead className="sticky top-0 bg-zinc-900 z-10">
+                  <tr className="border-b border-zinc-800">
+                    <th className="px-2 py-1.5 text-left text-zinc-500 font-bold uppercase tracking-wider w-6">#</th>
+                    <th className="px-2 py-1.5 text-left text-zinc-500 font-bold uppercase tracking-wider">Match</th>
+                    {jackpot.variations.map((_, vi) => (
+                      <th key={vi} className="px-1.5 py-1.5 text-center text-gold-400 font-bold uppercase tracking-wider w-10">V{vi + 1}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {jackpot.matches.map((m, idx) => (
+                    <tr key={idx} className={`border-b border-zinc-800/50 last:border-0 ${
+                      m.result === 'won' ? 'bg-emerald-500/5' : m.result === 'lost' ? 'bg-red-500/5' : ''
+                    }`}>
+                      <td className="px-2 py-1 text-zinc-500">{idx + 1}</td>
+                      <td className="px-2 py-1">
+                        <span className="text-zinc-400 inline-flex items-center gap-0.5 flex-wrap">
+                          <TeamWithLogo teamName={m.homeTeam} size={12} textClassName="text-[10px]" />
+                          <span className="text-zinc-600 mx-0.5">vs</span>
+                          <TeamWithLogo teamName={m.awayTeam} size={12} textClassName="text-[10px]" />
+                        </span>
+                      </td>
+                      {jackpot.variations.map((v, vi) => (
+                        <td key={vi} className="px-1.5 py-1 text-center">
+                          <span className="font-mono font-bold text-emerald-400">{v[idx] || '-'}</span>
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
+          </div>
+        ) : isUnlocked ? (
+          <div className="bg-zinc-950/50 border border-emerald-500/20 rounded-xl p-4 mb-4 text-center">
+            <p className="text-xs text-zinc-500">No variations added yet.</p>
           </div>
         ) : (
           <div className="bg-zinc-950/50 border border-zinc-800 rounded-xl p-4 mb-4 text-center">
             <Lock className="w-6 h-6 text-gold-400/40 mx-auto mb-2" />
             <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">
-              {jackpot.matches.length} match predictions locked
+              {jackpot.match_count || jackpot.matches?.length || 0} matches • {variationCount} variations locked
             </p>
           </div>
         )}
@@ -253,6 +278,7 @@ export function TipsPage() {
   usePageTitle('Expert Tips');
   const { user, hasAccess, hasJackpotAccess, setShowAuthModal, setShowPricingModal } = useUser();
   const [activeTab, setActiveTab] = useState<'tips' | 'jackpot'>('tips');
+  const [activeCategoryTab, setActiveCategoryTab] = useState<TipCategory>('free');
   const [stats, setStats] = useState({ total: 0, won: 0, lost: 0, pending: 0, voided: 0, winRate: 0 });
   const [jackpots, setJackpots] = useState<JackpotPrediction[]>([]);
   const [tipsByCategory, setTipsByCategory] = useState<Record<string, Tip[]>>({});
@@ -342,79 +368,111 @@ export function TipsPage() {
 
       {/* Daily Tips Tab */}
       {activeTab === 'tips' && (
-        <div className="space-y-8">
+        <div className="space-y-6">
+          {/* Tip Categories Pill Tabs */}
+          <div className="flex flex-wrap gap-2">
+            {CATEGORY_ORDER.map(cat => {
+              const catInfo = CATEGORY_LABELS[cat];
+              const Icon = CATEGORY_ICONS[cat];
+              const isActive = activeCategoryTab === cat;
+              return (
+                <button
+                  key={cat}
+                  onClick={() => setActiveCategoryTab(cat)}
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all border ${
+                    isActive 
+                      ? (cat === 'free' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' :
+                         cat === 'vip' ? 'bg-gold-500/20 text-gold-400 border-gold-500/30' :
+                         'bg-blue-500/20 text-blue-400 border-blue-500/30')
+                      : 'bg-zinc-900/50 text-zinc-500 border-zinc-800 hover:bg-zinc-800 hover:text-zinc-300 hover:border-zinc-700'
+                  }`}
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                  {catInfo.label}
+                </button>
+              );
+            })}
+          </div>
+
           {loadingTips ? (
             <div className="space-y-6 animate-pulse">
-              {[1, 2, 3].map(i => (
-                <div key={i}>
-                  <div className="h-6 w-32 bg-zinc-800 rounded mb-4" />
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="h-32 bg-zinc-900/60 border border-zinc-800 rounded-2xl" />
-                    <div className="h-32 bg-zinc-900/60 border border-zinc-800 rounded-2xl" />
-                  </div>
-                </div>
-              ))}
+              <div className="h-6 w-32 bg-zinc-800 rounded mb-4" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="h-32 bg-zinc-900/60 border border-zinc-800 rounded-2xl" />
+                <div className="h-32 bg-zinc-900/60 border border-zinc-800 rounded-2xl" />
+              </div>
             </div>
           ) : (
-            CATEGORY_ORDER.map(cat => {
-            const tips = tipsByCategory[cat] || [];
-            if (tips.length === 0) return null;
-            const catInfo = CATEGORY_LABELS[cat];
-            const Icon = CATEGORY_ICONS[cat];
-            const userHasAccess = hasAccess(cat);
+            (() => {
+              const cat = activeCategoryTab;
+              const tips = tipsByCategory[cat] || [];
+              const catInfo = CATEGORY_LABELS[cat];
+              const Icon = CATEGORY_ICONS[cat];
+              const userHasAccess = hasAccess(cat);
 
-            return (
-              <section key={cat}>
-                <div className="flex items-center gap-2 mb-4">
-                  <Icon className={`w-5 h-5 ${cat === 'free' ? 'text-emerald-500' : cat === 'vip' ? 'text-gold-400' : 'text-blue-400'}`} />
-                  <h2 className="text-lg font-display font-bold uppercase">{catInfo.label}</h2>
-                  {!userHasAccess && (
-                    <span className="ml-auto px-2 py-0.5 bg-zinc-800 text-zinc-500 text-[10px] font-bold uppercase rounded-full flex items-center gap-1">
-                      <Lock className="w-3 h-3" /> {catInfo.minTier} plan
-                    </span>
-                  )}
-                </div>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {(() => {
-                    // Split strictly between upcoming/live and historical
-                    const pendingTips = tips.filter(t => t.result === 'pending');
-                    const historyTips = tips.filter(t => t.result !== 'pending');
-                    const isExpanded = expandedCategories[cat];
-                    
-                    // Show maximum 2 historical matches by default to prevent huge scrolling blocks
-                    const displayedHistory = isExpanded ? historyTips : historyTips.slice(0, 2);
-                    const displayedTips = [...pendingTips, ...displayedHistory];
-
-                    return displayedTips.map(tip => {
-                      const isTipUnlocked = user?.unlocked_tip_ids?.includes(Number(tip.id));
-                      return (
-                        <TipCard 
-                          key={tip.id} 
-                          tip={tip} 
-                          // It is ONLY locked if they dont have access AND the match hasnt finished yet AND it's not explicitly unlocked
-                          locked={!userHasAccess && tip.result === 'pending' && !isTipUnlocked}
-                          onGetFree={(!userHasAccess && tip.result === 'pending' && !isTipUnlocked && user) ? () => setShowReferralModal(tip.id) : undefined}
-                        />
-                      );
-                    });
-                  })()}
-                </div>
-                
-                {tips.filter(t => t.result !== 'pending').length > 2 && (
-                  <div className="mt-4 text-center">
-                    <button 
-                      onClick={() => toggleCategory(cat)}
-                      className="text-[10px] font-bold text-zinc-500 hover:text-white uppercase tracking-wider transition-colors inline-flex items-center gap-1 bg-zinc-900/50 px-3 py-1.5 rounded-full border border-zinc-800 hover:border-zinc-700"
-                    >
-                      {expandedCategories[cat] ? 'Hide Past History' : 'View More History'} 
-                      <ChevronRight className={`w-3 h-3 transition-transform ${expandedCategories[cat] ? '-rotate-90' : 'rotate-90'}`} />
-                    </button>
+              if (tips.length === 0) {
+                return (
+                  <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-8 text-center mt-6">
+                    <Icon className="w-10 h-10 text-zinc-700 mx-auto mb-3" />
+                    <p className="text-zinc-400 mb-2">No {catInfo.label} tips available right now</p>
+                    <p className="text-xs text-zinc-600">Check back later as our algorithms analyze new matches.</p>
                   </div>
-                )}
-              </section>
-            );
-          }))}
+                );
+              }
+
+              return (
+                <section className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                  <div className="flex items-center gap-2 mb-4 mt-6">
+                    <Icon className={`w-5 h-5 ${cat === 'free' ? 'text-emerald-500' : cat === 'vip' ? 'text-gold-400' : 'text-blue-400'}`} />
+                    <h2 className="text-lg font-display font-bold uppercase">{catInfo.label}</h2>
+                    {!userHasAccess && (
+                      <span className="ml-auto px-2 py-0.5 bg-zinc-800 text-zinc-500 text-[10px] font-bold uppercase rounded-full flex items-center gap-1">
+                        <Lock className="w-3 h-3" /> {catInfo.minTier} plan
+                      </span>
+                    )}
+                  </div>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {(() => {
+                      // Split strictly between upcoming/live and historical
+                      const pendingTips = tips.filter(t => t.result === 'pending');
+                      const historyTips = tips.filter(t => t.result !== 'pending');
+                      const isExpanded = expandedCategories[cat];
+                      
+                      // Show maximum 2 historical matches by default to prevent huge scrolling blocks
+                      const displayedHistory = isExpanded ? historyTips : historyTips.slice(0, 2);
+                      const displayedTips = [...pendingTips, ...displayedHistory];
+
+                      return displayedTips.map(tip => {
+                        const isTipUnlocked = user?.unlocked_tip_ids?.includes(Number(tip.id));
+                        return (
+                          <TipCard 
+                            key={tip.id} 
+                            tip={tip} 
+                            // It is ONLY locked if they dont have access AND the match hasnt finished yet AND it's not explicitly unlocked
+                            locked={!userHasAccess && tip.result === 'pending' && !isTipUnlocked}
+                            onGetFree={(!userHasAccess && tip.result === 'pending' && !isTipUnlocked && user) ? () => setShowReferralModal(tip.id) : undefined}
+                          />
+                        );
+                      });
+                    })()}
+                  </div>
+                  
+                  {tips.filter(t => t.result !== 'pending').length > 2 && (
+                    <div className="mt-4 text-center">
+                      <button 
+                        onClick={() => toggleCategory(cat)}
+                        className="text-[10px] font-bold text-zinc-500 hover:text-white uppercase tracking-wider transition-colors inline-flex items-center gap-1 bg-zinc-900/50 px-3 py-1.5 rounded-full border border-zinc-800 hover:border-zinc-700"
+                      >
+                        {expandedCategories[cat] ? 'Hide Past History' : 'View More History'} 
+                        <ChevronRight className={`w-3 h-3 transition-transform ${expandedCategories[cat] ? '-rotate-90' : 'rotate-90'}`} />
+                      </button>
+                    </div>
+                  )}
+                </section>
+              );
+            })()
+          )}
         </div>
       )}
 
@@ -434,7 +492,7 @@ export function TipsPage() {
           ) : jackpots.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {jackpots.map(j => {
-                const isUnlocked = hasJackpotAccess(j.id);
+                const isUnlocked = !j.locked;
                 return (
                   <JackpotCard 
                     key={j.id} 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Trophy, X, GripVertical, Check, Zap, Edit, ChevronDown, ChevronUp, Award } from 'lucide-react';
+import { Plus, Trash2, Trophy, X, GripVertical, Check, Zap, Edit, ChevronDown, ChevronUp, Award, Copy } from 'lucide-react';
 import {
   getAllJackpots, addJackpot, deleteJackpot, updateJackpot,
   type JackpotPrediction, type JackpotType, type DCLevel, type JackpotMatch
@@ -20,9 +20,11 @@ export function JackpotsManagePage() {
     price: 500,
     intPrice: 5.99,
     matches: [] as JackpotMatch[],
+    variations: [[]] as string[][],
   });
-  const [matchInput, setMatchInput] = useState({ homeTeam: '', awayTeam: '', pick: '1X' });
+  const [matchInput, setMatchInput] = useState({ homeTeam: '', awayTeam: '' });
   const [bulkMatches, setBulkMatches] = useState('');
+  const [activeVariation, setActiveVariation] = useState(0);
   const [bulkPicks, setBulkPicks] = useState('');
   
   // Drag and Drop State
@@ -46,13 +48,15 @@ export function JackpotsManagePage() {
       ...prev,
       matches: [...prev.matches, { ...matchInput }],
     }));
-    setMatchInput({ homeTeam: '', awayTeam: '', pick: '1X' });
+    setMatchInput({ homeTeam: '', awayTeam: '' });
   };
 
   const removeMatch = (index: number) => {
     setForm(prev => ({
       ...prev,
       matches: prev.matches.filter((_, i) => i !== index),
+      // Also remove that pick index from each variation
+      variations: prev.variations.map(v => v.filter((_, i) => i !== index)),
     }));
   };
 
@@ -63,16 +67,16 @@ export function JackpotsManagePage() {
     for (const line of lines) {
       if (line.includes(' vs ')) {
         const [home, away] = line.split(/ vs /i).map(s => s.trim());
-        newMatches.push({ homeTeam: home, awayTeam: away, pick: '12' });
+        newMatches.push({ homeTeam: home, awayTeam: away });
       } else if (line.includes(' - ')) {
         const [home, away] = line.split(/ - /).map(s => s.trim());
-        newMatches.push({ homeTeam: home, awayTeam: away, pick: '12' });
+        newMatches.push({ homeTeam: home, awayTeam: away });
       } else if (line.includes(' v ')) {
         const [home, away] = line.split(/ v /i).map(s => s.trim());
-        newMatches.push({ homeTeam: home, awayTeam: away, pick: '12' });
+        newMatches.push({ homeTeam: home, awayTeam: away });
       } else if (line.includes('-')) {
         const [home, away] = line.split(/-/).map(s => s.trim());
-        newMatches.push({ homeTeam: home, awayTeam: away, pick: '12' });
+        newMatches.push({ homeTeam: home, awayTeam: away });
       }
     }
     
@@ -88,37 +92,74 @@ export function JackpotsManagePage() {
     }
   };
 
+  const addVariation = () => {
+    setForm(prev => ({
+      ...prev,
+      variations: [...prev.variations, Array(prev.matches.length).fill('12')],
+    }));
+    setActiveVariation(form.variations.length);
+  };
+
+  const removeVariation = (index: number) => {
+    if (form.variations.length <= 1) {
+      toast.error('Must have at least 1 variation');
+      return;
+    }
+    setForm(prev => ({
+      ...prev,
+      variations: prev.variations.filter((_, i) => i !== index),
+    }));
+    setActiveVariation(Math.max(0, activeVariation - 1));
+  };
+
   const handleBulkPicks = () => {
     if (!bulkPicks.trim() || form.matches.length === 0) return;
     
     const picks = bulkPicks.toUpperCase().split(/[, ]+/).map(p => p.trim()).filter(Boolean);
     
-    if (picks.length > form.matches.length) {
-      toast.error(`Provided ${picks.length} picks but only have ${form.matches.length} matches!`);
+    if (picks.length !== form.matches.length) {
+      toast.error(`Expected ${form.matches.length} picks but got ${picks.length}`);
       return;
     }
     
     setForm(prev => {
-      const updated = [...prev.matches];
-      picks.forEach((p, idx) => {
-        if (updated[idx]) {
-          updated[idx] = { ...updated[idx], pick: p };
-        }
-      });
-      return { ...prev, matches: updated };
+      const updated = [...prev.variations];
+      updated[activeVariation] = picks;
+      return { ...prev, variations: updated };
     });
     
     setBulkPicks('');
-    toast.success(`Applied ${picks.length} picks!`);
+    toast.success(`Applied ${picks.length} picks to Variation ${activeVariation + 1}`);
+  };
+
+  const updateVariationPick = (varIndex: number, matchIndex: number, pick: string) => {
+    setForm(prev => {
+      const updated = prev.variations.map(v => [...v]);
+      // Ensure the variation array is long enough
+      while (updated[varIndex].length < prev.matches.length) {
+        updated[varIndex].push('12');
+      }
+      updated[varIndex][matchIndex] = pick;
+      return { ...prev, variations: updated };
+    });
   };
 
   const handleSort = () => {
     if (dragItem.current !== null && dragOverItem.current !== null && dragItem.current !== dragOverItem.current) {
       setForm(prev => {
         const matches = [...prev.matches];
-        const draggedItemContent = matches.splice(dragItem.current!, 1)[0];
-        matches.splice(dragOverItem.current!, 0, draggedItemContent);
-        return { ...prev, matches };
+        const draggedMatch = matches.splice(dragItem.current!, 1)[0];
+        matches.splice(dragOverItem.current!, 0, draggedMatch);
+        
+        // Also reorder picks in each variation
+        const variations = prev.variations.map(v => {
+          const picks = [...v];
+          const draggedPick = picks.splice(dragItem.current!, 1)[0];
+          picks.splice(dragOverItem.current!, 0, draggedPick);
+          return picks;
+        });
+        
+        return { ...prev, matches, variations };
       });
     }
     dragItem.current = null;
@@ -131,6 +172,19 @@ export function JackpotsManagePage() {
     if (form.matches.length !== expected) {
       toast.error(`${form.type === 'midweek' ? 'Midweek' : 'Mega'} jackpot requires exactly ${expected} matches. You have ${form.matches.length}.`);
       return;
+    }
+
+    if (form.variations.length === 0) {
+      toast.error('Add at least one variation');
+      return;
+    }
+
+    // Validate each variation has the right number of picks
+    for (let i = 0; i < form.variations.length; i++) {
+      if (form.variations[i].length !== form.matches.length) {
+        toast.error(`Variation ${i + 1} has ${form.variations[i].length} picks but needs ${form.matches.length}`);
+        return;
+      }
     }
     
     const payload = {
@@ -150,9 +204,10 @@ export function JackpotsManagePage() {
   };
 
   const resetForm = () => {
-    setForm({ type: 'midweek', dcLevel: 3, price: 500, intPrice: 5.99, matches: [] });
+    setForm({ type: 'midweek', dcLevel: 3, price: 500, intPrice: 5.99, matches: [], variations: [[]] });
     setEditingId(null);
     setShowForm(false);
+    setActiveVariation(0);
   };
 
   const handleEdit = (j: JackpotPrediction) => {
@@ -161,10 +216,12 @@ export function JackpotsManagePage() {
       dcLevel: j.dcLevel,
       price: j.price,
       intPrice: j.regional_prices?.international?.price || 5.99,
-      matches: j.matches.map(m => ({ ...m })),
+      matches: j.matches.map(m => ({ homeTeam: m.homeTeam, awayTeam: m.awayTeam, result: m.result })),
+      variations: j.variations.length > 0 ? j.variations.map(v => [...v]) : [[]],
     });
     setEditingId(j.id);
     setShowForm(true);
+    setActiveVariation(0);
   };
 
   const handleResult = async (id: string, result: string) => {
@@ -190,6 +247,8 @@ export function JackpotsManagePage() {
     loadJackpots();
     toast.success('Jackpot deleted');
   };
+
+  const PICK_OPTIONS = ['1X', 'X2', '12', '1', 'X', '2'];
 
   return (
     <div className="space-y-5 overflow-hidden">
@@ -235,7 +294,7 @@ export function JackpotsManagePage() {
               </div>
             </div>
 
-            {/* Add Match */}
+            {/* ─── Matches Section ────────────────────────────── */}
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
@@ -247,51 +306,31 @@ export function JackpotsManagePage() {
               <div className="flex flex-col sm:flex-row gap-2 mb-3">
                 <input value={matchInput.homeTeam} onChange={e => setMatchInput({ ...matchInput, homeTeam: e.target.value })} placeholder="Home team" className="admin-input flex-1" />
                 <input value={matchInput.awayTeam} onChange={e => setMatchInput({ ...matchInput, awayTeam: e.target.value })} placeholder="Away team" className="admin-input flex-1" />
-                <select value={matchInput.pick} onChange={e => setMatchInput({ ...matchInput, pick: e.target.value })} className="admin-input w-20">
-                  <option>1X</option><option>X2</option><option>12</option>
-                  <option>1</option><option>X</option><option>2</option>
-                </select>
                 <button type="button" onClick={addMatchToJackpot} className="px-3 py-2 bg-emerald-500 text-zinc-950 font-bold rounded-lg hover:bg-emerald-400 transition-all">
                   <Plus className="w-4 h-4" />
                 </button>
               </div>
 
-              {/* Bulk Importers */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4 p-3 bg-zinc-800/40 border border-zinc-700/50 rounded-xl">
-                <div>
-                  <div className="flex items-center gap-1.5 mb-1.5">
-                    <Zap className="w-3.5 h-3.5 text-emerald-400" />
-                    <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Bulk Import Matches</span>
-                  </div>
-                  <textarea 
-                    value={bulkMatches}
-                    onChange={e => setBulkMatches(e.target.value)}
-                    placeholder="Paste lines: TeamA vs TeamB"
-                    className="w-full bg-zinc-900 border border-zinc-700 rounded-lg p-2 text-xs text-white h-16 resize-none mb-2"
-                  />
-                  <button type="button" onClick={handleBulkMatches} className="w-full py-1.5 bg-zinc-800 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/10 text-xs font-bold rounded-lg transition-all">
-                    Import Matches
-                  </button>
+              {/* Bulk Import */}
+              <div className="p-3 bg-zinc-800/40 border border-zinc-700/50 rounded-xl mb-4">
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <Zap className="w-3.5 h-3.5 text-emerald-400" />
+                  <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Bulk Import Matches</span>
                 </div>
-                <div>
-                  <div className="flex items-center gap-1.5 mb-1.5">
-                    <Trophy className="w-3.5 h-3.5 text-yellow-400" />
-                    <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Apply Variation Picks</span>
-                  </div>
-                  <textarea 
-                    value={bulkPicks}
-                    onChange={e => setBulkPicks(e.target.value)}
-                    placeholder="e.g. 12,2,2,1,X,2,12..."
-                    className="w-full bg-zinc-900 border border-zinc-700 rounded-lg p-2 text-xs text-white h-16 resize-none mb-2"
-                  />
-                  <button type="button" onClick={handleBulkPicks} disabled={form.matches.length === 0} className="w-full py-1.5 bg-zinc-800 text-yellow-400 border border-yellow-500/20 hover:bg-yellow-500/10 disabled:opacity-50 text-xs font-bold rounded-lg transition-all">
-                    Apply Picks Sequence
-                  </button>
-                </div>
+                <textarea 
+                  value={bulkMatches}
+                  onChange={e => setBulkMatches(e.target.value)}
+                  placeholder="Paste lines: TeamA vs TeamB"
+                  className="w-full bg-zinc-900 border border-zinc-700 rounded-lg p-2 text-xs text-white h-16 resize-none mb-2"
+                />
+                <button type="button" onClick={handleBulkMatches} className="w-full py-1.5 bg-zinc-800 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/10 text-xs font-bold rounded-lg transition-all">
+                  Import Matches
+                </button>
               </div>
 
+              {/* Match List */}
               {form.matches.length > 0 && (
-                <div className="border border-zinc-800/60 rounded-xl overflow-hidden">
+                <div className="border border-zinc-800/60 rounded-xl overflow-hidden mb-4">
                   {form.matches.map((m, i) => (
                     <div 
                       key={i} 
@@ -309,18 +348,6 @@ export function JackpotsManagePage() {
                         <span className="text-zinc-500 font-normal mx-1">vs</span>
                         <TeamWithLogo teamName={m.awayTeam} size={14} textClassName="text-sm font-medium" />
                       </span>
-                      <select 
-                        value={m.pick} 
-                        onChange={(e) => {
-                          const newMatches = [...form.matches];
-                          newMatches[i].pick = e.target.value;
-                          setForm({...form, matches: newMatches});
-                        }} 
-                        className="bg-zinc-900 border border-zinc-700 text-yellow-400 font-bold rounded px-2 py-1 text-xs w-16 text-center mr-3 focus:border-yellow-500"
-                      >
-                         <option>1X</option><option>X2</option><option>12</option>
-                         <option>1</option><option>X</option><option>2</option>
-                      </select>
                       <button type="button" onClick={() => removeMatch(i)} className="p-1.5 bg-zinc-800 text-zinc-500 rounded hover:bg-red-500/10 hover:text-red-400 transition-colors">
                         <Trash2 className="w-3 h-3" />
                       </button>
@@ -329,6 +356,93 @@ export function JackpotsManagePage() {
                 </div>
               )}
             </div>
+
+            {/* ─── Variations Section ────────────────────────── */}
+            {form.matches.length > 0 && (
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <label className="block text-[10px] font-bold text-yellow-400 uppercase tracking-wider">
+                    <Trophy className="w-3.5 h-3.5 inline mr-1" />
+                    Variations ({form.variations.length})
+                  </label>
+                  <button type="button" onClick={addVariation} className="flex items-center gap-1 px-3 py-1.5 bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 rounded-lg text-xs font-bold hover:bg-yellow-500/20 transition-all">
+                    <Plus className="w-3 h-3" /> Add Variation
+                  </button>
+                </div>
+
+                {/* Variation Tabs */}
+                <div className="flex flex-wrap gap-1.5 mb-3">
+                  {form.variations.map((_, vi) => (
+                    <button
+                      key={vi}
+                      type="button"
+                      onClick={() => setActiveVariation(vi)}
+                      className={`relative group px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                        activeVariation === vi
+                          ? 'bg-yellow-500 text-zinc-950'
+                          : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white'
+                      }`}
+                    >
+                      V{vi + 1}
+                      {form.variations.length > 1 && (
+                        <span
+                          onClick={(e) => { e.stopPropagation(); removeVariation(vi); }}
+                          className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 text-white rounded-full text-[8px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                        >
+                          ×
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Bulk Picks for Active Variation */}
+                <div className="p-3 bg-zinc-800/40 border border-yellow-500/20 rounded-xl mb-3">
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <Copy className="w-3.5 h-3.5 text-yellow-400" />
+                    <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
+                      Paste Picks for Variation {activeVariation + 1}
+                    </span>
+                  </div>
+                  <textarea 
+                    value={bulkPicks}
+                    onChange={e => setBulkPicks(e.target.value)}
+                    placeholder={`e.g. 12,2,2,1,X,2,12,1,X,2,12,X,12 (${form.matches.length} picks)`}
+                    className="w-full bg-zinc-900 border border-zinc-700 rounded-lg p-2 text-xs text-white h-10 resize-none mb-2"
+                  />
+                  <button type="button" onClick={handleBulkPicks} className="w-full py-1.5 bg-zinc-800 text-yellow-400 border border-yellow-500/20 hover:bg-yellow-500/10 text-xs font-bold rounded-lg transition-all">
+                    Apply Picks to V{activeVariation + 1}
+                  </button>
+                </div>
+
+                {/* Per-match picks for active variation */}
+                <div className="border border-zinc-800/60 rounded-xl overflow-hidden">
+                  <div className="bg-zinc-800/50 px-3 py-2 flex items-center gap-2 border-b border-zinc-800/60">
+                    <span className="text-[10px] font-bold text-yellow-400 uppercase tracking-widest">Variation {activeVariation + 1} Picks</span>
+                  </div>
+                  {form.matches.map((m, mi) => {
+                    const pick = (form.variations[activeVariation] && form.variations[activeVariation][mi]) || '12';
+                    return (
+                      <div key={mi} className="flex items-center px-3 py-1.5 text-sm border-b border-zinc-800/30 last:border-b-0 hover:bg-zinc-800/20">
+                        <span className="w-6 text-zinc-500 text-xs">{mi + 1}.</span>
+                        <span className="flex-1 text-zinc-300 text-xs truncate inline-flex items-center gap-1">
+                          <TeamWithLogo teamName={m.homeTeam} size={12} textClassName="text-xs" />
+                          <span className="text-zinc-600 mx-0.5">vs</span>
+                          <TeamWithLogo teamName={m.awayTeam} size={12} textClassName="text-xs" />
+                        </span>
+                        <select
+                          value={pick}
+                          onChange={(e) => updateVariationPick(activeVariation, mi, e.target.value)}
+                          className="bg-zinc-900 border border-zinc-700 text-yellow-400 font-bold rounded px-2 py-1 text-xs w-16 text-center focus:border-yellow-500"
+                        >
+                          {PICK_OPTIONS.map(p => <option key={p}>{p}</option>)}
+                        </select>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             <div className="flex gap-3">
               <button type="submit" className="flex-1 py-2.5 bg-yellow-500 text-zinc-950 font-bold rounded-xl hover:bg-yellow-400 transition-all text-sm">
@@ -390,7 +504,7 @@ export function JackpotsManagePage() {
                         }`}>{j.result || 'pending'}</span>
                       </div>
                       <p className="text-xs text-zinc-500">
-                        KES {j.price.toLocaleString()} • ${(j.regional_prices?.international?.price || 5.99).toLocaleString()} (Intl) • {j.matches.length} matches
+                        KES {j.price.toLocaleString()} • ${(j.regional_prices?.international?.price || 5.99).toLocaleString()} (Intl) • {j.matches.length} matches • {j.variations.length} variations
                         {markedCount > 0 && <span className="ml-1">• <span className="text-emerald-400">{wonCount}W</span>/<span className="text-red-400">{lostCount}L</span></span>}
                       </p>
                     </div>
@@ -428,43 +542,64 @@ export function JackpotsManagePage() {
                   </div>
                 </div>
 
-                {/* Expanded Match List with per-match results */}
+                {/* Expanded: Table with matches × variations */}
                 {isExpanded && (
-                  <div className="mt-3 border border-zinc-800/60 rounded-xl overflow-hidden">
-                    {j.matches.map((m, i) => (
-                      <div key={i} className={`flex items-center px-3 py-2 text-sm border-b border-zinc-800/30 last:border-b-0 transition-colors ${
-                        m.result === 'won' ? 'bg-emerald-500/5' : m.result === 'lost' ? 'bg-red-500/5' : 'hover:bg-zinc-800/20'
-                      }`}>
-                        <span className="w-6 text-zinc-500 text-xs">{i + 1}.</span>
-                        <span className="flex-1 text-zinc-300 inline-flex items-center gap-1 flex-wrap">
-                          <TeamWithLogo teamName={m.homeTeam} size={14} textClassName="text-sm" />
-                          <span className="text-zinc-500 mx-1">vs</span>
-                          <TeamWithLogo teamName={m.awayTeam} size={14} textClassName="text-sm" />
-                        </span>
-                        <span className="text-yellow-400 font-bold text-xs w-10 text-center mr-2">{m.pick}</span>
-                        {/* Per-match result buttons */}
-                        <div className="flex items-center gap-1">
-                          <button 
-                            onClick={() => handleMatchResult(j, i, 'won')} 
-                            className={`p-1 rounded transition-all ${
-                              m.result === 'won' ? 'bg-emerald-500/30 text-emerald-400' : 'bg-zinc-800 text-zinc-600 hover:text-emerald-400'
-                            }`} 
-                            title="Won"
-                          >
-                            <Check className="w-3 h-3" />
-                          </button>
-                          <button 
-                            onClick={() => handleMatchResult(j, i, 'lost')} 
-                            className={`p-1 rounded transition-all ${
-                              m.result === 'lost' ? 'bg-red-500/30 text-red-400' : 'bg-zinc-800 text-zinc-600 hover:text-red-400'
-                            }`} 
-                            title="Lost"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+                  <div className="mt-3 border border-zinc-800/60 rounded-xl overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-zinc-800/50 border-b border-zinc-800/60">
+                          <th className="px-3 py-2 text-left text-[10px] text-zinc-500 font-bold uppercase tracking-wider w-8">#</th>
+                          <th className="px-3 py-2 text-left text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Match</th>
+                          {j.variations.map((_, vi) => (
+                            <th key={vi} className="px-2 py-2 text-center text-[10px] text-yellow-400 font-bold uppercase tracking-wider w-14">V{vi + 1}</th>
+                          ))}
+                          <th className="px-2 py-2 text-center text-[10px] text-zinc-500 font-bold uppercase tracking-wider w-20">Result</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {j.matches.map((m, i) => (
+                          <tr key={i} className={`border-b border-zinc-800/30 last:border-b-0 transition-colors ${
+                            m.result === 'won' ? 'bg-emerald-500/5' : m.result === 'lost' ? 'bg-red-500/5' : 'hover:bg-zinc-800/20'
+                          }`}>
+                            <td className="px-3 py-2 text-zinc-500 text-xs">{i + 1}</td>
+                            <td className="px-3 py-2">
+                              <span className="text-zinc-300 inline-flex items-center gap-1 flex-wrap">
+                                <TeamWithLogo teamName={m.homeTeam} size={14} textClassName="text-xs" />
+                                <span className="text-zinc-600 mx-0.5">vs</span>
+                                <TeamWithLogo teamName={m.awayTeam} size={14} textClassName="text-xs" />
+                              </span>
+                            </td>
+                            {j.variations.map((v, vi) => (
+                              <td key={vi} className="px-2 py-2 text-center">
+                                <span className="text-yellow-400 font-bold text-xs font-mono">{v[i] || '-'}</span>
+                              </td>
+                            ))}
+                            <td className="px-2 py-2 text-center">
+                              <div className="flex items-center justify-center gap-1">
+                                <button 
+                                  onClick={() => handleMatchResult(j, i, 'won')} 
+                                  className={`p-1 rounded transition-all ${
+                                    m.result === 'won' ? 'bg-emerald-500/30 text-emerald-400' : 'bg-zinc-800 text-zinc-600 hover:text-emerald-400'
+                                  }`} 
+                                  title="Won"
+                                >
+                                  <Check className="w-3 h-3" />
+                                </button>
+                                <button 
+                                  onClick={() => handleMatchResult(j, i, 'lost')} 
+                                  className={`p-1 rounded transition-all ${
+                                    m.result === 'lost' ? 'bg-red-500/30 text-red-400' : 'bg-zinc-800 text-zinc-600 hover:text-red-400'
+                                  }`} 
+                                  title="Lost"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 )}
               </div>

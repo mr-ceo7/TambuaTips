@@ -1,72 +1,87 @@
+"""
+Seed script for mock jackpot data with multi-variation DC support.
+Run: python3 scripts/seed_jackpots.py
+"""
 import asyncio
 import os
 import sys
 
-# Add the parent directory to sys.path so we can import from 'app'
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from sqlalchemy import select
+from sqlalchemy import select, delete
 from app.database import AsyncSessionLocal
-from app.models.jackpot import Jackpot
+from app.models.jackpot import Jackpot, JackpotPurchase
 
 async def seed():
     async with AsyncSessionLocal() as session:
-        # Check if already seeded (based on approximate match count)
-        result = await session.execute(select(Jackpot))
-        jackpots = result.scalars().all()
+        # Clear existing data (purchases first due to FK)
+        await session.execute(delete(JackpotPurchase))
+        await session.execute(delete(Jackpot))
+        await session.commit()
         
-        # Add Midweek Jackpot (13 matches)
+        # Midweek Jackpot: 13 matches, 4 variations (4DC)
         midweek = Jackpot(
             type='midweek',
-            dc_level=3,
+            dc_level=4,
             price=99.0,
             matches=[
-                {"homeTeam": "Everton", "awayTeam": "Liverpool", "pick": "2", "result": "pending"},
-                {"homeTeam": "Arsenal", "awayTeam": "Man City", "pick": "12", "result": "pending"},
-                {"homeTeam": "Chelsea", "awayTeam": "Tottenham", "pick": "X", "result": "pending"},
-                {"homeTeam": "Real Madrid", "awayTeam": "Barcelona", "pick": "1", "result": "pending"},
-                {"homeTeam": "Bayern Munich", "awayTeam": "Dortmund", "pick": "1", "result": "pending"},
-                {"homeTeam": "PSG", "awayTeam": "Marseille", "pick": "1", "result": "pending"},
-                {"homeTeam": "AC Milan", "awayTeam": "Inter", "pick": "12", "result": "pending"},
-                {"homeTeam": "Juventus", "awayTeam": "Napoli", "pick": "X", "result": "pending"},
-                {"homeTeam": "Ajax", "awayTeam": "PSV", "pick": "1X", "result": "pending"},
-                {"homeTeam": "Porto", "awayTeam": "Benfica", "pick": "2", "result": "pending"},
-                {"homeTeam": "Celtic", "awayTeam": "Rangers", "pick": "1", "result": "pending"},
-                {"homeTeam": "Fenerbahce", "awayTeam": "Galatasaray", "pick": "X2", "result": "pending"},
-                {"homeTeam": "Boca Juniors", "awayTeam": "River Plate", "pick": "12", "result": "pending"}
-            ]
+                {"homeTeam": "Everton", "awayTeam": "Liverpool"},
+                {"homeTeam": "Arsenal", "awayTeam": "Man City"},
+                {"homeTeam": "Chelsea", "awayTeam": "Tottenham"},
+                {"homeTeam": "Real Madrid", "awayTeam": "Barcelona"},
+                {"homeTeam": "Bayern Munich", "awayTeam": "Dortmund"},
+                {"homeTeam": "PSG", "awayTeam": "Marseille"},
+                {"homeTeam": "AC Milan", "awayTeam": "Inter"},
+                {"homeTeam": "Juventus", "awayTeam": "Napoli"},
+                {"homeTeam": "Ajax", "awayTeam": "PSV"},
+                {"homeTeam": "Porto", "awayTeam": "Benfica"},
+                {"homeTeam": "Celtic", "awayTeam": "Rangers"},
+                {"homeTeam": "Fenerbahce", "awayTeam": "Galatasaray"},
+                {"homeTeam": "Boca Juniors", "awayTeam": "River Plate"},
+            ],
+            variations=[
+                ["12", "2", "2", "1", "X", "2", "12", "1", "X", "2", "12", "X", "12"],
+                ["X", "2", "12", "X", "X", "1X", "1", "2", "1", "12", "2", "1X", "1"],
+                ["X", "X2", "2", "1X", "1X", "X", "2", "2", "X", "1", "2", "1", "1X"],
+                ["X2", "2", "X", "X", "1", "X", "12", "2", "2", "2", "12", "1X", "X"],
+            ],
         )
-        
-        # Add Mega Jackpot (17 matches)
+
+        # Mega Jackpot: 17 matches, 3 variations (5DC)
         mega = Jackpot(
             type='mega',
             dc_level=5,
             price=199.0,
             matches=[
-                {'homeTeam': 'Liverpool', 'awayTeam': 'Chelsea', 'pick': '1', 'result': 'pending'},
-                {'homeTeam': 'Man City', 'awayTeam': 'Arsenal', 'pick': '12', 'result': 'pending'},
-                {'homeTeam': 'Napoli', 'awayTeam': 'Lazio', 'pick': 'X', 'result': 'pending'},
-                {'homeTeam': 'Lyon', 'awayTeam': 'Lille', 'pick': '1', 'result': 'pending'},
-                {'homeTeam': 'Sevilla', 'awayTeam': 'Valencia', 'pick': '1', 'result': 'pending'},
-                {'homeTeam': 'Aston Villa', 'awayTeam': 'Newcastle', 'pick': 'X', 'result': 'pending'},
-                {'homeTeam': 'Fulham', 'awayTeam': 'Wolves', 'pick': '1', 'result': 'pending'},
-                {'homeTeam': 'West Ham', 'awayTeam': 'Brighton', 'pick': '1', 'result': 'pending'},
-                {'homeTeam': 'Bournemouth', 'awayTeam': 'Watford', 'pick': '2', 'result': 'pending'},
-                {'homeTeam': 'Norwich', 'awayTeam': 'Derby', 'pick': '1', 'result': 'pending'},
-                {'homeTeam': 'Preston', 'awayTeam': 'Bristol City', 'pick': '1X', 'result': 'pending'},
-                {'homeTeam': 'Cardiff', 'awayTeam': 'Swansea', 'pick': 'X2', 'result': 'pending'},
-                {'homeTeam': 'Millwall', 'awayTeam': 'QPR', 'pick': '12', 'result': 'pending'},
-                {'homeTeam': 'Sunderland', 'awayTeam': 'Hull', 'pick': '1', 'result': 'pending'},
-                {'homeTeam': 'Luton', 'awayTeam': 'Middlesbrough', 'pick': 'X', 'result': 'pending'},
-                {'homeTeam': 'Reading', 'awayTeam': 'Barnsley', 'pick': '1', 'result': 'pending'},
-                {'homeTeam': 'Palmeiras', 'awayTeam': 'Flamengo', 'pick': 'X2', 'result': 'pending'}
-            ]
+                {"homeTeam": "Liverpool", "awayTeam": "Chelsea"},
+                {"homeTeam": "Man City", "awayTeam": "Arsenal"},
+                {"homeTeam": "Napoli", "awayTeam": "Lazio"},
+                {"homeTeam": "Lyon", "awayTeam": "Lille"},
+                {"homeTeam": "Sevilla", "awayTeam": "Valencia"},
+                {"homeTeam": "Aston Villa", "awayTeam": "Newcastle"},
+                {"homeTeam": "Fulham", "awayTeam": "Wolves"},
+                {"homeTeam": "West Ham", "awayTeam": "Brighton"},
+                {"homeTeam": "Bournemouth", "awayTeam": "Watford"},
+                {"homeTeam": "Norwich", "awayTeam": "Derby"},
+                {"homeTeam": "Preston", "awayTeam": "Bristol City"},
+                {"homeTeam": "Cardiff", "awayTeam": "Swansea"},
+                {"homeTeam": "Millwall", "awayTeam": "QPR"},
+                {"homeTeam": "Sunderland", "awayTeam": "Hull"},
+                {"homeTeam": "Luton", "awayTeam": "Middlesbrough"},
+                {"homeTeam": "Reading", "awayTeam": "Barnsley"},
+                {"homeTeam": "Palmeiras", "awayTeam": "Flamengo"},
+            ],
+            variations=[
+                ["1", "12", "X", "1", "1", "X", "1", "1", "2", "1", "1X", "X2", "12", "1", "X", "1", "X2"],
+                ["1X", "1", "X2", "12", "1X", "1", "12", "X", "1", "2", "1", "X", "1", "X2", "1X", "12", "1"],
+                ["2", "X", "1", "X2", "12", "1X", "X", "12", "X", "1X", "2", "1", "X2", "12", "1", "X", "12"],
+            ],
         )
-        
+
         session.add(midweek)
         session.add(mega)
         await session.commit()
-        print("Mock Midweek and Mega Jackpots seeded successfully!")
+        print("✅ Seeded Midweek (13 matches, 4 variations) and Mega (17 matches, 3 variations) jackpots!")
 
 if __name__ == "__main__":
     asyncio.run(seed())
