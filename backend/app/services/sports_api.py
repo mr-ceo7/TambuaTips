@@ -4,38 +4,100 @@ Replaces frontend apiRotator.ts + sportsApiService.ts.
 """
 
 import httpx
+import logging
+import time
 from typing import Optional, List
 from datetime import date
 
 from app.config import settings
 from app.services.cache import get_cached, set_cached
 
-API_BASE = "https://v3.football.api-sports.io"
-DAILY_LIMIT = 100
+logger = logging.getLogger(__name__)
 
-# Track usage per key per day (in-memory; resets on server restart)
-_key_usage: dict[str, dict] = {}  # {key: {date: str, count: int}}
+API_BASE = "https://v3.football.api-sports.io"
+DAILY_LIMIT = 7500
+
+# Track usage / state per key per day (in-memory; resets on server restart)
+_key_usage: dict[str, dict] = {}  # {key: {date: str, count: int, blocked_until: float, exhausted: bool, reason: str}}
 
 
 def _get_today() -> str:
     return date.today().isoformat()
 
 
-def _get_key_usage(key: str) -> int:
+def _get_key_info(key: str) -> dict:
     today = _get_today()
     entry = _key_usage.get(key)
     if not entry or entry.get("date") != today:
-        return 0
-    return entry.get("count", 0)
+        entry = {
+            "date": today,
+            "count": 0,
+            "blocked_until": 0.0,
+            "exhausted": False,
+            "reason": None,
+        }
+        _key_usage[key] = entry
+    return entry
+
+
+def _get_key_usage(key: str) -> int:
+    return _get_key_info(key)["count"]
 
 
 def _increment_key(key: str):
-    today = _get_today()
-    entry = _key_usage.get(key)
-    if not entry or entry.get("date") != today:
-        _key_usage[key] = {"date": today, "count": 1}
-    else:
-        entry["count"] = entry.get("count", 0) + 1
+    entry = _get_key_info(key)
+    entry["count"] += 1
+
+
+def _mark_key_exhausted(key: str, reason: str | None = None):
+    entry = _get_key_info(key)
+    entry["exhausted"] = True
+    entry["reason"] = reason
+
+
+def _mark_key_blocked_for_minute(key: str):
+    entry = _get_key_info(key)
+    entry["blocked_until"] = time.time() + 61
+
+
+def _is_key_available(key: str) -> bool:
+    entry = _get_key_info(key)
+    if entry["exhausted"]:
+        return False
+    if entry["blocked_until"] and time.time() < entry["blocked_until"]:
+        return False
+    if entry["count"] >= DAILY_LIMIT:
+        return False
+    return True
+
+
+def _is_exhaustion_error(data: dict, status_code: int) -> bool:
+    if status_code == 429:
+        return True
+    errors = data.get("errors")
+    if not errors:
+        return False
+    err_str = str(errors).lower()
+    return any(w in err_str for w in ["rate", "suspended", "forbidden", "quota", "access"])
+
+
+def _update_key_quota_from_headers(key: str, headers: dict):
+    remaining_daily = headers.get("x-ratelimit-requests-remaining")
+    if remaining_daily is not None:
+        try:
+            if int(remaining_daily) <= 0:
+                _mark_key_exhausted(key, "daily quota exhausted")
+                return
+        except ValueError:
+            pass
+
+    remaining_minute = headers.get("x-ratelimit-remaining") or headers.get("X-RateLimit-Remaining")
+    if remaining_minute is not None:
+        try:
+            if int(remaining_minute) <= 0:
+                _mark_key_blocked_for_minute(key)
+        except ValueError:
+            pass
 
 
 def _get_best_key() -> Optional[str]:
@@ -43,34 +105,23 @@ def _get_best_key() -> Optional[str]:
     if not keys:
         return None
 
-    today = _get_today()
-    best_key = None
-    lowest = float("inf")
+    active_keys = [key for key in keys if _is_key_available(key)]
+    if not active_keys:
+        return None
 
-    for key in keys:
-        usage = _get_key_usage(key)
-        if usage < DAILY_LIMIT and usage < lowest:
-            lowest = usage
-            best_key = key
-
-    return best_key
+    return sorted(active_keys, key=lambda k: _get_key_usage(k))[0]
 
 
 async def _api_fetch(endpoint: str) -> dict:
     """Make a request to API-Football with automatic key rotation."""
     keys = settings.api_football_key_list
     if not keys:
-        print("No API-Football keys configured")
+        logger.warning("No API-Football keys configured")
         return {}
 
-    today = _get_today()
-
-    # Sort keys by usage (least used first)
-    sorted_keys = sorted(keys, key=lambda k: _get_key_usage(k))
-
     async with httpx.AsyncClient(timeout=30) as client:
-        for key in sorted_keys:
-            if _get_key_usage(key) >= DAILY_LIMIT:
+        for key in sorted(keys, key=lambda k: _get_key_usage(k)):
+            if not _is_key_available(key):
                 continue
 
             try:
@@ -79,23 +130,39 @@ async def _api_fetch(endpoint: str) -> dict:
                     headers={"x-apisports-key": key},
                 )
                 _increment_key(key)
-
                 data = response.json()
+                _update_key_quota_from_headers(key, response.headers)
 
-                # Check for API errors (rate limit, suspended, etc.)
-                if data.get("errors") and len(data["errors"]) > 0:
-                    err_str = str(data["errors"]).lower()
-                    if any(w in err_str for w in ["rate", "suspended", "forbidden"]):
-                        # Exhaust this key
-                        _key_usage[key] = {"date": today, "count": DAILY_LIMIT}
-                        continue
+                if _is_exhaustion_error(data, response.status_code):
+                    reason = data.get("errors") or f"status_{response.status_code}"
+                    logger.warning(
+                        "API-Football key blocked/exhausted: %s reason=%s",
+                        key[:8],
+                        reason,
+                    )
+                    _mark_key_exhausted(key, str(reason))
+                    continue
+
+                if response.status_code != 200:
+                    logger.warning(
+                        "API-Football returned non-200 status %s for key %s",
+                        response.status_code,
+                        key[:8],
+                    )
+                    continue
 
                 return data
 
-            except Exception:
+            except httpx.HTTPStatusError as exc:
+                logger.warning("HTTP error for API-Football key %s: %s", key[:8], exc)
+                if exc.response is not None and exc.response.status_code == 429:
+                    _mark_key_blocked_for_minute(key)
+                continue
+            except Exception as exc:
+                logger.warning("API-Football request failed for key %s: %s", key[:8], exc)
                 continue
 
-    print("ALL_KEYS_EXHAUSTED")
+    logger.warning("ALL_KEYS_EXHAUSTED")
     return {}
 
 
