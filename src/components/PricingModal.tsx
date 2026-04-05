@@ -274,7 +274,7 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
                     <div className="mb-6">
                       <div className="flex items-center justify-between mb-3">
                         <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Pay With</h3>
-                        {selectedMethod && <button onClick={() => setSelectedMethod(null)} className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider">Change</button>}
+                        {selectedMethod && <button onClick={() => setSelectedMethod(null)} className="text-xs text-gold-400 hover:text-gold-300 font-bold uppercase tracking-wider py-2 pl-4">Change</button>}
                       </div>
                       <div className="grid grid-cols-2 gap-2 sm:gap-3">
                         {(!selectedMethod || selectedMethod === 'mpesa') && allowMpesa && (

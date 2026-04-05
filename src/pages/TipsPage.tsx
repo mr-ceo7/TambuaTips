@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Zap, Lock, Star, Trophy, Crown, ChevronRight, Target, Plus, Check, Eye, AlertTriangle, X, Gift } from 'lucide-react';
-import { TeamWithLogo } from '../components/TeamLogo';
+import { TeamWithLogo, LeagueLogo } from '../components/TeamLogo';
 import { ReferralWidget } from '../components/ReferralWidget';
 import { ReferralModal } from '../components/ReferralModal';
 import { getFreeTips, getPremiumTips, getTipsByCategory, getTipStats, getAllJackpots, type Tip, type TipCategory, type JackpotPrediction } from '../services/tipsService';
@@ -45,7 +45,10 @@ function TipCard({ tip, locked = false, onGetFree }: { tip: Tip; locked?: boolea
     }`}>
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
-        <span className="text-xs text-zinc-500 uppercase tracking-wider">{tip.league}</span>
+        <div className="flex items-center gap-1.5">
+          <LeagueLogo leagueName={tip.league} size={20} />
+          <span className="text-xs text-zinc-500 uppercase tracking-wider">{tip.league}</span>
+        </div>
         <span className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded-full flex items-center gap-1 ${
           tip.category === 'free' ? 'bg-emerald-500/20 text-emerald-400' :
           tip.category === 'vip' ? 'bg-gold-500/20 text-gold-400' :

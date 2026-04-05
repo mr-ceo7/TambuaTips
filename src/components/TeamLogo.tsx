@@ -92,3 +92,65 @@ export function TeamWithLogo({
     </span>
   );
 }
+
+/**
+ * Common league logos mapped to api-sports CDN IDs.
+ * Handles typos and various naming conventions.
+ */
+function getLeagueLogoUrl(leagueName: string): string | null {
+  if (!leagueName) return null;
+  const raw = leagueName.toLowerCase().replace(/[^a-z0-9]/g, '');
+  
+  const map: Record<number, string[]> = {
+    39: ['premierleague', 'premiurleague', 'epl', 'englandpremierleague'],
+    140: ['laliga', 'primera', 'spainlaliga', 'laligasantander', 'laligaea'],
+    135: ['seriea', 'italyseriea', 'seria', 'italyseria'],
+    78: ['bundesliga', 'germanbundesliga', 'germanybundesliga'],
+    61: ['ligue1', 'france', 'franceligue1', 'ligue1mcdonalds'],
+    2:  ['championsleague', 'ucl', 'uefachampionsleague'],
+    3:  ['europaleague', 'uel', 'uefaeuropaleague'],
+    848: ['conferenceleague', 'uecl'],
+    1:  ['worldcup', 'fifaworldcup'],
+    88: ['eredivisie', 'netherlands'],
+    94: ['primeiraliga', 'portugal'],
+    40: ['championship', 'englishchampionship', 'efl'],
+    41: ['facup', 'englishfacup'],
+    42: ['eflcup', 'carabaocup', 'leaguecup']
+  };
+
+  for (const [id, aliases] of Object.entries(map)) {
+    for (const alias of aliases) {
+      if (raw.includes(alias)) {
+        return `https://media.api-sports.io/football/leagues/${id}.png`;
+      }
+    }
+  }
+  return null;
+}
+
+export function LeagueLogo({ leagueName, size = 16, className = '' }: { leagueName: string; size?: number; className?: string }) {
+  const url = getLeagueLogoUrl(leagueName);
+  const [error, setError] = useState(false);
+
+  if (!url || error) {
+    return (
+      <span className={`inline-flex items-center justify-center rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-bold shrink-0 ${className}`} style={{ width: size, height: size, fontSize: Math.max(size * 0.5, 8) }}>
+        {leagueName ? leagueName.charAt(0).toUpperCase() : '🏆'}
+      </span>
+    );
+  }
+
+  return (
+    <div 
+      className={`flex items-center justify-center shrink-0 bg-zinc-200 rounded-full ${className}`} 
+      style={{ width: size, height: size, padding: Math.max(2, size * 0.1) }}
+    >
+      <img 
+        src={url} 
+        alt={leagueName}
+        className="w-full h-full object-contain"
+        onError={() => setError(true)}
+      />
+    </div>
+  );
+}
