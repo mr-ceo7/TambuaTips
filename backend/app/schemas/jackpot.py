@@ -11,6 +11,8 @@ class JackpotMatch(BaseModel):
     homeTeam: str
     awayTeam: str
     result: Optional[str] = None  # won, lost, void — per-match result
+    country: Optional[str] = None
+    countryFlag: Optional[str] = None
 
 
 class JackpotCreate(BaseModel):
@@ -20,6 +22,9 @@ class JackpotCreate(BaseModel):
     variations: List[List[str]]  # Each inner list is a row of picks
     price: float
     regional_prices: Optional[dict] = {}
+    notify: bool = False
+    notify_target: str = "all"
+    notify_channel: str = "both"
 
     @model_validator(mode="after")
     def validate_variations(self):

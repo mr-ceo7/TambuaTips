@@ -3,7 +3,7 @@ import { Shield, Plus, Trash2, Edit, Check, X, Bot, Star, TrendingUp, Trophy, Se
 import { getAllTips, addTip, updateTip, deleteTip, getTipStats, getAllJackpots, addJackpot, deleteJackpot, type Tip, type TipCategory, type JackpotType, type DCLevel, type JackpotMatch, type JackpotPrediction } from '../services/tipsService';
 import { getPricingTiers, updatePricingTier, addPricingTier, deletePricingTier, type TierConfig, CATEGORY_LABELS } from '../services/pricingService';
 import { toast } from 'sonner';
-import { usePageTitle } from '../hooks/usePageTitle';
+import { SEO } from '../components/SEO';
 import { useUser } from '../context/UserContext';
 import { adminService, type AdminUser } from '../services/adminService';
 
@@ -11,7 +11,7 @@ const TIP_CATEGORIES: TipCategory[] = ['free', '2+', '4+', 'gg', '10+', 'vip'];
 const DC_LEVELS: DCLevel[] = [3, 4, 5, 6, 7, 10];
 
 export function AdminPage() {
-  usePageTitle('Admin Panel');
+  <SEO title={'Admin Panel'} />
   const { user } = useUser();
   const [activeTab, setActiveTab] = useState<'tips' | 'jackpot' | 'pricing' | 'broadcast' | 'users'>('tips');
 

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { usePageTitle } from '../hooks/usePageTitle';
+import { SEO } from '../components/SEO';
 import { ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -23,7 +23,7 @@ const FAQS = [
 ];
 
 export function FAQPage() {
-  usePageTitle('FAQ');
+  <SEO title={'FAQ'} />
   const [openIndex, setOpenIndex] = useState<string | null>(null);
 
   const toggle = (id: string) => {

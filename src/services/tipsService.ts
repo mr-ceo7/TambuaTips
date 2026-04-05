@@ -33,6 +33,8 @@ export interface JackpotMatch {
   homeTeam: string;
   awayTeam: string;
   result?: string; // won, lost, void — per-match result
+  country?: string;
+  countryFlag?: string;
 }
 
 export interface JackpotPrediction {
@@ -52,6 +54,15 @@ export interface JackpotPrediction {
   locked?: boolean;
   match_count?: number;
   variation_count?: number;
+}
+
+export interface JackpotBundleInfo {
+  locked_count: number;
+  original_price: number;
+  discounted_price: number;
+  discount_pct: number;
+  currency: string;
+  currency_symbol: string;
 }
 
 // ─── Mapping Helpers ─────────────────────────────────────────
@@ -235,6 +246,17 @@ export async function getAllJackpots(): Promise<JackpotPrediction[]> {
     return res.data.map(mapJackpot);
   } catch {
     return [];
+  }
+}
+
+export async function getJackpotBundleInfo(): Promise<JackpotBundleInfo | null> {
+  try {
+    const country = await detectUserCountry();
+    const query = country ? `?country=${country}` : '';
+    const res = await apiClient.get<JackpotBundleInfo>(`/jackpots/bundle-info${query}`);
+    return res.data;
+  } catch {
+    return null;
   }
 }
 

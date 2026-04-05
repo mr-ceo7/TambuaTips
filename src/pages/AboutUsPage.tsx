@@ -1,10 +1,10 @@
 import React from 'react';
-import { usePageTitle } from '../hooks/usePageTitle';
+import { SEO } from '../components/SEO';
 import { Trophy, Target, ShieldCheck, Zap } from 'lucide-react';
 import { motion } from 'motion/react';
 
 export function AboutUsPage() {
-  usePageTitle('About Us');
+  <SEO title={'About Us'} />
 
   return (
     <div className="container mx-auto px-4 py-8 sm:py-16 max-w-4xl font-sans text-zinc-300">

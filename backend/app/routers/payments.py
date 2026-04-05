@@ -97,6 +97,49 @@ async def _resolve_amount(body: PaymentRequest, user: User, db: AsyncSession) ->
             amount = max(0, amount - discount)
             
         return float(amount), currency
+    elif body.item_type == "jackpot_bundle":
+        result = await db.execute(select(Jackpot).where(Jackpot.result == "pending"))
+        pending_jackpots = result.scalars().all()
+        if not pending_jackpots:
+            raise HTTPException(status_code=400, detail="No pending jackpots available to bundle")
+            
+        total_price = 0
+        jackpot_ids = []
+        for jp in pending_jackpots:
+            # Check if user already bought it
+            existing_purchase = await db.execute(select(JackpotPurchase).where(JackpotPurchase.user_id == user.id, JackpotPurchase.jackpot_id == jp.id))
+            if existing_purchase.scalar_one_or_none():
+                continue
+            
+            amount = jp.price
+            if region and jp.regional_prices and region.region_code in jp.regional_prices:
+                overrides = jp.regional_prices[region.region_code]
+                amount = overrides.get("price", amount)
+                
+            total_price += amount
+            jackpot_ids.append(jp.id)
+            
+        if total_price == 0:
+            raise HTTPException(status_code=400, detail="You have already purchased all available jackpots")
+            
+        # Apply bundle discount from settings
+        from app.routers.admin import get_referral_settings
+        ref_settings = await get_referral_settings(db)
+        bundle_discount_pct = float(ref_settings.get("jackpot_bundle_discount", 20))
+        
+        discount = total_price * (bundle_discount_pct / 100.0)
+        total_price = max(0, total_price - discount)
+        
+        # Check Referral Economy Discounts
+        if user.referral_discount_active:
+            disc_pct = float(ref_settings.get("discount_percentage", 50))
+            referral_discount = total_price * (disc_pct / 100.0)
+            total_price = max(0, total_price - referral_discount)
+            
+        # Store jackpot_ids in item_id separated by commas to process later
+        body.item_id = ",".join(map(str, jackpot_ids))
+        
+        return float(total_price), currency
     else:
         raise HTTPException(status_code=400, detail="Invalid item_type")
 
@@ -155,6 +198,17 @@ async def _fulfill_payment(payment: Payment, user: User, db: AsyncSession):
             payment_id=payment.id,
         )
         db.add(purchase)
+
+    elif payment.item_type == "jackpot_bundle":
+        if payment.item_id:
+            jackpot_ids = [int(x) for x in payment.item_id.split(",") if x.isdigit()]
+            for jp_id in jackpot_ids:
+                purchase = JackpotPurchase(
+                    user_id=locked_user.id,
+                    jackpot_id=jp_id,
+                    payment_id=payment.id,
+                )
+                db.add(purchase)
 
     await db.commit()
     

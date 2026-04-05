@@ -1,8 +1,8 @@
 import React from 'react';
-import { usePageTitle } from '../../hooks/usePageTitle';
+import { SEO } from '../../components/SEO';
 
 export function TermsOfService() {
-  usePageTitle('Terms of Service');
+  <SEO title={'Terms of Service'} />
 
   return (
     <div className="container mx-auto px-4 py-8 sm:py-12 max-w-4xl font-sans text-zinc-300">

@@ -45,6 +45,9 @@ export function TipsManagePage() {
     confidence: 3,
     reasoning: '',
     category: (sessionStorage.getItem('admin_last_category') as TipCategory) || 'free',
+    notify: false,
+    notify_target: 'subscribers',
+    notify_channel: 'both',
   });
 
   useEffect(() => {
@@ -63,6 +66,7 @@ export function TipsManagePage() {
       matchDate: new Date().toISOString().split('T')[0],
       prediction: '', confidence: 3, reasoning: '', 
       category: (sessionStorage.getItem('admin_last_category') as TipCategory) || 'free',
+      notify: false, notify_target: 'subscribers', notify_channel: 'both',
     });
     setEditingId(null);
     setShowForm(false);
@@ -125,6 +129,9 @@ export function TipsManagePage() {
       reasoning: form.reasoning,
       category: form.category,
       isPremium: form.category !== 'free',
+      notify: form.notify,
+      notify_target: form.notify_target,
+      notify_channel: form.notify_channel,
     };
 
     sessionStorage.setItem('admin_last_category', form.category);
@@ -151,6 +158,7 @@ export function TipsManagePage() {
       confidence: tip.confidence,
       reasoning: tip.reasoning,
       category: tip.category,
+      notify: false, notify_target: 'subscribers', notify_channel: 'both',
     });
     setEditingId(tip.id);
     setShowForm(true);
@@ -380,6 +388,43 @@ export function TipsManagePage() {
                 <textarea value={form.reasoning} onChange={e => setForm({ ...form, reasoning: e.target.value })} placeholder="Analysis / reasoning..." className="admin-input h-20 resize-none" />
               </FormField>
             </div>
+            
+            {!editingId && (
+              <div className="sm:col-span-2 lg:col-span-3 bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-4">
+                <div className="flex items-center gap-3 mb-3">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" className="w-4 h-4 accent-emerald-500" checked={form.notify} onChange={e => setForm({ ...form, notify: e.target.checked })} />
+                    <span className="text-sm font-bold text-white">Auto-notify users on publish</span>
+                  </label>
+                  <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded font-bold uppercase tracking-wider">New</span>
+                </div>
+                {form.notify && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pl-6">
+                    <div>
+                      <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Target Audience</label>
+                      <select value={form.notify_target} onChange={e => setForm({ ...form, notify_target: e.target.value })} className="admin-input text-xs py-1.5">
+                        <option value="all">Everyone</option>
+                        <option value="subscribers">All Subscribers (Paid)</option>
+                        <option value="free">Free Users</option>
+                        <option value="basic">Basic Tier</option>
+                        <option value="standard">Standard Tier</option>
+                        <option value="premium">Premium Tier</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Channel</label>
+                      <select value={form.notify_channel} onChange={e => setForm({ ...form, notify_channel: e.target.value })} className="admin-input text-xs py-1.5">
+                        <option value="both">Push + Email</option>
+                        <option value="push">Push Notification Only</option>
+                        <option value="email">Email Only</option>
+                        <option value="all">Push + Email + SMS</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="sm:col-span-2 lg:col-span-3 flex gap-3">
               <button type="submit" className="flex-1 py-2.5 bg-emerald-500 text-zinc-950 font-bold rounded-xl hover:bg-emerald-400 transition-all text-sm">
                 {editingId ? 'Update Tip' : 'Publish Tip'}

@@ -1,10 +1,10 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { usePageTitle } from '../hooks/usePageTitle';
+import { SEO } from '../components/SEO';
 import { Trophy, ArrowLeft } from 'lucide-react';
 
 export function NotFoundPage() {
-  usePageTitle('Page Not Found');
+  <SEO title={'Page Not Found'} />
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[70vh] px-4 text-center">

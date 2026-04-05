@@ -12,6 +12,7 @@ from app.dependencies import get_db, get_current_user, get_current_user_optional
 from app.models.user import User
 from app.models.tip import Tip
 from app.schemas.tip import TipCreate, TipUpdate, TipResponse, TipLockedResponse, TipStatsResponse
+from fastapi import BackgroundTasks
 
 router = APIRouter(prefix="/api/tips", tags=["Tips"])
 
@@ -19,8 +20,8 @@ router = APIRouter(prefix="/api/tips", tags=["Tips"])
 TIER_RANK = {"free": 0, "basic": 1, "standard": 2, "premium": 3}
 CATEGORY_MIN_TIER = {
     "free": "free",
-    "2+": "standard",
-    "4+": "basic",
+    "2+": "basic",
+    "4+": "standard",
     "gg": "standard",
     "10+": "premium",
     "vip": "premium",
@@ -88,10 +89,11 @@ async def list_tips(
         # Check if the user has specifically unlocked this tip via their referral points
         is_specifically_unlocked = user and tip.id in (user.unlocked_tip_ids or [])
 
-        # Always unlock perfectly if they bought it, specifically unlocked it, OR if the tip is historically decided
-        if has_normal_access or is_specifically_unlocked or is_decided:
+        # Full access: they bought it or specifically unlocked it
+        if has_normal_access or is_specifically_unlocked:
             response.append(TipResponse.model_validate(tip))
         else:
+            # Locked response — hide prediction/odds/reasoning but show result for decided tips
             response.append(TipLockedResponse(
                 id=tip.id,
                 fixture_id=tip.fixture_id,
@@ -147,7 +149,7 @@ async def get_tip(tip_id: int, db: AsyncSession = Depends(get_db), user: User = 
 
 
 @router.post("", response_model=TipResponse, status_code=201)
-async def create_tip(body: TipCreate, db: AsyncSession = Depends(get_db), admin: User = Depends(require_admin)):
+async def create_tip(body: TipCreate, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db), admin: User = Depends(require_admin)):
     tip = Tip(
         fixture_id=body.fixture_id,
         home_team=body.home_team,
@@ -166,6 +168,27 @@ async def create_tip(body: TipCreate, db: AsyncSession = Depends(get_db), admin:
     db.add(tip)
     await db.commit()
     await db.refresh(tip)
+    
+    if body.notify:
+        from app.routers.admin import broadcast_push, BroadcastPushRequest
+        # Catchy notification draft
+        msg_title = f"🔥 New {body.category.upper()} Tip Posted!"
+        msg_body = f"We just dropped a new {body.category.upper()} prediction: {body.home_team} vs {body.away_team} in the {body.league}. Log in now to view it and smash the bookies!"
+        
+        req = BroadcastPushRequest(
+            title=msg_title,
+            body=msg_body,
+            icon="/tambua-logo.jpg",
+            url="/tips",
+            target_tier=body.notify_target,
+            target_country="all",
+            delivery_method=body.notify_channel
+        )
+        try:
+            await broadcast_push(req, background_tasks, db, admin)
+        except Exception as e:
+            print("Auto-broadcast failed:", e)
+            
     return tip
 
 

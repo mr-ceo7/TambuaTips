@@ -25,6 +25,9 @@ class TipCreate(BaseModel):
     confidence: int = 3
     reasoning: Optional[str] = None
     category: str = "free"
+    notify: bool = False
+    notify_target: str = "all"  # all, subscribers, free, basic, standard, premium
+    notify_channel: str = "both"  # both, push, email, sms
 
 
 class TipUpdate(BaseModel):

@@ -23,19 +23,19 @@ const DEFAULT_TIERS: TierConfig[] = [
   {
     id: 'basic',
     name: 'Basic',
-    description: 'Perfect for casual bettors who want solid mid-range tips.',
+    description: 'Perfect for casual bettors who want solid low-odds tips.',
     price2wk: 550,
     price4wk: 860,
-    categories: ['free', '4+'],
+    categories: ['free', '2+'],
     popular: false,
   },
   {
     id: 'standard',
     name: 'Standard',
-    description: 'All Basic tips plus low-odds and GG picks for consistent wins.',
+    description: 'All Basic tips plus 4+ Odds and GG picks for consistent wins.',
     price2wk: 1250,
     price4wk: 2000,
-    categories: ['free', '4+', '2+', 'gg'],
+    categories: ['free', '2+', '4+', 'gg'],
     popular: true,
   },
   {
@@ -44,15 +44,15 @@ const DEFAULT_TIERS: TierConfig[] = [
     description: 'The ultimate package — everything including VIP specials and high-odds tips.',
     price2wk: 2500,
     price4wk: 4500,
-    categories: ['free', '4+', '2+', 'gg', '10+', 'vip'],
+    categories: ['free', '2+', '4+', 'gg', '10+', 'vip'],
     popular: false,
   },
 ];
 
 export const CATEGORY_LABELS: Record<TipCategory, { label: string; minTier: SubscriptionTier }> = {
   'free': { label: 'Free Tips', minTier: 'free' },
-  '2+': { label: '2+ Odds', minTier: 'standard' },
-  '4+': { label: '4+ Odds', minTier: 'basic' },
+  '2+': { label: '2+ Odds', minTier: 'basic' },
+  '4+': { label: '4+ Odds', minTier: 'standard' },
   'gg': { label: 'GG (BTTS)', minTier: 'standard' },
   '10+': { label: '10+ Odds', minTier: 'premium' },
   'vip': { label: 'VIP Special (80+)', minTier: 'premium' },

@@ -69,28 +69,27 @@ export function ReferralModal({ isOpen, onClose, tipId }: ReferralModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
       
       {/* Modal */}
       <div 
-        className="relative w-full max-w-md bg-zinc-950 border border-emerald-500/30 rounded-2xl shadow-2xl shadow-emerald-500/10 overflow-y-auto overflow-x-hidden max-h-[calc(100vh-2rem)]"
-        onClick={e => e.stopPropagation()}
+        className="relative w-full max-w-md bg-zinc-950 border border-emerald-500/30 rounded-2xl shadow-2xl shadow-emerald-500/10 overflow-hidden max-h-[calc(100vh-2rem)] flex flex-col"
       >
         {/* Glow Background */}
         <div className="absolute -top-24 -right-24 w-48 h-48 bg-emerald-500/15 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -bottom-20 -left-20 w-40 h-40 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
 
-        {/* Close Button */}
+        {/* Close Button — sticky at top right */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 z-10 p-2 rounded-full bg-zinc-900 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-all"
+          className="absolute top-3 right-3 z-20 p-2 rounded-full bg-zinc-900/90 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-all border border-zinc-700/50"
         >
           <X className="w-4 h-4" />
         </button>
 
-        <div className="relative z-10 p-6">
+        <div className="relative z-10 p-6 overflow-y-auto">
           {/* Header */}
           <div className="text-center mb-6">
             <div className="w-14 h-14 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-3 shadow-[0_0_25px_rgba(16,185,129,0.2)]">

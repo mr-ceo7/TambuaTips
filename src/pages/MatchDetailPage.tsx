@@ -4,7 +4,7 @@ import { Loader2, ArrowLeft, Clock, MapPin, Trophy, TrendingUp, Lock, Zap, Star,
 import { fetchFixtureById } from '../services/sportsApiService';
 import { getTipByFixtureId, type Tip } from '../services/tipsService';
 import { FixtureData } from '../types';
-import { usePageTitle } from '../hooks/usePageTitle';
+import { SEO } from '../components/SEO';
 // Detached: import { useBetSlip } from '../context/BetSlipContext';
 import { useUser } from '../context/UserContext';
 import { MatchDetailSkeleton } from '../components/skeletons/MatchDetailSkeleton';
@@ -23,7 +23,7 @@ const MOCK_STATS = {
 };
 
 export function MatchDetailPage() {
-  usePageTitle('Match Detail');
+  <SEO title={'Match Detail'} />
   const { id } = useParams<{ id: string }>();
   const [fixture, setFixture] = useState<FixtureData | null>(null);
   const [tip, setTip] = useState<Tip | undefined>(undefined);

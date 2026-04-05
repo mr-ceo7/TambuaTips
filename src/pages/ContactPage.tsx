@@ -1,10 +1,10 @@
 import React from 'react';
-import { usePageTitle } from '../hooks/usePageTitle';
+import { SEO } from '../components/SEO';
 import { FaWhatsapp, FaEnvelope } from 'react-icons/fa';
 import { motion } from 'motion/react';
 
 export function ContactPage() {
-  usePageTitle('Contact Us');
+  <SEO title={'Contact Us'} />
 
   return (
     <div className="container mx-auto px-4 py-8 sm:py-12 max-w-3xl font-sans text-zinc-300">

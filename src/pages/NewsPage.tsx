@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { Loader2, Search, ExternalLink, ArrowLeft, Facebook, Twitter, MessageCircle } from 'lucide-react';
 import { fetchNews, FALLBACK_IMAGE, type NewsItem } from '../services/newsService';
-import { usePageTitle } from '../hooks/usePageTitle';
+import { SEO } from '../components/SEO';
 
 const BRAND_AD_ARTICLE: NewsItem = {
   id: 'promo-tambua-ad',
@@ -14,7 +14,7 @@ const BRAND_AD_ARTICLE: NewsItem = {
 };
 
 export function NewsPage() {
-  usePageTitle('Football News');
+  <SEO title={'Football News'} />
   const [articles, setArticles] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);

@@ -1,8 +1,8 @@
 import React from 'react';
-import { usePageTitle } from '../../hooks/usePageTitle';
+import { SEO } from '../../components/SEO';
 
 export function RefundPolicy() {
-  usePageTitle('Refund Policy');
+  <SEO title={'Refund Policy'} />
 
   return (
     <div className="container mx-auto px-4 py-8 sm:py-12 max-w-4xl font-sans text-zinc-300">

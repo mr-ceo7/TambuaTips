@@ -47,6 +47,12 @@ REFERRAL_DEFAULTS = {
     "referral_new_user_reward": "false",
     "referral_new_user_reward_tier": "basic",
     "referral_new_user_reward_days": "7",
+    "jackpot_midweek_price": "500",
+    "jackpot_mega_price": "1000",
+    "jackpot_midweek_int_price": "5",
+    "jackpot_mega_int_price": "10",
+    "jackpot_history_retention_days": "30",
+    "jackpot_bundle_discount": "20",
 }
 
 REFERRAL_DESCRIPTIONS = {
@@ -59,6 +65,12 @@ REFERRAL_DESCRIPTIONS = {
     "referral_new_user_reward": "Whether the new user also gets rewarded on sign-up",
     "referral_new_user_reward_tier": "Subscription tier granted to the new user",
     "referral_new_user_reward_days": "Days of access granted to the new user",
+    "jackpot_midweek_price": "Default price for Midweek Jackpot in local currency (KES)",
+    "jackpot_mega_price": "Default price for Mega Jackpot in local currency (KES)",
+    "jackpot_midweek_int_price": "Default price for Midweek Jackpot in international currency (USD)",
+    "jackpot_mega_int_price": "Default price for Mega Jackpot in international currency (USD)",
+    "jackpot_history_retention_days": "Number of days to keep jackpots visible in the history",
+    "jackpot_bundle_discount": "Percentage discount offered when purchasing all available jackpots together (0-100)",
 }
 
 async def get_referral_settings(db: AsyncSession) -> dict:
@@ -88,6 +100,12 @@ class SettingsUpdateProps(BaseModel):
     referral_new_user_reward: Optional[bool] = None
     referral_new_user_reward_tier: Optional[str] = None
     referral_new_user_reward_days: Optional[int] = None
+    jackpot_midweek_price: Optional[int] = None
+    jackpot_mega_price: Optional[int] = None
+    jackpot_midweek_int_price: Optional[int] = None
+    jackpot_mega_int_price: Optional[int] = None
+    jackpot_history_retention_days: Optional[int] = None
+    jackpot_bundle_discount: Optional[int] = None
 
 
 @router.get("/settings")
@@ -300,8 +318,8 @@ async def clear_dashboard_stats(db: AsyncSession = Depends(get_db), admin: User 
         # Reset all registered users back to free tier
         await db.execute(
             update(User)
-            .where(User.subscription_tier != None)
-            .values(subscription_tier=None, subscription_expires_at=None)
+            .where(User.subscription_tier != "free")
+            .values(subscription_tier="free", subscription_expires_at=None)
         )
         
         await db.commit()
@@ -888,6 +906,42 @@ async def revoke_subscription(user_id: int, db: AsyncSession = Depends(get_db), 
     await db.commit()
     return {"status": "success"}
 
+
+class GrantSubscriptionRequest(BaseModel):
+    tier: str  # basic, standard, premium
+    duration_days: int  # number of days to grant
+
+
+@router.put("/users/{user_id}/grant-subscription")
+async def grant_subscription(
+    user_id: int,
+    body: GrantSubscriptionRequest,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Grant a subscription tier + duration to a user."""
+    if body.tier not in ("basic", "standard", "premium"):
+        raise HTTPException(status_code=400, detail="Invalid tier. Must be basic, standard, or premium.")
+    if body.duration_days < 1 or body.duration_days > 365:
+        raise HTTPException(status_code=400, detail="Duration must be 1-365 days.")
+
+    result = await db.execute(select(User).where(User.id == user_id))
+    u = result.scalar_one_or_none()
+    if not u:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    u.subscription_tier = body.tier
+    # If they already have time remaining, extend from current expiry; otherwise from now
+    now = datetime.now(UTC).replace(tzinfo=None)
+    current_expiry = u.subscription_expires_at if u.subscription_expires_at and u.subscription_expires_at > now else now
+    u.subscription_expires_at = current_expiry + timedelta(days=body.duration_days)
+    await db.commit()
+    return {
+        "status": "success",
+        "tier": u.subscription_tier,
+        "expires_at": u.subscription_expires_at.isoformat(),
+    }
+
 @router.put("/users/{user_id}/toggle-active")
 async def toggle_active(user_id: int, db: AsyncSession = Depends(get_db), admin: User = Depends(require_admin)):
     result = await db.execute(select(User).where(User.id == user_id))
@@ -989,8 +1043,11 @@ async def broadcast_push(
     filters = []
     if request.target_tier == "free":
         filters.append(User.subscription_tier == "free")
-    elif request.target_tier == "premium":
+    elif request.target_tier == "subscribers":
         filters.append(User.subscription_tier != "free")
+    elif request.target_tier in ("basic", "standard", "premium"):
+        filters.append(User.subscription_tier == request.target_tier)
+    # "all" = no tier filter
     if request.target_country and request.target_country != "all":
         filters.append(User.country == request.target_country)
         

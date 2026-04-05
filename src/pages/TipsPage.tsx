@@ -4,9 +4,9 @@ import { Zap, Lock, Star, Trophy, Crown, ChevronRight, Target, Plus, Check, Eye,
 import { TeamWithLogo, LeagueLogo } from '../components/TeamLogo';
 import { ReferralWidget } from '../components/ReferralWidget';
 import { ReferralModal } from '../components/ReferralModal';
-import { getFreeTips, getPremiumTips, getTipsByCategory, getTipStats, getAllJackpots, type Tip, type TipCategory, type JackpotPrediction } from '../services/tipsService';
+import { getFreeTips, getPremiumTips, getTipsByCategory, getTipStats, getAllJackpots, getJackpotBundleInfo, type Tip, type TipCategory, type JackpotPrediction, type JackpotBundleInfo } from '../services/tipsService';
 import { CATEGORY_LABELS } from '../services/pricingService';
-import { usePageTitle } from '../hooks/usePageTitle';
+import { SEO } from '../components/SEO';
 import { useUser } from '../context/UserContext';
 // Detached: import { useBetSlip } from '../context/BetSlipContext';
 
@@ -165,64 +165,109 @@ function JackpotCard({ jackpot, onGetFree }: { jackpot: JackpotPrediction; key?:
     }
   };
 
+  const resultBadge = jackpot.result && jackpot.result !== 'pending' ? jackpot.result : null;
+
   return (
-    <div className="bg-zinc-900/60 border border-zinc-800 rounded-2xl overflow-hidden">
+    <div className={`bg-zinc-900/60 border rounded-2xl overflow-hidden transition-all ${
+      resultBadge === 'won' ? 'border-emerald-500/40' :
+      resultBadge === 'lost' ? 'border-red-500/40' :
+      resultBadge === 'bonus' ? 'border-yellow-500/40' :
+      resultBadge === 'postponed' ? 'border-orange-500/40' :
+      'border-zinc-800'
+    }`}>
       <div className="p-5">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <div className="p-2 rounded-lg bg-gold-500/20">
-              <Trophy className="w-5 h-5 text-gold-400" />
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className={`p-2.5 rounded-xl ${
+              resultBadge === 'won' ? 'bg-emerald-500/20' :
+              resultBadge === 'lost' ? 'bg-red-500/20' :
+              'bg-gold-500/20'
+            }`}>
+              <Trophy className={`w-6 h-6 ${
+                resultBadge === 'won' ? 'text-emerald-400' :
+                resultBadge === 'lost' ? 'text-red-400' :
+                'text-gold-400'
+              }`} />
             </div>
             <div>
-              <h4 className="text-sm font-bold text-white uppercase">
+              <h4 className="text-base font-bold text-white uppercase tracking-wide">
                 {jackpot.type === 'midweek' ? 'Midweek Jackpot' : 'Mega Jackpot'}
               </h4>
-              <p className="text-[10px] text-zinc-500">
-                {jackpot.type === 'midweek' ? '13 Matches' : '17 Matches'} • {jackpot.dcLevel}DC • {variationCount} Variation{variationCount !== 1 ? 's' : ''}
+              <p className="text-xs text-zinc-400 font-medium">
+                {jackpot.type === 'midweek' ? '13 Matches' : '17 Matches'} • <span className="text-gold-400 font-bold">{jackpot.dcLevel}DC</span> • {variationCount} Variation{variationCount !== 1 ? 's' : ''}
               </p>
             </div>
           </div>
           <div className="text-right">
+            {resultBadge && (
+              <span className={`block text-[10px] font-black uppercase tracking-wider mb-1 px-2.5 py-0.5 rounded-full ${
+                resultBadge === 'won' ? 'bg-emerald-500/20 text-emerald-400' :
+                resultBadge === 'lost' ? 'bg-red-500/20 text-red-400' :
+                resultBadge === 'bonus' ? 'bg-yellow-500/20 text-yellow-400' :
+                resultBadge === 'postponed' ? 'bg-orange-500/20 text-orange-400' :
+                'bg-zinc-800 text-zinc-400'
+              }`}>{resultBadge}</span>
+            )}
             <span className="text-lg font-bold text-gold-400">{jackpot.currency_symbol || 'KES'} {jackpot.price.toLocaleString(undefined, {minimumFractionDigits: jackpot.price % 1 !== 0 ? 2 : 0})}</span>
           </div>
         </div>
 
-        <p className="text-xs text-zinc-400 mb-3">
-          {variationCount} unique prediction variation{variationCount !== 1 ? 's' : ''} covering {jackpot.dcLevel} outcomes per match for maximum coverage.
+        <p className="text-sm text-zinc-400 mb-4">
+          <span className="text-white font-semibold">{variationCount}</span> unique prediction variation{variationCount !== 1 ? 's' : ''} covering <span className="text-gold-400 font-semibold">{jackpot.dcLevel}</span> outcomes per match for maximum coverage.
         </p>
 
         {/* Locked/Unlocked Content */}
         {isUnlocked && jackpot.variations && jackpot.variations.length > 0 ? (
           <div className="bg-zinc-950/50 border border-emerald-500/20 rounded-xl overflow-hidden mb-4">
-            <div className="max-h-64 overflow-auto">
-              <table className="w-full text-[10px]">
+            <div className="max-h-72 overflow-auto">
+              <table className="w-full text-xs">
                 <thead className="sticky top-0 bg-zinc-900 z-10">
                   <tr className="border-b border-zinc-800">
-                    <th className="px-2 py-1.5 text-left text-zinc-500 font-bold uppercase tracking-wider w-6">#</th>
-                    <th className="px-2 py-1.5 text-left text-zinc-500 font-bold uppercase tracking-wider">Match</th>
+                    <th className="px-2.5 py-2 text-left text-zinc-500 font-bold uppercase tracking-wider w-7">#</th>
+                    <th className="px-2.5 py-2 text-left text-zinc-500 font-bold uppercase tracking-wider">Match</th>
                     {jackpot.variations.map((_, vi) => (
-                      <th key={vi} className="px-1.5 py-1.5 text-center text-gold-400 font-bold uppercase tracking-wider w-10">V{vi + 1}</th>
+                      <th key={vi} className="px-2 py-2 text-center text-gold-400 font-bold uppercase tracking-wider w-12">V{vi + 1}</th>
                     ))}
+                    <th className="px-2 py-2 text-center text-zinc-500 font-bold uppercase tracking-wider w-16">Result</th>
                   </tr>
                 </thead>
                 <tbody>
                   {jackpot.matches.map((m, idx) => (
                     <tr key={idx} className={`border-b border-zinc-800/50 last:border-0 ${
-                      m.result === 'won' ? 'bg-emerald-500/5' : m.result === 'lost' ? 'bg-red-500/5' : ''
+                      m.result === 'won' ? 'bg-emerald-500/5' : m.result === 'lost' ? 'bg-red-500/5' : m.result === 'postponed' ? 'bg-orange-500/5' : ''
                     }`}>
-                      <td className="px-2 py-1 text-zinc-500">{idx + 1}</td>
-                      <td className="px-2 py-1">
-                        <span className="text-zinc-400 inline-flex items-center gap-0.5 flex-wrap">
-                          <TeamWithLogo teamName={m.homeTeam} size={12} textClassName="text-[10px]" />
-                          <span className="text-zinc-600 mx-0.5">vs</span>
-                          <TeamWithLogo teamName={m.awayTeam} size={12} textClassName="text-[10px]" />
-                        </span>
+                      <td className="px-2.5 py-1.5 text-zinc-500 font-mono">{idx + 1}</td>
+                      <td className="px-2.5 py-1.5">
+                        <div className="flex flex-col gap-0.5">
+                          {m.country && (
+                            <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider flex items-center gap-1">
+                              {m.countryFlag && <span className="text-xs">{m.countryFlag}</span>}
+                              {m.country}
+                            </span>
+                          )}
+                          <span className="text-zinc-300 inline-flex items-center gap-1 flex-wrap">
+                            <TeamWithLogo teamName={m.homeTeam} size={14} textClassName="text-xs" />
+                            <span className="text-zinc-600 mx-0.5">vs</span>
+                            <TeamWithLogo teamName={m.awayTeam} size={14} textClassName="text-xs" />
+                          </span>
+                        </div>
                       </td>
                       {jackpot.variations.map((v, vi) => (
-                        <td key={vi} className="px-1.5 py-1 text-center">
-                          <span className="font-mono font-bold text-emerald-400">{v[idx] || '-'}</span>
+                        <td key={vi} className="px-2 py-1.5 text-center">
+                          <span className="font-mono font-bold text-emerald-400 text-sm">{v[idx] || '-'}</span>
                         </td>
                       ))}
+                      <td className="px-2 py-1.5 text-center">
+                        {m.result === 'won' ? (
+                          <span className="text-[10px] font-black text-emerald-400 bg-emerald-500/15 px-2 py-0.5 rounded-full uppercase">Won</span>
+                        ) : m.result === 'lost' ? (
+                          <span className="text-[10px] font-black text-red-400 bg-red-500/15 px-2 py-0.5 rounded-full uppercase">Lost</span>
+                        ) : m.result === 'postponed' ? (
+                          <span className="text-[10px] font-black text-orange-400 bg-orange-500/15 px-2 py-0.5 rounded-full uppercase">PPD</span>
+                        ) : (
+                          <span className="text-[10px] text-zinc-600">—</span>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -231,12 +276,12 @@ function JackpotCard({ jackpot, onGetFree }: { jackpot: JackpotPrediction; key?:
           </div>
         ) : isUnlocked ? (
           <div className="bg-zinc-950/50 border border-emerald-500/20 rounded-xl p-4 mb-4 text-center">
-            <p className="text-xs text-zinc-500">No variations added yet.</p>
+            <p className="text-sm text-zinc-500">No variations added yet.</p>
           </div>
         ) : (
-          <div className="bg-zinc-950/50 border border-zinc-800 rounded-xl p-4 mb-4 text-center">
-            <Lock className="w-6 h-6 text-gold-400/40 mx-auto mb-2" />
-            <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">
+          <div className="bg-zinc-950/50 border border-zinc-800 rounded-xl p-5 mb-4 text-center">
+            <Lock className="w-7 h-7 text-gold-400/40 mx-auto mb-2" />
+            <p className="text-xs text-zinc-500 font-bold uppercase tracking-wider">
               {jackpot.match_count || jackpot.matches?.length || 0} matches • {variationCount} variations locked
             </p>
           </div>
@@ -246,14 +291,14 @@ function JackpotCard({ jackpot, onGetFree }: { jackpot: JackpotPrediction; key?:
           <div className="flex flex-col sm:flex-row gap-2">
             <button
               onClick={handlePurchase}
-              className="flex-1 py-2.5 bg-gold-500 text-zinc-950 font-bold rounded-xl text-sm hover:bg-gold-400 transition-all shadow-lg shadow-gold-500/20"
+              className="flex-1 py-3 bg-gold-500 text-zinc-950 font-bold rounded-xl text-sm hover:bg-gold-400 transition-all shadow-lg shadow-gold-500/20"
             >
               Unlock {jackpot.currency_symbol || 'KES'} {jackpot.price.toLocaleString(undefined, {minimumFractionDigits: jackpot.price % 1 !== 0 ? 2 : 0})}
             </button>
             {onGetFree && (
               <button 
                 onClick={(e) => { e.preventDefault(); onGetFree(); }}
-                className="flex-1 py-2.5 flex items-center justify-center gap-1.5 bg-emerald-500 text-zinc-950 font-bold rounded-xl text-sm hover:bg-emerald-400 transition-all shadow-lg shadow-emerald-500/20"
+                className="flex-1 py-3 flex items-center justify-center gap-1.5 bg-emerald-500 text-zinc-950 font-bold rounded-xl text-sm hover:bg-emerald-400 transition-all shadow-lg shadow-emerald-500/20"
               >
                 <Gift className="w-4 h-4" />
                 Get Free
@@ -263,8 +308,8 @@ function JackpotCard({ jackpot, onGetFree }: { jackpot: JackpotPrediction; key?:
         )}
         
         {isUnlocked && (
-          <div className="w-full py-2.5 bg-emerald-500/20 text-emerald-400 font-bold rounded-xl text-sm text-center border border-emerald-500/30">
-            Predictions Unlocked
+          <div className="w-full py-3 bg-emerald-500/20 text-emerald-400 font-bold rounded-xl text-sm text-center border border-emerald-500/30">
+            ✓ Predictions Unlocked
           </div>
         )}
       </div>
@@ -275,12 +320,13 @@ function JackpotCard({ jackpot, onGetFree }: { jackpot: JackpotPrediction; key?:
 
 // ─── Main Page ───────────────────────────────────────────────
 export function TipsPage() {
-  usePageTitle('Expert Tips');
-  const { user, hasAccess, hasJackpotAccess, setShowAuthModal, setShowPricingModal } = useUser();
+  <SEO title={'Expert Tips'} />
+  const { user, hasAccess, hasJackpotAccess, setShowAuthModal, setShowPricingModal, setShowJackpotModal, setSelectedJackpot } = useUser();
   const [activeTab, setActiveTab] = useState<'tips' | 'jackpot'>('tips');
   const [activeCategoryTab, setActiveCategoryTab] = useState<TipCategory>('free');
   const [stats, setStats] = useState({ total: 0, won: 0, lost: 0, pending: 0, voided: 0, winRate: 0 });
   const [jackpots, setJackpots] = useState<JackpotPrediction[]>([]);
+  const [bundleInfo, setBundleInfo] = useState<JackpotBundleInfo | null>(null);
   const [tipsByCategory, setTipsByCategory] = useState<Record<string, Tip[]>>({});
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
   const [showScreenshotWarning, setShowScreenshotWarning] = useState(false);
@@ -330,8 +376,9 @@ export function TipsPage() {
         })
       );
       const jackpotPromise = getAllJackpots();
+      const bundlePromise = getJackpotBundleInfo();
 
-      const [tipsResults, jackpotResults] = await Promise.all([tipsPromise, jackpotPromise]);
+      const [tipsResults, jackpotResults, bundleResult] = await Promise.all([tipsPromise, jackpotPromise, bundlePromise]);
 
       if (!isMounted) return;
 
@@ -339,6 +386,7 @@ export function TipsPage() {
       tipsResults.forEach(r => { newMap[r.cat] = r.tips; });
       setTipsByCategory(newMap);
       setJackpots(jackpotResults);
+      setBundleInfo(bundleResult);
 
       if (isInitial) {
         setLoadingTips(false);
@@ -543,17 +591,73 @@ export function TipsPage() {
               <div className="h-64 bg-zinc-900/60 border border-zinc-800 rounded-2xl" />
             </div>
           ) : jackpots.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {jackpots.map(j => {
-                const isUnlocked = !j.locked;
-                return (
-                  <JackpotCard 
-                    key={j.id} 
-                    jackpot={j} 
-                    onGetFree={(!isUnlocked && user) ? () => setShowReferralModal(true) : undefined}
-                  />
-                );
-              })}
+            <div className="space-y-6">
+              {/* Bundle Upsell Banner */}
+              {bundleInfo && bundleInfo.locked_count > 1 && (
+                <div className="bg-linear-to-r from-emerald-900/40 to-emerald-800/20 border border-emerald-500/30 rounded-2xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4 animate-in fade-in slide-in-from-bottom-4 relative overflow-hidden">
+                  <div className="absolute -right-10 -top-10 w-40 h-40 bg-emerald-500/10 blur-3xl rounded-full" />
+                  
+                  <div className="flex items-center gap-4 relative z-10 w-full sm:w-auto">
+                    <div className="w-12 h-12 bg-emerald-500/20 border border-emerald-500/30 rounded-full flex items-center justify-center shrink-0">
+                      <Gift className="w-6 h-6 text-emerald-400" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-white mb-0.5">Unlock All Jackpots</h3>
+                      <p className="text-sm text-zinc-300">
+                        Get all {bundleInfo.locked_count} pending predictions and <span className="text-emerald-400 font-bold">save {bundleInfo.discount_pct}%</span>
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto relative z-10">
+                    <div className="text-center sm:text-right">
+                      <p className="text-[10px] text-zinc-500 line-through">
+                        {bundleInfo.currency_symbol} {bundleInfo.original_price.toLocaleString(undefined, {minimumFractionDigits: bundleInfo.original_price % 1 !== 0 ? 2 : 0})}
+                      </p>
+                      <p className="font-black text-emerald-400 text-lg leading-none">
+                        {bundleInfo.currency_symbol} {bundleInfo.discounted_price.toLocaleString(undefined, {minimumFractionDigits: bundleInfo.discounted_price % 1 !== 0 ? 2 : 0})}
+                      </p>
+                    </div>
+                    <button 
+                      onClick={() => {
+                        // Create a faux bundle jackpot prediction object for the modal
+                        const bundleJackpot: JackpotPrediction = {
+                          id: 'bundle',
+                          type: 'mega', // Visual only
+                          dcLevel: 5,
+                          matches: [],
+                          variations: [],
+                          price: bundleInfo.discounted_price,
+                          result: 'pending',
+                          currency: bundleInfo.currency,
+                          currency_symbol: bundleInfo.currency_symbol,
+                          createdAt: new Date().toISOString(),
+                          updatedAt: new Date().toISOString()
+                        };
+                        setSelectedJackpot(bundleJackpot);
+                        setShowJackpotModal(true);
+                      }}
+                      className="w-full sm:w-auto px-6 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold rounded-xl transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2"
+                    >
+                      <Lock className="w-4 h-4" />
+                      Unlock Bundle
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {jackpots.map(j => {
+                  const isUnlocked = !j.locked;
+                  return (
+                    <JackpotCard 
+                      key={j.id} 
+                      jackpot={j} 
+                      onGetFree={(!isUnlocked && user) ? () => setShowReferralModal(true) : undefined}
+                    />
+                  );
+                })}
+              </div>
             </div>
           ) : (
             <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-8 text-center">
@@ -569,7 +673,7 @@ export function TipsPage() {
 
       {/* Anti-Screenshot Overlay */}
       {showScreenshotWarning && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-3xl p-4">
+        <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/90 backdrop-blur-3xl p-4">
           <div className="bg-zinc-950 border border-emerald-500/30 rounded-2xl p-6 max-w-md w-full relative">
             <button 
               onClick={() => setShowScreenshotWarning(false)}

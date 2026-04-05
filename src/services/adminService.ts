@@ -147,15 +147,19 @@ export interface FixtureSearchResult {
 }
 
 export interface ReferralSettings {
-  referral_enabled: boolean;
-  points_per_tip: number;
-  points_per_discount: number;
-  discount_percentage: number;
-  points_per_premium: number;
-  premium_days_reward: number;
-  referral_new_user_reward: boolean;
-  referral_new_user_reward_tier: string;
-  referral_new_user_reward_days: number;
+  referral_enabled?: boolean;
+  points_per_tip?: number;
+  points_per_discount?: number;
+  discount_percentage?: number;
+  points_per_premium?: number;
+  premium_days_reward?: number;
+  referral_new_user_reward?: boolean;
+  referral_new_user_reward_tier?: string;
+  referral_new_user_reward_days?: number;
+  jackpot_midweek_price?: number;
+  jackpot_mega_price?: number;
+  jackpot_midweek_int_price?: number;
+  jackpot_mega_int_price?: number;
 }
 
 export interface SMSSettings {
@@ -211,6 +215,13 @@ export const adminService = {
 
   revokeSubscription: async (userId: number): Promise<void> => {
     await apiClient.put(`/admin/users/${userId}/revoke`);
+  },
+
+  grantSubscription: async (userId: number, tier: string, durationDays: number): Promise<void> => {
+    await apiClient.put(`/admin/users/${userId}/grant-subscription`, {
+      tier,
+      duration_days: durationDays,
+    });
   },
 
   toggleUserActive: async (userId: number): Promise<{ is_active: boolean }> => {

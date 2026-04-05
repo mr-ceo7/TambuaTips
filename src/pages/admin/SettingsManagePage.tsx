@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Loader2, Settings, ShieldAlert, ToggleLeft, ToggleRight, Users, Gift, TrendingUp, Crown, UserPlus, MessageSquare, Smartphone, Eye, Mail, Info, Percent } from 'lucide-react';
+import { Save, Loader2, Settings, ShieldAlert, ToggleLeft, ToggleRight, Users, Gift, TrendingUp, Crown, UserPlus, MessageSquare, Smartphone, Eye, Mail, Info, Percent, Trophy, Trash2 } from 'lucide-react';
 import { adminService, type ReferralSettings, type ReferralStatsResponse, type SMSSettings, type EmailSettings } from '../../services/adminService';
 import { toast } from 'sonner';
 
@@ -20,6 +20,10 @@ export function SettingsManagePage() {
     referral_new_user_reward_tier: 'basic',
     referral_new_user_reward_days: 7,
     referral_free_tips_count: 1,
+    jackpot_midweek_price: 500,
+    jackpot_mega_price: 1000,
+    jackpot_midweek_int_price: 5,
+    jackpot_mega_int_price: 10,
   });
   const [stats, setStats] = useState<ReferralStatsResponse | null>(null);
   const [smsSettings, setSmsSettings] = useState<SMSSettings>({
@@ -461,6 +465,106 @@ export function SettingsManagePage() {
             <p className="text-zinc-400">
               SMS messages are sent via <span className="text-white font-bold">Trackomgroup</span> using sender ID <span className="text-white font-bold font-mono">{smsSettings.SMS_SRC || '—'}</span>. Each OTP is valid for <span className="text-white font-bold">5 minutes</span> and auto-expires.
             </p>
+          </div>
+        </div>
+      </div>
+
+      {/* ═══ Global Jackpot Defaults ═══ */}
+      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
+        <div className="mb-6">
+          <h2 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+            <Trophy className="w-4 h-4 text-yellow-500" />
+            Global Jackpot Pricing
+          </h2>
+          <p className="text-xs text-zinc-500 mt-1">Default prices pre-filled when creating new jackpots</p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 bg-yellow-500/5 border border-yellow-500/10 rounded-xl p-5">
+          <div className="space-y-4">
+            <h3 className="text-xs font-bold text-yellow-400 uppercase tracking-wider border-b border-yellow-500/20 pb-2">Midweek Jackpot</h3>
+            <div className="space-y-2">
+              <label className="block text-[10px] font-bold text-zinc-300 uppercase">Local Price (KES)</label>
+              <input
+                type="number"
+                value={settings.jackpot_midweek_price || 0}
+                onChange={e => setSettings({ ...settings, jackpot_midweek_price: parseInt(e.target.value) || 0 })}
+                className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-yellow-500"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="block text-[10px] font-bold text-zinc-300 uppercase">International Price (USD)</label>
+              <input
+                type="number"
+                step="0.01"
+                value={settings.jackpot_midweek_int_price || 0}
+                onChange={e => setSettings({ ...settings, jackpot_midweek_int_price: parseFloat(e.target.value) || 0 })}
+                className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-yellow-500"
+              />
+            </div>
+          </div>
+          <div className="space-y-4">
+            <h3 className="text-xs font-bold text-yellow-400 uppercase tracking-wider border-b border-yellow-500/20 pb-2">Mega Jackpot</h3>
+            <div className="space-y-2">
+              <label className="block text-[10px] font-bold text-zinc-300 uppercase">Local Price (KES)</label>
+              <input
+                type="number"
+                value={settings.jackpot_mega_price || 0}
+                onChange={e => setSettings({ ...settings, jackpot_mega_price: parseInt(e.target.value) || 0 })}
+                className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-yellow-500"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="block text-[10px] font-bold text-zinc-300 uppercase">International Price (USD)</label>
+              <input
+                type="number"
+                step="0.01"
+                value={settings.jackpot_mega_int_price || 0}
+                onChange={e => setSettings({ ...settings, jackpot_mega_int_price: parseFloat(e.target.value) || 0 })}
+                className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-yellow-500"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-6 border-t border-zinc-800 pt-6 space-y-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                <Trash2 className="w-4 h-4 text-emerald-500" />
+                History Auto-Cleanup
+              </h3>
+              <p className="text-xs text-zinc-500 mt-1">Number of days to keep jackpots visible in history</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                value={settings.jackpot_history_retention_days || 30}
+                onChange={e => setSettings({ ...settings, jackpot_history_retention_days: parseInt(e.target.value) || 30 })}
+                className="w-24 bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 text-center"
+              />
+              <span className="text-xs font-bold text-zinc-500 uppercase">Days</span>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pt-6 border-t border-zinc-800/50">
+            <div>
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                <Percent className="w-4 h-4 text-emerald-500" />
+                Bundle Discount
+              </h3>
+              <p className="text-xs text-zinc-500 mt-1">Percentage discount offered when purchasing all available jackpots together</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min="0"
+                max="100"
+                value={settings.jackpot_bundle_discount || 20}
+                onChange={e => setSettings({ ...settings, jackpot_bundle_discount: parseInt(e.target.value) || 20 })}
+                className="w-24 bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 text-center"
+              />
+              <span className="text-xs font-bold text-zinc-500 uppercase">%</span>
+            </div>
           </div>
         </div>
       </div>

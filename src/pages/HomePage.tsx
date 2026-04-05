@@ -9,7 +9,7 @@ import { getTipStats, getFreeTips } from '../services/tipsService';
 import { useCampaign } from '../context/CampaignContext';
 import { toast } from 'sonner';
 import { FixtureData, TeamStanding } from '../types';
-import { usePageTitle } from '../hooks/usePageTitle';
+import { SEO } from '../components/SEO';
 import { PageTransition } from '../components/PageTransition';
 import { HomePageSkeleton } from '../components/skeletons/HomePageSkeleton';
 import { TeamLogo } from '../components/TeamLogo';
@@ -382,7 +382,7 @@ function LeagueFilter({ selectedLeague, onSelect }: { selectedLeague: string; on
 }
 
 export function HomePage() {
-  usePageTitle('Home');
+  <SEO title={'Home'} />
   const { setShowPricingModal } = useUser();
   const [fixtures, setFixtures] = useState<FixtureData[]>([]);
   const [newsArticles, setNewsArticles] = useState<NewsItem[]>([]);
