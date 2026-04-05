@@ -11,6 +11,10 @@ import {
 import { CATEGORY_LABELS } from '../../services/pricingService';
 import { adminService, type FixtureSearchResult } from '../../services/adminService';
 import { toast } from 'sonner';
+import { POPULAR_LEAGUES, TEAMS_BY_LEAGUE, ALL_POPULAR_TEAMS } from '../../data/footballData';
+import { AutocompleteInput } from '../../components/AutocompleteInput';
+
+const DEFAULT_PREDICTIONS = ['1', 'X', '2', '1X', 'X2', '12', 'O1.5', 'O2.5', 'U2.5', 'GG', 'NG'];
 
 const TIP_CATEGORIES: TipCategory[] = ['free', '2+', '4+', 'gg', '10+', 'vip'];
 
@@ -38,14 +42,9 @@ export function TipsManagePage() {
     league: '',
     matchDate: new Date().toISOString().split('T')[0],
     prediction: '',
-    odds: '',
-    bookmaker: 'Betika',
-    oddsBetika: '',
-    oddsSportPesa: '',
-    oddsBetway: '',
     confidence: 3,
     reasoning: '',
-    category: 'free' as TipCategory,
+    category: (sessionStorage.getItem('admin_last_category') as TipCategory) || 'free',
   });
 
   useEffect(() => {
@@ -62,9 +61,8 @@ export function TipsManagePage() {
     setForm({
       fixtureId: '', homeTeam: '', awayTeam: '', league: '',
       matchDate: new Date().toISOString().split('T')[0],
-      prediction: '', odds: '', bookmaker: 'Betika',
-      oddsBetika: '', oddsSportPesa: '', oddsBetway: '',
-      confidence: 3, reasoning: '', category: 'free',
+      prediction: '', confidence: 3, reasoning: '', 
+      category: (sessionStorage.getItem('admin_last_category') as TipCategory) || 'free',
     });
     setEditingId(null);
     setShowForm(false);
@@ -113,27 +111,23 @@ export function TipsManagePage() {
       return;
     }
 
-    const bookmakerOdds = [
-      { bookmaker: 'Betika', odds: form.oddsBetika || form.odds },
-      { bookmaker: 'SportPesa', odds: form.oddsSportPesa || form.odds },
-      { bookmaker: 'Betway', odds: form.oddsBetway || form.odds },
-    ].filter(bo => bo.odds);
-
     const tipData = {
       fixtureId: parseInt(form.fixtureId) || 0,
-      homeTeam: form.homeTeam,
-      awayTeam: form.awayTeam,
-      league: form.league,
+      homeTeam: form.homeTeam.trim(),
+      awayTeam: form.awayTeam.trim(),
+      league: form.league.trim(),
       matchDate: form.matchDate,
-      prediction: form.prediction,
-      odds: form.odds,
-      bookmaker: form.bookmaker,
-      bookmakerOdds,
+      prediction: form.prediction.trim(),
+      odds: '', // Deprecated but required by schema
+      bookmaker: '', // Deprecated
+      bookmakerOdds: [], // Deprecated
       confidence: form.confidence,
       reasoning: form.reasoning,
       category: form.category,
       isPremium: form.category !== 'free',
     };
+
+    sessionStorage.setItem('admin_last_category', form.category);
 
     if (editingId) {
       await updateTip(editingId, tipData);
@@ -147,7 +141,6 @@ export function TipsManagePage() {
   };
 
   const handleEditTip = (tip: Tip) => {
-    const bOdds = tip.bookmakerOdds || [];
     setForm({
       fixtureId: String(tip.fixtureId),
       homeTeam: tip.homeTeam,
@@ -155,11 +148,6 @@ export function TipsManagePage() {
       league: tip.league,
       matchDate: tip.matchDate.split('T')[0],
       prediction: tip.prediction,
-      odds: tip.odds,
-      bookmaker: tip.bookmaker,
-      oddsBetika: bOdds.find(b => b.bookmaker === 'Betika')?.odds || '',
-      oddsSportPesa: bOdds.find(b => b.bookmaker === 'SportPesa')?.odds || '',
-      oddsBetway: bOdds.find(b => b.bookmaker === 'Betway')?.odds || '',
       confidence: tip.confidence,
       reasoning: tip.reasoning,
       category: tip.category,
@@ -325,24 +313,53 @@ export function TipsManagePage() {
                 ))}
               </select>
             </FormField>
+            <FormField label="League">
+              <AutocompleteInput 
+                value={form.league} 
+                onChange={val => setForm({ ...form, league: val })} 
+                options={POPULAR_LEAGUES} 
+                placeholder="e.g. Premier League" 
+              />
+            </FormField>
             <FormField label="Home Team" required>
-              <input value={form.homeTeam} onChange={e => setForm({ ...form, homeTeam: e.target.value })} placeholder="e.g. Arsenal" className="admin-input" required />
+              <AutocompleteInput 
+                value={form.homeTeam} 
+                onChange={val => setForm({ ...form, homeTeam: val })} 
+                options={form.league && TEAMS_BY_LEAGUE[form.league] ? TEAMS_BY_LEAGUE[form.league] : ALL_POPULAR_TEAMS} 
+                placeholder="e.g. Arsenal" 
+                required 
+              />
             </FormField>
             <FormField label="Away Team" required>
-              <input value={form.awayTeam} onChange={e => setForm({ ...form, awayTeam: e.target.value })} placeholder="e.g. Chelsea" className="admin-input" required />
-            </FormField>
-            <FormField label="League">
-              <input value={form.league} onChange={e => setForm({ ...form, league: e.target.value })} placeholder="e.g. Premier League" className="admin-input" />
+              <AutocompleteInput 
+                value={form.awayTeam} 
+                onChange={val => setForm({ ...form, awayTeam: val })} 
+                options={form.league && TEAMS_BY_LEAGUE[form.league] ? TEAMS_BY_LEAGUE[form.league] : ALL_POPULAR_TEAMS} 
+                placeholder="e.g. Chelsea" 
+                required 
+              />
             </FormField>
             <FormField label="Match Date">
-              <input type="date" value={form.matchDate} onChange={e => setForm({ ...form, matchDate: e.target.value })} className="admin-input" />
+              <input type="date" value={form.matchDate} onChange={e => setForm({ ...form, matchDate: e.target.value })} className="admin-input flex-1" />
             </FormField>
-            <FormField label="Prediction" required>
-              <input value={form.prediction} onChange={e => setForm({ ...form, prediction: e.target.value })} placeholder="e.g. Home Win, Over 2.5" className="admin-input" required />
-            </FormField>
-            <FormField label="Odds">
-              <input value={form.odds} onChange={e => setForm({ ...form, odds: e.target.value })} placeholder="e.g. 1.85" className="admin-input" />
-            </FormField>
+            <div className="sm:col-span-2 lg:col-span-3">
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mr-2 py-1">Quick Picks:</span>
+                {DEFAULT_PREDICTIONS.map(p => (
+                  <button 
+                    key={p} 
+                    type="button" 
+                    onClick={() => setForm({ ...form, prediction: p })}
+                    className="px-2.5 py-1 text-xs font-bold bg-zinc-800 text-zinc-300 rounded hover:bg-emerald-500/20 hover:text-emerald-400 border border-zinc-700 hover:border-emerald-500/30 transition-all"
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
+              <FormField label="Prediction" required>
+                <input value={form.prediction} onChange={e => setForm({ ...form, prediction: e.target.value })} placeholder="e.g. Home Win, Over 2.5" className="admin-input w-full" required />
+              </FormField>
+            </div>
             <FormField label="Confidence">
               <div className="flex gap-1 mt-1">
                 {[1, 2, 3, 4, 5].map(n => (

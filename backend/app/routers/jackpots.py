@@ -10,7 +10,7 @@ from sqlalchemy import select
 from app.dependencies import get_db, get_current_user, get_current_user_optional, require_admin
 from app.models.user import User
 from app.models.jackpot import Jackpot, JackpotPurchase
-from app.schemas.jackpot import JackpotCreate, JackpotResponse, JackpotLockedResponse
+from app.schemas.jackpot import JackpotCreate, JackpotUpdate, JackpotResponse, JackpotLockedResponse
 from app.services.pricing import get_pricing_region
 from fastapi import Query
 
@@ -108,6 +108,36 @@ async def create_jackpot(body: JackpotCreate, db: AsyncSession = Depends(get_db)
         price=body.price,
     )
     db.add(jp)
+    await db.commit()
+    await db.refresh(jp)
+    return jp
+
+
+@router.put("/{jackpot_id}", response_model=JackpotResponse)
+async def update_jackpot(
+    jackpot_id: int,
+    body: JackpotUpdate,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    result = await db.execute(select(Jackpot).where(Jackpot.id == jackpot_id))
+    jp = result.scalar_one_or_none()
+    if not jp:
+        raise HTTPException(status_code=404, detail="Jackpot not found")
+
+    if body.type is not None:
+        jp.type = body.type
+    if body.dc_level is not None:
+        jp.dc_level = body.dc_level
+    if body.price is not None:
+        jp.price = body.price
+    if body.result is not None:
+        jp.result = body.result
+    if body.regional_prices is not None:
+        jp.regional_prices = body.regional_prices
+    if body.matches is not None:
+        jp.matches = [m.model_dump() for m in body.matches]
+
     await db.commit()
     await db.refresh(jp)
     return jp

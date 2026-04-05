@@ -15,8 +15,9 @@ class Jackpot(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     type = Column(String(20), nullable=False)  # midweek, mega
     dc_level = Column(Integer, nullable=False)  # 3, 4, 5, 6, 7, 10
-    matches = Column(JSON, nullable=False)  # [{homeTeam, awayTeam, pick}]
+    matches = Column(JSON, nullable=False)  # [{homeTeam, awayTeam, pick, result?}]
     price = Column(Float, nullable=False)  # KES
+    result = Column(String(20), default="pending")  # pending, won, lost, void, bonus
     regional_prices = Column(JSON, default=dict) # For dynamic overrides
 
     created_at = Column(DateTime, default=datetime.utcnow)

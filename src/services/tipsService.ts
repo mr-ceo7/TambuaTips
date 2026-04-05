@@ -33,6 +33,7 @@ export interface JackpotMatch {
   homeTeam: string;
   awayTeam: string;
   pick: string;
+  result?: string; // won, lost, void — per-match result
 }
 
 export interface JackpotPrediction {
@@ -41,6 +42,7 @@ export interface JackpotPrediction {
   dcLevel: DCLevel;
   matches: JackpotMatch[];
   price: number;
+  result: string; // pending, won, lost, void, bonus
   createdAt: string;
   updatedAt: string;
   currency?: string;
@@ -80,6 +82,7 @@ function mapJackpot(data: any): JackpotPrediction {
     // Provide an empty array if matches are hidden behind premium lock
     matches: Array.isArray(data.matches) ? data.matches : (data.matches ? JSON.parse(data.matches) : []),
     price: data.price,
+    result: data.result || 'pending',
     createdAt: data.created_at,
     updatedAt: data.created_at,
     currency: data.currency || 'KES',
@@ -254,4 +257,16 @@ export async function addJackpot(jackpot: any): Promise<JackpotPrediction> {
 export async function deleteJackpot(id: string): Promise<boolean> {
   await apiClient.delete(`/jackpots/${id}`);
   return true;
+}
+
+export async function updateJackpot(id: string, data: any): Promise<JackpotPrediction> {
+  const payload: any = {};
+  if (data.type !== undefined) payload.type = data.type;
+  if (data.dcLevel !== undefined) payload.dc_level = data.dcLevel;
+  if (data.price !== undefined) payload.price = data.price;
+  if (data.result !== undefined) payload.result = data.result;
+  if (data.matches !== undefined) payload.matches = data.matches;
+  if (data.regional_prices !== undefined) payload.regional_prices = data.regional_prices;
+  const res = await apiClient.put(`/jackpots/${id}`, payload);
+  return mapJackpot(res.data);
 }
