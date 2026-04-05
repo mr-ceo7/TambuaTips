@@ -6,9 +6,12 @@ interface AutocompleteInputProps {
   options: string[];
   placeholder?: string;
   required?: boolean;
+  type?: 'league' | 'team';
 }
 
-export function AutocompleteInput({ value, onChange, options, placeholder, required }: AutocompleteInputProps) {
+import { LeagueLogo, TeamWithLogo } from './TeamLogo';
+
+export function AutocompleteInput({ value, onChange, options, placeholder, required, type }: AutocompleteInputProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [filtered, setFiltered] = useState<string[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -96,7 +99,16 @@ export function AutocompleteInput({ value, onChange, options, placeholder, requi
                 idx === activeIndex ? 'bg-emerald-500/20 text-emerald-400' : 'text-zinc-300 hover:bg-zinc-700'
               }`}
             >
-              {option}
+              {type === 'league' ? (
+                <div className="flex items-center gap-2">
+                  <LeagueLogo leagueName={option} size={20} />
+                  <span>{option}</span>
+                </div>
+              ) : type === 'team' ? (
+                <TeamWithLogo teamName={option} size={20} textClassName="text-sm" />
+              ) : (
+                option
+              )}
             </div>
           ))}
         </div>

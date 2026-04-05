@@ -3,7 +3,7 @@ import {
   Plus, Search, Trash2, Edit, Check, X, Star, Filter,
   Zap, ChevronDown, Loader
 } from 'lucide-react';
-import { TeamWithLogo } from '../../components/TeamLogo';
+import { TeamWithLogo, LeagueLogo } from '../../components/TeamLogo';
 import {
   getAllTips, addTip, updateTip, deleteTip, getTipStats,
   type Tip, type TipCategory
@@ -318,7 +318,8 @@ export function TipsManagePage() {
                 value={form.league} 
                 onChange={val => setForm({ ...form, league: val })} 
                 options={POPULAR_LEAGUES} 
-                placeholder="e.g. Premier League" 
+                placeholder="e.g. Premier League"
+                type="league"
               />
             </FormField>
             <FormField label="Home Team" required>
@@ -328,6 +329,7 @@ export function TipsManagePage() {
                 options={form.league && TEAMS_BY_LEAGUE[form.league] ? TEAMS_BY_LEAGUE[form.league] : ALL_POPULAR_TEAMS} 
                 placeholder="e.g. Arsenal" 
                 required 
+                type="team"
               />
             </FormField>
             <FormField label="Away Team" required>
@@ -337,6 +339,7 @@ export function TipsManagePage() {
                 options={form.league && TEAMS_BY_LEAGUE[form.league] ? TEAMS_BY_LEAGUE[form.league] : ALL_POPULAR_TEAMS} 
                 placeholder="e.g. Chelsea" 
                 required 
+                type="team"
               />
             </FormField>
             <FormField label="Match Date">
@@ -465,6 +468,7 @@ export function TipsManagePage() {
               )}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
+                  <LeagueLogo leagueName={tip.league} size={14} />
                   <span className="text-[11px] text-zinc-500">{tip.league}</span>
                   <span className={`px-1.5 py-0.5 text-[9px] font-bold rounded ${
                     tip.category === 'free' ? 'bg-emerald-500/20 text-emerald-400' :
