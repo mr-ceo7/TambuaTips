@@ -27,7 +27,7 @@ export function JackpotsManagePage() {
     notify_channel: 'both',
   });
   const [defaultPrices, setDefaultPrices] = useState({ midweek: 500, mega: 1000, midweekInt: 5, megaInt: 10 });
-  const [matchInput, setMatchInput] = useState({ homeTeam: '', awayTeam: '', country: '', countryFlag: '' });
+  const [matchInput, setMatchInput] = useState({ homeTeam: '', awayTeam: '' });
   const [bulkMatches, setBulkMatches] = useState('');
   const [activeVariation, setActiveVariation] = useState(0);
   const [bulkPicks, setBulkPicks] = useState('');
@@ -59,9 +59,28 @@ export function JackpotsManagePage() {
     }
     setForm(prev => ({
       ...prev,
-      matches: [...prev.matches, { ...matchInput }],
+      matches: [...prev.matches, { ...matchInput, country: '', countryFlag: '' }],
     }));
-    setMatchInput({ homeTeam: '', awayTeam: '', country: '', countryFlag: '' });
+    setMatchInput({ homeTeam: '', awayTeam: '' });
+  };
+
+  const autoEnrichMatches = async () => {
+    if (form.matches.length === 0) return;
+    const loadingToastId = toast.loading(`Enriching ${form.matches.length} matches...`);
+    try {
+      const enriched = await adminService.enrichMatches(form.matches);
+      if (enriched && enriched.length > 0) {
+        setForm(prev => ({
+          ...prev,
+          matches: enriched
+        }));
+        toast.success(`Enriched ${enriched.length} matches!`, { id: loadingToastId });
+      } else {
+        toast.error('Failed to enrich matches', { id: loadingToastId });
+      }
+    } catch (err) {
+      toast.error('Error enriching matches', { id: loadingToastId });
+    }
   };
 
   const removeMatch = (index: number) => {
@@ -359,8 +378,6 @@ export function JackpotsManagePage() {
               <div className="flex flex-col sm:flex-row gap-2 mb-3">
                 <input value={matchInput.homeTeam} onChange={e => setMatchInput({ ...matchInput, homeTeam: e.target.value })} placeholder="Home team" className="admin-input flex-1" />
                 <input value={matchInput.awayTeam} onChange={e => setMatchInput({ ...matchInput, awayTeam: e.target.value })} placeholder="Away team" className="admin-input flex-1" />
-                <input value={matchInput.country} onChange={e => setMatchInput({ ...matchInput, country: e.target.value })} placeholder="Country" className="admin-input w-24" />
-                <input value={matchInput.countryFlag} onChange={e => setMatchInput({ ...matchInput, countryFlag: e.target.value })} placeholder="Flag (emoji)" className="admin-input w-24 tracking-widest text-center" />
                 <button type="button" onClick={addMatchToJackpot} className="px-3 py-2 bg-emerald-500 text-zinc-950 font-bold rounded-lg hover:bg-emerald-400 transition-all">
                   <Plus className="w-4 h-4" />
                 </button>
@@ -378,9 +395,14 @@ export function JackpotsManagePage() {
                   placeholder="Paste lines: TeamA vs TeamB"
                   className="w-full bg-zinc-900 border border-zinc-700 rounded-lg p-2 text-xs text-white h-16 resize-none mb-2"
                 />
-                <button type="button" onClick={handleBulkMatches} className="w-full py-1.5 bg-zinc-800 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/10 text-xs font-bold rounded-lg transition-all">
+                <button type="button" onClick={handleBulkMatches} className="w-full py-1.5 bg-zinc-800 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/10 text-xs font-bold rounded-lg transition-all mb-2">
                   Import Matches
                 </button>
+                {form.matches.length > 0 && (
+                  <button type="button" onClick={autoEnrichMatches} className="w-full py-1.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5">
+                    <Zap className="w-3.5 h-3.5" /> Auto-Fill Country Data
+                  </button>
+                )}
               </div>
 
               {/* Match List */}
@@ -401,7 +423,11 @@ export function JackpotsManagePage() {
                       <span className="flex-1 text-zinc-300 flex flex-col sm:flex-row sm:items-center gap-1 flex-wrap">
                         {m.country && (
                           <span className="text-[10px] bg-zinc-800 text-zinc-400 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider hidden sm:inline-flex items-center gap-1 mr-2">
-                            {m.countryFlag && <span>{m.countryFlag}</span>}
+                            {m.countryFlag && (
+                              m.countryFlag.startsWith('http')
+                                ? <img src={m.countryFlag} alt={m.country || ''} className="w-3.5 h-2.5 object-cover rounded-[2px]" />
+                                : <span>{m.countryFlag}</span>
+                            )}
                             {m.country}
                           </span>
                         )}

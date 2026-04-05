@@ -858,6 +858,134 @@ async def search_fixtures(
 
     return {"fixtures": matched[:20]}
 
+from pydantic import BaseModel
+class MatchEnrichRequest(BaseModel):
+    matches: List[dict]  # list of {"homeTeam": "...", "awayTeam": "..."}
+    
+@router.post("/fixtures/enrich")
+async def enrich_fixtures(
+    req: MatchEnrichRequest,
+    admin: User = Depends(require_admin),
+):
+    """Bulk enrich a list of jackpot matches by fuzzy searching API-Football data."""
+    from app.services.sports_api import fetch_fixtures_by_date
+    from datetime import date as date_type, timedelta
+    import difflib
+    import re
+
+    # Fetch a wide range of dates (-1 to +4 days) to cover weekend jackpots
+    today = date_type.today()
+    search_dates = [
+        (today + timedelta(days=i)).isoformat() for i in range(-1, 5)
+    ]
+    
+    all_fixtures = []
+    for d in search_dates:
+        try:
+            day_fixtures = await fetch_fixtures_by_date(d)
+            all_fixtures.extend(day_fixtures)
+        except Exception:
+            pass
+
+    # Common name normalization for SportPesa -> API-Football mismatches
+    NORMALIZE_MAP = {
+        "man utd": "manchester united", "man united": "manchester united",
+        "man city": "manchester city",
+        "spurs": "tottenham", "tottenham hotspur": "tottenham",
+        "wolves": "wolverhampton", "wolverhampton wanderers": "wolverhampton",
+        "brighton": "brighton", "brighton and hove": "brighton",
+        "west ham united": "west ham", "newcastle utd": "newcastle",
+        "nottm forest": "nottingham forest", "nott'm forest": "nottingham forest",
+        "sheff utd": "sheffield utd", "sheffield united": "sheffield utd",
+        "luton": "luton town",
+        "atletico": "atletico madrid", "atl madrid": "atletico madrid",
+        "real": "real madrid",
+        "barca": "barcelona", "fc barcelona": "barcelona",
+        "psg": "paris saint germain", "paris sg": "paris saint germain",
+        "bayern": "bayern munich", "fc bayern": "bayern munich",
+        "dortmund": "borussia dortmund", "bvb": "borussia dortmund",
+        "inter": "inter milan", "internazionale": "inter",
+        "ac milan": "milan",
+        "napoli": "ssc napoli",
+        "roma": "as roma",
+        "lazio": "ss lazio",
+        "lyon": "olympique lyonnais", "ol": "olympique lyonnais",
+        "marseille": "olympique de marseille", "om": "olympique de marseille",
+    }
+
+    def normalize(name: str) -> str:
+        """Normalize a team name for flexible matching."""
+        n = name.lower().strip()
+        # Remove common prefixes/suffixes
+        n = re.sub(r'\b(fc|cf|sc|ac|as|ss|ssc|afc|1\.)\b', '', n).strip()
+        n = re.sub(r'\s+', ' ', n)
+        return NORMALIZE_MAP.get(n, n)
+
+    def find_fixture(query_home: str, query_away: str):
+        """Find the best matching fixture using multiple strategies."""
+        norm_home = normalize(query_home)
+        norm_away = normalize(query_away)
+        
+        # Strategy 1: Exact normalized match on both teams
+        for f in all_fixtures:
+            f_home = normalize(f.get("homeTeam", ""))
+            f_away = normalize(f.get("awayTeam", ""))
+            if norm_home == f_home and norm_away == f_away:
+                return f
+        
+        # Strategy 2: Substring match on both teams
+        for f in all_fixtures:
+            f_home = normalize(f.get("homeTeam", ""))
+            f_away = normalize(f.get("awayTeam", ""))
+            if (norm_home in f_home or f_home in norm_home) and \
+               (norm_away in f_away or f_away in norm_away):
+                return f
+        
+        # Strategy 3: Fuzzy match on home team only (broadest)
+        all_team_names = [normalize(f.get("homeTeam", "")) for f in all_fixtures]
+        all_team_names += [normalize(f.get("awayTeam", "")) for f in all_fixtures]
+        
+        # Try fuzzy match on home team
+        home_candidates = difflib.get_close_matches(norm_home, all_team_names, n=3, cutoff=0.4)
+        for candidate in home_candidates:
+            for f in all_fixtures:
+                if normalize(f.get("homeTeam", "")) == candidate or \
+                   normalize(f.get("awayTeam", "")) == candidate:
+                    return f
+        
+        # Strategy 4: Try fuzzy match on away team as last resort
+        away_candidates = difflib.get_close_matches(norm_away, all_team_names, n=3, cutoff=0.4)
+        for candidate in away_candidates:
+            for f in all_fixtures:
+                if normalize(f.get("homeTeam", "")) == candidate or \
+                   normalize(f.get("awayTeam", "")) == candidate:
+                    return f
+        
+        return None
+
+    enriched = []
+    
+    for m in req.matches:
+        home_q = m.get("homeTeam", "")
+        away_q = m.get("awayTeam", "")
+        country = m.get("country", "")
+        countryFlag = m.get("countryFlag", "")
+        
+        matching_fixture = find_fixture(home_q, away_q)
+        
+        if matching_fixture:
+            country = matching_fixture.get("country") or country
+            countryFlag = matching_fixture.get("countryFlag") or countryFlag
+                
+        enriched.append({
+            "homeTeam": m.get("homeTeam"),
+            "awayTeam": m.get("awayTeam"),
+            "country": country,
+            "countryFlag": countryFlag,
+        })
+        
+    return {"matches": enriched}
+
 
 # ═══════════════════════════════════════════════════════════════
 #  EXISTING ENDPOINTS (preserved)

@@ -241,7 +241,11 @@ function JackpotCard({ jackpot, onGetFree }: { jackpot: JackpotPrediction; key?:
                         <div className="flex flex-col gap-0.5">
                           {m.country && (
                             <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider flex items-center gap-1">
-                              {m.countryFlag && <span className="text-xs">{m.countryFlag}</span>}
+                              {m.countryFlag && (
+                                m.countryFlag.startsWith('http') 
+                                  ? <img src={m.countryFlag} alt={m.country} className="w-3.5 h-2.5 object-cover rounded-[2px]" />
+                                  : <span className="text-xs">{m.countryFlag}</span>
+                              )}
                               {m.country}
                             </span>
                           )}

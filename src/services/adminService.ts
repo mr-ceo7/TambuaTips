@@ -270,6 +270,11 @@ export const adminService = {
     return response.data.fixtures || [];
   },
 
+  enrichMatches: async (matches: { homeTeam: string, awayTeam: string, country?: string, countryFlag?: string }[]): Promise<{ homeTeam: string, awayTeam: string, country?: string, countryFlag?: string }[]> => {
+    const response = await apiClient.post('/admin/fixtures/enrich', { matches });
+    return response.data.matches || [];
+  },
+
   broadcastPush: async (data: {
     title: string;
     body: string;

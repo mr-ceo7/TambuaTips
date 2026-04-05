@@ -185,6 +185,8 @@ def _map_fixture(item: dict) -> dict:
         "league": item["league"]["name"],
         "leagueId": item["league"]["id"],
         "leagueLogo": item["league"].get("logo"),
+        "country": item["league"].get("country"),
+        "countryFlag": item["league"].get("flag"),
         "homeTeam": item["teams"]["home"]["name"],
         "awayTeam": item["teams"]["away"]["name"],
         "homeLogo": item["teams"]["home"].get("logo"),
