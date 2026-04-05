@@ -118,6 +118,16 @@ async def list_jackpots(
     for jp in jackpots:
         jp_dict = jp.__dict__.copy()
         
+        # TiDB/MySQL may return JSON columns as strings — parse them safely
+        import json as _json
+        for field in ("matches", "variations", "regional_prices"):
+            val = jp_dict.get(field)
+            if isinstance(val, str):
+                try:
+                    jp_dict[field] = _json.loads(val)
+                except (ValueError, TypeError):
+                    jp_dict[field] = [] if field != "regional_prices" else {}
+
         # Ensure variations is always a list
         if not jp_dict.get("variations"):
             jp_dict["variations"] = []
