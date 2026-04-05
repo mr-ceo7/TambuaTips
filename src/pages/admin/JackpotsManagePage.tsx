@@ -31,6 +31,7 @@ export function JackpotsManagePage() {
   const [bulkMatches, setBulkMatches] = useState('');
   const [activeVariation, setActiveVariation] = useState(0);
   const [bulkPicks, setBulkPicks] = useState('');
+  const [bulkAllVariations, setBulkAllVariations] = useState('');
   
   // Drag and Drop State
   const dragItem = React.useRef<number | null>(null);
@@ -162,6 +163,32 @@ export function JackpotsManagePage() {
     
     setBulkPicks('');
     toast.success(`Applied ${picks.length} picks to Variation ${activeVariation + 1}`);
+  };
+
+  const handleBulkAllVariations = () => {
+    if (!bulkAllVariations.trim() || form.matches.length === 0) return;
+    
+    const lines = bulkAllVariations.trim().split('\n').map(l => l.trim()).filter(Boolean);
+    const parsedVariations: string[][] = [];
+    
+    for (let i = 0; i < lines.length; i++) {
+      const picks = lines[i].toUpperCase().split(',').map(p => p.trim()).filter(Boolean);
+      if (picks.length !== form.matches.length) {
+        toast.error(`Line ${i + 1} has ${picks.length} picks but expected ${form.matches.length}`);
+        return;
+      }
+      parsedVariations.push(picks);
+    }
+    
+    if (parsedVariations.length === 0) {
+      toast.error('No valid variations found');
+      return;
+    }
+    
+    setForm(prev => ({ ...prev, variations: parsedVariations }));
+    setActiveVariation(0);
+    setBulkAllVariations('');
+    toast.success(`Imported ${parsedVariations.length} variations with ${form.matches.length} picks each`);
   };
 
   const updateVariationPick = (varIndex: number, matchIndex: number, pick: string) => {
@@ -456,6 +483,24 @@ export function JackpotsManagePage() {
                   </label>
                   <button type="button" onClick={addVariation} className="flex items-center gap-1 px-3 py-1.5 bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 rounded-lg text-xs font-bold hover:bg-yellow-500/20 transition-all">
                     <Plus className="w-3 h-3" /> Add Variation
+                  </button>
+                </div>
+
+                {/* Bulk Import ALL Variations */}
+                <div className="p-3 bg-gradient-to-r from-yellow-500/5 to-amber-500/5 border border-yellow-500/20 rounded-xl mb-4">
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <Zap className="w-3.5 h-3.5 text-yellow-400" />
+                    <span className="text-[10px] font-bold text-yellow-400 uppercase tracking-widest">Import All Variations at Once</span>
+                  </div>
+                  <p className="text-[10px] text-zinc-500 mb-2">Paste all variations — one per line, picks comma-separated (e.g. 12,2,X,1,...)</p>
+                  <textarea
+                    value={bulkAllVariations}
+                    onChange={e => setBulkAllVariations(e.target.value)}
+                    placeholder={`12,2,2,1,X,2,12,1,X,2,12,X,12\nX,2,12,X,X,1X,1,2,1,12,2,1X,1\nX,X2,2,1X,1X,X,2,2,X,1,2,1,1X\nX2,2,X,X,1,X,12,2,2,2,12,1X,X`}
+                    className="w-full bg-zinc-900 border border-zinc-700 rounded-lg p-2 text-xs text-white font-mono h-24 resize-none mb-2"
+                  />
+                  <button type="button" onClick={handleBulkAllVariations} className="w-full py-1.5 bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 hover:bg-yellow-500/20 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5">
+                    <Zap className="w-3.5 h-3.5" /> Import All Variations
                   </button>
                 </div>
 
