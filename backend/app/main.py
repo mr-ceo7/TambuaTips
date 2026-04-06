@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 from app.models import user, tip, jackpot, subscription, payment, ad, notification, campaign  # noqa: F401
 
 # Import routers
-from app.routers import auth, tips, jackpots, payments, subscriptions, sports, news, admin, notifications, campaigns, rewards
+from app.routers import auth, tips, jackpots, payments, subscriptions, sports, news, admin, notifications, campaigns, rewards, internal
 
 
 async def seed_default_ads():
@@ -191,6 +191,7 @@ app.include_router(admin.router)
 app.include_router(notifications.router)
 app.include_router(campaigns.router)
 app.include_router(rewards.router)
+app.include_router(internal.router)
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
