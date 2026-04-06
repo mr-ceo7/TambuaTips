@@ -43,7 +43,7 @@ async def send_system_alert(title: str, message: str, level: str = "ERROR"):
         {message.replace('\n', '<br>')}
     </div>
     """
-    html_content = _generate_html_template(title, body, "View Console", "https://v2.tambuatips.com/_deploy")
+    html_content = _generate_html_template(title, body, "View Console", "https://tambuatips.com/_deploy")
     
     for email in emails:
         try:
