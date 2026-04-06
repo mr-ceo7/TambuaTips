@@ -56,9 +56,8 @@ async def send_system_alert(title: str, message: str, level: str = "ERROR"):
             logger.error(f"Failed to send alert email to {email}: {e}")
 
     # 2. Send SMS
-    # If the alert is an AI Analysis, allow more characters (up to 300). For raw traces, truncate aggressively heavily to avoid SMS bloat.
     if "AI" in title:
-        sms_message = f"TAMBUATIPS {level}: {title}. {message}"[:300]
+        sms_message = f"TAMBUATIPS {level}: {title}. {message}"
     else:
         sms_message = f"TAMBUATIPS {level}: {title}. Details: {message[:100]}..."
     
