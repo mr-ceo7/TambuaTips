@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Loader2, Settings, ShieldAlert, ToggleLeft, ToggleRight, Users, Gift, TrendingUp, Crown, UserPlus, MessageSquare, Smartphone, Eye, Mail, Info, Percent, Trophy, Trash2 } from 'lucide-react';
-import { adminService, type ReferralSettings, type ReferralStatsResponse, type SMSSettings, type EmailSettings } from '../../services/adminService';
+import { Save, Loader2, Settings, ShieldAlert, ToggleLeft, ToggleRight, Users, Gift, TrendingUp, Crown, UserPlus, MessageSquare, Smartphone, Eye, Mail, Info, Percent, Trophy, Trash2, Phone } from 'lucide-react';
+import { adminService, type ReferralSettings, type ReferralStatsResponse, type SMSSettings, type EmailSettings, type SupportSettings } from '../../services/adminService';
 import { toast } from 'sonner';
 
 const TIER_OPTIONS = [
@@ -35,8 +35,20 @@ export function SettingsManagePage() {
     SMTP_EMAIL: '',
     SMTP_PASSWORD: '',
   });
+  const [supportSettings, setSupportSettings] = useState<SupportSettings>({
+    SUPPORT_EMAIL: '',
+    SUPPORT_WHATSAPP: '',
+    SUPPORT_WHATSAPP_NUMBER: '',
+  });
+  
+  // Custom states for DC Pricing
+  const [selectedDcJackpot, setSelectedDcJackpot] = useState<'midweek' | 'mega'>('midweek');
+  const [selectedDcLevel, setSelectedDcLevel] = useState('3');
+  const [dcPrices, setDcPrices] = useState<Record<string, Record<string, { local: number, intl: number }>>>({});
+
   const [savingSms, setSavingSms] = useState(false);
   const [savingEmail, setSavingEmail] = useState(false);
+  const [savingSupport, setSavingSupport] = useState(false);
 
   useEffect(() => {
     fetchAll();
@@ -45,16 +57,26 @@ export function SettingsManagePage() {
   const fetchAll = async () => {
     try {
       setLoading(true);
-      const [settingsData, statsData, smsData, emailData] = await Promise.all([
+      const [settingsData, statsData, smsData, emailData, supportData] = await Promise.all([
         adminService.getSettings(),
         adminService.getReferralStats(),
         adminService.getSmsSettings(),
         adminService.getEmailSettings(),
+        adminService.getSupportSettings(),
       ]);
       setSettings(settingsData);
+      
+      try {
+        const parsed = JSON.parse(settingsData.jackpot_prices_json || '{}');
+        setDcPrices(parsed);
+      } catch (err) {
+        setDcPrices({});
+      }
+      
       setStats(statsData);
       setSmsSettings(smsData);
       setEmailSettings(emailData);
+      setSupportSettings(supportData);
     } catch (e) {
       toast.error('Failed to load settings');
     } finally {
@@ -65,7 +87,8 @@ export function SettingsManagePage() {
   const handleSave = async () => {
     try {
       setSaving(true);
-      const updated = await adminService.updateSettings(settings);
+      const payload = { ...settings, jackpot_prices_json: JSON.stringify(dcPrices) };
+      const updated = await adminService.updateSettings(payload);
       setSettings(updated);
       toast.success('Settings saved successfully');
     } catch (e) {
@@ -97,6 +120,18 @@ export function SettingsManagePage() {
       toast.error('Failed to update email settings');
     } finally {
       setSavingEmail(false);
+    }
+  };
+
+  const handleSaveSupport = async () => {
+    setSavingSupport(true);
+    try {
+      await adminService.updateSupportSettings(supportSettings);
+      toast.success('Support contact settings updated!');
+    } catch (error) {
+      toast.error('Failed to update support settings');
+    } finally {
+      setSavingSupport(false);
     }
   };
 
@@ -566,6 +601,70 @@ export function SettingsManagePage() {
               <span className="text-xs font-bold text-zinc-500 uppercase">%</span>
             </div>
           </div>
+
+          <div className="pt-6 border-t border-zinc-800/50 space-y-4">
+            <div>
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                <Settings className="w-4 h-4 text-emerald-500" />
+                Filter by DC Level
+              </h3>
+              <p className="text-xs text-zinc-500 mt-1">Assign custom prices for specific Double Chance limits. If left blank, defaults above are used.</p>
+            </div>
+            <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-4">
+              <div className="flex gap-4 mb-4 pb-4 border-b border-zinc-800">
+                <select 
+                  value={selectedDcJackpot} 
+                  onChange={e => setSelectedDcJackpot(e.target.value as 'midweek' | 'mega')}
+                  className="bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none"
+                >
+                  <option value="midweek">Midweek</option>
+                  <option value="mega">Mega</option>
+                </select>
+                <select 
+                  value={selectedDcLevel} 
+                  onChange={e => setSelectedDcLevel(e.target.value)}
+                  className="bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none"
+                >
+                  {['3', '4', '5', '6', '7', '10'].map(dc => (
+                    <option key={dc} value={dc}>{dc} DC</option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Local Price (KES)</label>
+                  <input
+                    type="number"
+                    value={dcPrices[selectedDcJackpot]?.[selectedDcLevel]?.local ?? ''}
+                    placeholder="Use Default"
+                    onChange={e => {
+                      const val = parseInt(e.target.value);
+                      const current = dcPrices[selectedDcJackpot]?.[selectedDcLevel] || { local: 0, intl: 0 };
+                      const newObj = { ...dcPrices, [selectedDcJackpot]: { ...dcPrices[selectedDcJackpot], [selectedDcLevel]: { ...current, local: isNaN(val) ? 0 : val } } };
+                      setDcPrices(newObj);
+                    }}
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Intl Price (USD)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={dcPrices[selectedDcJackpot]?.[selectedDcLevel]?.intl ?? ''}
+                    placeholder="Use Default"
+                    onChange={e => {
+                      const val = parseFloat(e.target.value);
+                      const current = dcPrices[selectedDcJackpot]?.[selectedDcLevel] || { local: 0, intl: 0 };
+                      const newObj = { ...dcPrices, [selectedDcJackpot]: { ...dcPrices[selectedDcJackpot], [selectedDcLevel]: { ...current, intl: isNaN(val) ? 0 : val } } };
+                      setDcPrices(newObj);
+                    }}
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -627,6 +726,62 @@ export function SettingsManagePage() {
                 <li>Create a new app (e.g. "TambuaTips Platform") and copy the 16 digit code here.</li>
               </ol>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ═══ Support Contact Configuration ═══ */}
+      <div className="bg-zinc-900/60 border border-zinc-800 rounded-2xl overflow-hidden">
+        <div className="border-b border-zinc-800 p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-emerald-500/20 text-emerald-400">
+              <Phone className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-white uppercase">Support Contact Info</h2>
+              <p className="text-xs text-zinc-400">Configure details shown on the help widget and contact page.</p>
+            </div>
+          </div>
+          <button
+            onClick={handleSaveSupport}
+            disabled={savingSupport}
+            className="flex items-center justify-center gap-2 px-6 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 text-sm font-bold rounded-xl transition-all disabled:opacity-50"
+          >
+            <Save className="w-4 h-4" />
+            {savingSupport ? 'Saving...' : 'Save Contacts'}
+          </button>
+        </div>
+
+        <div className="p-6 grid grid-cols-1 sm:grid-cols-3 gap-6">
+          <div className="space-y-2">
+            <label className="block text-xs font-bold text-zinc-300 uppercase tracking-wider">Support Email</label>
+            <input
+              type="email"
+              value={supportSettings.SUPPORT_EMAIL}
+              onChange={e => setSupportSettings({ ...supportSettings, SUPPORT_EMAIL: e.target.value })}
+              placeholder="help@tambuatips.com"
+              className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="block text-xs font-bold text-zinc-300 uppercase tracking-wider">WhatsApp Number</label>
+            <input
+              type="text"
+              value={supportSettings.SUPPORT_WHATSAPP_NUMBER}
+              onChange={e => setSupportSettings({ ...supportSettings, SUPPORT_WHATSAPP_NUMBER: e.target.value })}
+              placeholder="+254 700 000000"
+              className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="block text-xs font-bold text-zinc-300 uppercase tracking-wider">WhatsApp Chat Link</label>
+            <input
+              type="url"
+              value={supportSettings.SUPPORT_WHATSAPP}
+              onChange={e => setSupportSettings({ ...supportSettings, SUPPORT_WHATSAPP: e.target.value })}
+              placeholder="https://wa.me/254700000000"
+              className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
+            />
           </div>
         </div>
       </div>

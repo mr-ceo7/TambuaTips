@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useUser } from '../context/UserContext';
-import { X, User, Bell, Star, Trash2, Shield } from 'lucide-react';
+import { X, User, Bell, Star, Trash2, Shield, Gift } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { ReferralWidget } from './ReferralWidget';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
 
@@ -12,7 +13,7 @@ interface UserProfileProps {
 
 export function UserProfile({ isOpen, onClose }: UserProfileProps) {
   const { user, favoriteTeams, toggleFavoriteTeam, notifiedMatches, toggleMatchNotification, notifiedLeagues, toggleLeagueNotification } = useUser();
-  const [activeTab, setActiveTab] = useState<'favorites' | 'notifications'>('favorites');
+  const [activeTab, setActiveTab] = useState<'invite' | 'favorites' | 'notifications'>('invite');
 
   /* Detached: Add Bet logic and Stats */
 
@@ -66,6 +67,12 @@ export function UserProfile({ isOpen, onClose }: UserProfileProps) {
             <div className="flex border-b border-zinc-800 overflow-x-auto hide-scrollbar">
               {/* Detached: Betting History Tab Button */}
               <button 
+                onClick={() => setActiveTab('invite')}
+                className={`flex items-center gap-2 px-6 py-3 text-sm font-bold whitespace-nowrap transition-all active:scale-95 border-b-2 ${activeTab === 'invite' ? 'border-emerald-500 text-emerald-400' : 'border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50'}`}
+              >
+                <Gift className="w-4 h-4" /> Invite & Earn
+              </button>
+              <button 
                 onClick={() => setActiveTab('favorites')}
                 className={`flex items-center gap-2 px-6 py-3 text-sm font-bold whitespace-nowrap transition-all active:scale-95 border-b-2 ${activeTab === 'favorites' ? 'border-gold-500 text-gold-400' : 'border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50'}`}
               >
@@ -81,6 +88,12 @@ export function UserProfile({ isOpen, onClose }: UserProfileProps) {
 
             <div className="flex-1 overflow-y-auto p-4 sm:p-6">
               {/* Detached: History Tab Content */}
+
+              {activeTab === 'invite' && (
+                <div className="space-y-4">
+                  <ReferralWidget />
+                </div>
+              )}
 
               {activeTab === 'favorites' && (
                 <div className="space-y-4">

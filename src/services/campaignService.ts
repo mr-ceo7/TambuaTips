@@ -12,5 +12,14 @@ export const campaignService = {
       }
       throw error;
     }
+  },
+  
+  trackCampaignClick: async (slug: string): Promise<void> => {
+    try {
+      await apiClient.post(`/campaigns/${slug}/click`);
+    } catch (error) {
+      // Silently fail for analytics to not disrupt user experience
+      console.warn('Failed to track campaign click', error);
+    }
   }
 };

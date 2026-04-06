@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Plus, Edit2, Trash2, Calendar, Gem, Play, Square, Presentation, Upload, X, Image, Video, Sparkles, Gift, Palette, Monitor } from 'lucide-react';
+import { Plus, Edit2, Trash2, Calendar, Gem, Play, Square, Presentation, Upload, X, Image, Video, Sparkles, Gift, Palette, Monitor, Link2 } from 'lucide-react';
 import { adminService, uploadCampaignAsset, type Campaign } from '../../services/adminService';
 import { toast } from 'sonner';
 
@@ -264,6 +264,13 @@ export function CampaignsManagePage() {
     }
   };
 
+  const copyCampaignLink = (slug: string) => {
+    const url = `${window.location.origin}/?c=${slug}`;
+    navigator.clipboard.writeText(url)
+      .then(() => toast.success('Campaign link copied!'))
+      .catch(() => toast.error('Failed to copy link'));
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -338,6 +345,26 @@ export function CampaignsManagePage() {
               </div>
             )}
 
+            {/* Analytics Dashboard */}
+            <div className="grid grid-cols-4 gap-2 mb-4 p-3 bg-zinc-950/40 rounded-xl border border-zinc-800/40">
+              <div className="text-center">
+                <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-wide mb-0.5">Clicks</div>
+                <div className="text-sm font-bold text-blue-400">{c.click_count || 0}</div>
+              </div>
+              <div className="text-center">
+                <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-wide mb-0.5">Logins</div>
+                <div className="text-sm font-bold text-purple-400">{c.login_count || 0}</div>
+              </div>
+              <div className="text-center">
+                <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-wide mb-0.5">Purchases</div>
+                <div className="text-sm font-bold text-amber-400">{c.purchase_count || 0}</div>
+              </div>
+              <div className="text-center">
+                <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-wide mb-0.5">Revenue</div>
+                <div className="text-sm font-bold text-emerald-400">KES {(c.revenue_generated || 0).toLocaleString()}</div>
+              </div>
+            </div>
+
             <div className="flex items-center justify-between pt-4 border-t border-zinc-800/60">
               <button
                   onClick={() => toggleActive(c.id, c.is_active)}
@@ -346,6 +373,9 @@ export function CampaignsManagePage() {
                   {c.is_active ? <><Square className="w-3.5 h-3.5" /> Deactivate</> : <><Play className="w-3.5 h-3.5" /> Activate</>}
               </button>
               <div className="flex items-center gap-3">
+                  <button onClick={() => copyCampaignLink(c.slug)} className="text-zinc-400 hover:text-emerald-400 transition-colors" title="Copy Link">
+                      <Link2 className="w-4 h-4" />
+                  </button>
                   <button onClick={() => handleOpenModal(c)} className="text-zinc-400 hover:text-blue-400 transition-colors" title="Edit">
                       <Edit2 className="w-4 h-4" />
                   </button>

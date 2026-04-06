@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { Gift, ArrowRight } from 'lucide-react';
 import { useCampaign } from '../../context/CampaignContext';
 import { useUser } from '../../context/UserContext';
+import { campaignService } from '../../services/campaignService';
 
 /**
  * CampaignBadge
@@ -18,6 +19,7 @@ export function CampaignBadge() {
   if (!activeCampaign?.use_floating_badge) return null;
 
   const handleClick = () => {
+    campaignService.trackCampaignClick(activeCampaign.slug);
     if (!user) {
       setShowAuthModal(true);
     } else {

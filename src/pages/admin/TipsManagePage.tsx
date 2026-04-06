@@ -14,7 +14,7 @@ import { toast } from 'sonner';
 import { POPULAR_LEAGUES, TEAMS_BY_LEAGUE, ALL_POPULAR_TEAMS } from '../../data/footballData';
 import { AutocompleteInput } from '../../components/AutocompleteInput';
 
-const DEFAULT_PREDICTIONS = ['1', 'X', '2', '1X', 'X2', '12', 'O1.5', 'O2.5', 'U2.5', 'GG', 'NG'];
+const DEFAULT_PREDICTIONS = ['1', 'X', '2', '1X', 'X2', '12', 'O1.5', 'O2.5', 'O3.5', 'U2.5', 'GG', 'NG', 'GG & O2.5'];
 
 const TIP_CATEGORIES: TipCategory[] = ['free', '2+', '4+', 'gg', '10+', 'vip'];
 

@@ -50,8 +50,8 @@ function TipCard({ tip, locked = false, onGetFree }: { tip: Tip; locked?: boolea
           <span className="text-xs text-zinc-500 uppercase tracking-wider">{tip.league}</span>
         </div>
         <span className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded-full flex items-center gap-1 ${
-          tip.category === 'free' ? 'bg-emerald-500/20 text-emerald-400' :
-          tip.category === 'vip' ? 'bg-gold-500/20 text-gold-400' :
+          tip.category?.toLowerCase() === 'free' ? 'bg-emerald-500/20 text-emerald-400' :
+          tip.category?.toLowerCase() === 'vip' ? 'bg-gold-500/20 text-gold-400' :
           'bg-blue-500/20 text-blue-400'
         }`}>
           {CATEGORY_LABELS[tip.category]?.label || tip.category}
@@ -135,12 +135,12 @@ function TipCard({ tip, locked = false, onGetFree }: { tip: Tip; locked?: boolea
               <p className="text-xs text-zinc-400 leading-relaxed">{tip.reasoning}</p>
             )}
             {tip.result !== 'pending' && (
-              <div className={`mt-3 px-3 py-1.5 rounded-lg text-xs font-bold text-center uppercase ${
-                tip.result === 'won' ? 'bg-emerald-500/20 text-emerald-400' :
-                tip.result === 'lost' ? 'bg-red-500/20 text-red-400' :
-                'bg-zinc-800 text-zinc-400'
+              <div className={`mt-3 px-4 py-2.5 rounded-xl text-center uppercase font-display tracking-wider ${
+                tip.result === 'won' ? 'bg-emerald-500/20 text-emerald-400 text-lg font-black animate-pulse shadow-[0_0_15px_rgba(16,185,129,0.3)] border border-emerald-500/30' :
+                tip.result === 'lost' ? 'bg-red-500/20 text-red-400 text-xs font-bold' :
+                'bg-zinc-800 text-zinc-400 text-xs font-bold'
               }`}>
-                {tip.result}
+                {tip.result === 'won' ? '🎉 WIN!' : tip.result}
               </div>
             )}
           </>
@@ -604,7 +604,6 @@ export function TipsPage() {
         <div>
           <div className="mb-6">
             <h2 className="text-lg font-display font-bold uppercase mb-1">Sportpesa Jackpot Predictions</h2>
-            <p className="text-xs text-zinc-400">Double chance predictions for Midweek (13 matches) and Mega (17 matches) jackpots. Choose your DC level.</p>
           </div>
 
           {loadingJackpot ? (

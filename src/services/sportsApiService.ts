@@ -28,6 +28,47 @@ export const LEAGUES = {
 
 export const EUROPEAN_LEAGUE_IDS = [39, 140, 135, 78, 61, 2, 3, 848, 88, 94, 179, 40];
 
+// Priority order for default (unfiltered) views — index 0 = highest priority
+export const LEAGUE_PRIORITY_ORDER: number[] = [
+  39,   // Premier League
+  140,  // La Liga
+  135,  // Serie A
+  78,   // Bundesliga
+  61,   // Ligue 1
+  71,   // Brasileirão
+  262,  // Liga MX
+  253,  // MLS
+  307,  // Saudi Pro League
+  2,    // Champions League
+  3,    // Europa League
+  848,  // Conference League
+  94,   // Liga Portugal
+  88,   // Eredivisie
+  144,  // Belgian Pro League
+  179,  // Scottish Premiership
+  203,  // Turkish Süper Lig
+  40,   // Championship
+  276,  // Kenya Premier League
+  233,  // Egyptian Premier
+  288,  // SA Premier
+  332,  // NPFL
+  558,  // Tanzania Premier League
+  566,  // Uganda Premier League
+];
+
+export function sortByLeaguePriority(fixtures: FixtureData[]): FixtureData[] {
+  return [...fixtures].sort((a, b) => {
+    const idxA = LEAGUE_PRIORITY_ORDER.indexOf(a.leagueId);
+    const idxB = LEAGUE_PRIORITY_ORDER.indexOf(b.leagueId);
+    const prioA = idxA === -1 ? 999 : idxA;
+    const prioB = idxB === -1 ? 999 : idxB;
+    if (prioA !== prioB) return prioA - prioB;
+    // Within same league, live first, then upcoming, then finished
+    const statusWeight: Record<string, number> = { live: 3, upcoming: 2, finished: 1 };
+    return (statusWeight[b.status] || 0) - (statusWeight[a.status] || 0);
+  });
+}
+
 export function getLeagueInfo(leagueId: number) {
   return Object.values(LEAGUES).find(l => l.id === leagueId);
 }
@@ -35,7 +76,7 @@ export function getLeagueInfo(leagueId: number) {
 export async function fetchFixturesByDate(date?: string): Promise<FixtureData[]> {
   const dateStr = date || new Date().toISOString().split('T')[0];
   const response = await apiClient.get<FixtureData[]>('/sports/fixtures', { params: { date: dateStr } });
-  return response.data;
+  return sortByLeaguePriority(response.data);
 }
 
 export async function fetchTodayFixtures(): Promise<FixtureData[]> {
@@ -43,7 +84,6 @@ export async function fetchTodayFixtures(): Promise<FixtureData[]> {
 }
 
 export async function fetchAllTodayFixtures(date?: string): Promise<FixtureData[]> {
-  // We can fetch all by date and filter on frontend for major European leagues
   const all = await fetchFixturesByDate(date);
   return all.filter(f => EUROPEAN_LEAGUE_IDS.includes(f.leagueId));
 }

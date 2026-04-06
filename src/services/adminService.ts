@@ -160,6 +160,9 @@ export interface ReferralSettings {
   jackpot_mega_price?: number;
   jackpot_midweek_int_price?: number;
   jackpot_mega_int_price?: number;
+  jackpot_history_retention_days?: number;
+  jackpot_bundle_discount?: number;
+  jackpot_prices_json?: string;
 }
 
 export interface SMSSettings {
@@ -171,6 +174,12 @@ export interface SMSSettings {
 export interface EmailSettings {
   SMTP_EMAIL: string;
   SMTP_PASSWORD: string;
+}
+
+export interface SupportSettings {
+  SUPPORT_EMAIL: string;
+  SUPPORT_WHATSAPP: string;
+  SUPPORT_WHATSAPP_NUMBER: string;
 }
 
 export interface ReferralStatsResponse {
@@ -367,8 +376,18 @@ export const adminService = {
     return response.data;
   },
 
-  updateEmailSettings: async (settings: Partial<EmailSettings>): Promise<{ message: string }> => {
+  updateEmailSettings: async (settings: EmailSettings): Promise<{ message: string }> => {
     const response = await apiClient.put('/admin/settings/email', settings);
+    return response.data;
+  },
+
+  getSupportSettings: async (): Promise<SupportSettings> => {
+    const response = await apiClient.get<SupportSettings>('/admin/settings/support');
+    return response.data;
+  },
+
+  updateSupportSettings: async (settings: SupportSettings): Promise<{ message: string }> => {
+    const response = await apiClient.put('/admin/settings/support', settings);
     return response.data;
   },
 };
@@ -403,6 +422,10 @@ export interface Campaign {
   use_custom_icons: boolean;
   is_active: boolean;
   created_at: string;
+  click_count?: number;
+  login_count?: number;
+  purchase_count?: number;
+  revenue_generated?: number;
 }
 
 export async function uploadCampaignAsset(file: File): Promise<string> {

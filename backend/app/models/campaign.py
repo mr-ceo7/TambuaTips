@@ -27,5 +27,11 @@ class Campaign(Base):
     use_particle_effects = Column(Boolean, default=False)
     use_custom_icons = Column(Boolean, default=False)
     
+    # ─── Tracking & Analytics ───
+    click_count = Column(Integer, default=0)
+    login_count = Column(Integer, default=0)
+    purchase_count = Column(Integer, default=0)
+    revenue_generated = Column(Float, default=0.0)
+    
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)

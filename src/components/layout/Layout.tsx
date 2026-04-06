@@ -12,17 +12,22 @@ import { JackpotPurchaseModal } from '../JackpotPurchaseModal';
 import { CookieBanner } from '../CookieBanner';
 import { useUser } from '../../context/UserContext';
 import { usePageTracking } from '../../hooks/usePageTracking';
+import { useCampaignTracking } from '../../hooks/useCampaignTracking';
 import { CampaignThemeInjector } from '../campaign/CampaignThemeInjector';
 import { CampaignBadge } from '../campaign/CampaignBadge';
 import { CampaignParticles } from '../campaign/CampaignParticles';
+import { FloatingHelpWidget } from '../FloatingHelpWidget';
 
 export function Layout() {
   const { showPricingModal, setShowPricingModal, showJackpotModal, setShowJackpotModal, selectedJackpot, user } = useUser();
 
   // Initialize tracking only for logged-in users 
   // Wait, usePageTracking handles token internally, but we can just mount it regardless or selectively.
-  // Actually, I'll mount it unconditionally. The hook handles auth.
+  // Initialize page-view tracking
   usePageTracking();
+  
+  // Initialize campaign URL tracking
+  useCampaignTracking();
 
   return (
     <div className="min-h-screen bg-pitch text-zinc-50 font-sans flex flex-col">
@@ -44,6 +49,7 @@ export function Layout() {
         jackpot={selectedJackpot} 
       />
       <CampaignBadge />
+      <FloatingHelpWidget />
       <ReloadPrompt />
       <CookieBanner />
     </div>

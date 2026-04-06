@@ -20,6 +20,7 @@ from app.models.user import User, UserSession
 from app.models.setting import AdminSetting
 from app.config import settings
 from app.routers.admin import get_referral_settings, get_sms_settings
+from app.routers.campaigns import track_campaign_event
 from app.models.activity import UserActivity, AnonymousVisitor, AnonymousActivity
 from app.schemas.auth import GoogleLoginRequest, PhoneLoginRequest, PhoneVerifyRequest, RefreshRequest, UserResponse, UpdateFavoritesRequest, PushSubscribeRequest, ActivityRequest
 from app.security import hash_password, verify_password, create_access_token, create_refresh_token, decode_token
@@ -230,6 +231,9 @@ async def google_auth(body: GoogleLoginRequest, request: Request, response: Resp
         # Update login mechanics tracking IP and Geo via background tasks
         client_ip = get_real_ip(request)
         background_tasks.add_task(fetch_user_country, user.id, client_ip)
+        
+        # Track Campaign login globally
+        background_tasks.add_task(track_campaign_event, "login", 0.0)
 
         # Issue securely with session tracking
         access_token = create_access_token(str(user.id), extra={"session_id": session_id})
@@ -429,6 +433,9 @@ async def verify_phone_otp(body: PhoneVerifyRequest, request: Request, response:
     # Geo lookup
     client_ip = get_real_ip(request)
     background_tasks.add_task(fetch_user_country, user.id, client_ip)
+
+    # Track Campaign login globally
+    background_tasks.add_task(track_campaign_event, "login", 0.0)
 
     # Issue JWT tokens (identical to Google flow)
     access_token = create_access_token(str(user.id), extra={"session_id": session_id})

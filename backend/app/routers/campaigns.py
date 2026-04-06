@@ -36,6 +36,19 @@ async def get_active_campaign(db: AsyncSession = Depends(get_db)):
         
     return campaign
 
+@router.post("/{slug}/click")
+async def track_campaign_click(slug: str, db: AsyncSession = Depends(get_db)):
+    """Public: Increment click count for a specific campaign."""
+    result = await db.execute(select(Campaign).where(Campaign.slug == slug))
+    campaign = result.scalar_one_or_none()
+    
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+        
+    campaign.click_count += 1
+    await db.commit()
+    return {"status": "success"}
+
 @router.get("", response_model=List[CampaignResponse])
 async def list_campaigns(db: AsyncSession = Depends(get_db)):
     """Admin: List all campaigns."""
@@ -122,3 +135,36 @@ async def upload_campaign_asset(
         shutil.copyfileobj(file.file, buffer)
         
     return {"url": f"/media/uploads/{safe_name}"}
+
+from app.database import AsyncSessionLocal
+
+async def track_campaign_event(event_type: str, revenue: float = 0.0):
+    """Internal helper to attribute an event to the currently active campaign."""
+    now = datetime.now(UTC).replace(tzinfo=None)
+    
+    try:
+        async with AsyncSessionLocal() as session:
+            result = await session.execute(
+                select(Campaign)
+                .where(
+                    Campaign.is_active == True,
+                    Campaign.start_date <= now,
+                    Campaign.end_date >= now
+                )
+                .order_by(Campaign.start_date.desc())
+                .limit(1)
+            )
+            campaign = result.scalar_one_or_none()
+            
+            if campaign:
+                if event_type == "login":
+                    campaign.login_count += 1
+                elif event_type == "purchase":
+                    campaign.purchase_count += 1
+                    campaign.revenue_generated += revenue
+                
+                session.add(campaign)
+                await session.commit()
+    except Exception as e:
+        import logging
+        logging.error(f"Error tracking campaign event: {e}")

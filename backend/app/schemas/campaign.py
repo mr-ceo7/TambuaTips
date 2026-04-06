@@ -51,4 +51,10 @@ class CampaignResponse(CampaignBase):
     id: int
     created_at: datetime
     
+    # Analytics
+    click_count: int
+    login_count: int
+    purchase_count: int
+    revenue_generated: float
+    
     model_config = ConfigDict(from_attributes=True)

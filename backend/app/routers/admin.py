@@ -53,6 +53,7 @@ REFERRAL_DEFAULTS = {
     "jackpot_mega_int_price": "10",
     "jackpot_history_retention_days": "30",
     "jackpot_bundle_discount": "20",
+    "jackpot_prices_json": "{}",
 }
 
 REFERRAL_DESCRIPTIONS = {
@@ -71,6 +72,7 @@ REFERRAL_DESCRIPTIONS = {
     "jackpot_mega_int_price": "Default price for Mega Jackpot in international currency (USD)",
     "jackpot_history_retention_days": "Number of days to keep jackpots visible in the history",
     "jackpot_bundle_discount": "Percentage discount offered when purchasing all available jackpots together (0-100)",
+    "jackpot_prices_json": "JSON configuration for overriding default prices based on specific DC levels (e.g. 3DC, 4DC)",
 }
 
 async def get_referral_settings(db: AsyncSession) -> dict:
@@ -106,6 +108,7 @@ class SettingsUpdateProps(BaseModel):
     jackpot_mega_int_price: Optional[int] = None
     jackpot_history_retention_days: Optional[int] = None
     jackpot_bundle_discount: Optional[int] = None
+    jackpot_prices_json: Optional[str] = None
 
 
 @router.get("/settings")
@@ -240,6 +243,62 @@ async def update_email_settings(body: EmailSettingsUpdate, db: AsyncSession = De
             setting.value = str_value
     await db.commit()
     return {"message": "Email settings updated successfully"}
+
+
+# ═══════════════════════════════════════════════════════════════
+#  SUPPORT CONTACT SETTINGS
+# ═══════════════════════════════════════════════════════════════
+
+SUPPORT_DEFAULTS = {
+    "SUPPORT_EMAIL": "tambuatips@gmail.com",
+    "SUPPORT_WHATSAPP": "https://wa.me/254746957502",
+    "SUPPORT_WHATSAPP_NUMBER": "+254 746 957 502",
+}
+
+SUPPORT_DESCRIPTIONS = {
+    "SUPPORT_EMAIL": "Public support email address shown on the contact page and help widget.",
+    "SUPPORT_WHATSAPP": "Full WhatsApp link (https://wa.me/...) for the support chat button.",
+    "SUPPORT_WHATSAPP_NUMBER": "Display-formatted WhatsApp number for user reference.",
+}
+
+
+class SupportSettingsUpdate(BaseModel):
+    SUPPORT_EMAIL: Optional[str] = None
+    SUPPORT_WHATSAPP: Optional[str] = None
+    SUPPORT_WHATSAPP_NUMBER: Optional[str] = None
+
+
+async def get_support_settings(db: AsyncSession) -> dict:
+    """Helper to read all support contact settings."""
+    result = await db.execute(select(AdminSetting).where(AdminSetting.key.in_(SUPPORT_DEFAULTS.keys())))
+    settings_db = {s.key: s.value for s in result.scalars().all()}
+    out = {}
+    for key, default in SUPPORT_DEFAULTS.items():
+        out[key] = settings_db.get(key, default)
+    return out
+
+
+@router.get("/settings/support")
+async def get_support_settings_endpoint(db: AsyncSession = Depends(get_db), admin: User = Depends(require_admin)):
+    """Admin: Get current support contact settings."""
+    return await get_support_settings(db)
+
+
+@router.put("/settings/support")
+async def update_support_settings(body: SupportSettingsUpdate, db: AsyncSession = Depends(get_db), admin: User = Depends(require_admin)):
+    """Admin: Update support contact settings."""
+    updates = body.model_dump(exclude_none=True)
+    for key, value in updates.items():
+        str_value = str(value)
+        res = await db.execute(select(AdminSetting).where(AdminSetting.key == key))
+        setting = res.scalar_one_or_none()
+        if not setting:
+            setting = AdminSetting(key=key, value=str_value, description=SUPPORT_DESCRIPTIONS.get(key, ""))
+            db.add(setting)
+        else:
+            setting.value = str_value
+    await db.commit()
+    return {"message": "Support settings updated successfully"}
 
 # ═══════════════════════════════════════════════════════════════
 #  REFERRAL ANALYTICS
@@ -834,29 +893,55 @@ async def search_fixtures(
     date: Optional[str] = Query(None, description="Date (YYYY-MM-DD), defaults to today"),
     admin: User = Depends(require_admin),
 ):
-    """Search upcoming fixtures by team name via API-Football."""
+    """Search fixtures by team name across ALL leagues. Searches the selected date ± 1 day for wider coverage."""
     from app.services.sports_api import fetch_fixtures_by_date
-    from datetime import date as date_type
+    from datetime import date as date_type, timedelta
 
     search_date = date or date_type.today().isoformat()
     
+    # Search across 3 days for wider coverage (selected day ± 1)
     try:
-        fixtures = await fetch_fixtures_by_date(search_date)
-    except Exception as e:
-        # API might be unavailable — return empty gracefully 
-        error_msg = str(e) if settings.DEBUG else "Service unavailable"
-        return {"fixtures": [], "error": error_msg}
+        base = date_type.fromisoformat(search_date)
+    except ValueError:
+        base = date_type.today()
+    
+    dates_to_search = [
+        (base - timedelta(days=1)).isoformat(),
+        base.isoformat(),
+        (base + timedelta(days=1)).isoformat(),
+    ]
+    
+    all_fixtures = []
+    for d in dates_to_search:
+        try:
+            day_fixtures = await fetch_fixtures_by_date(d)
+            all_fixtures.extend(day_fixtures)
+        except Exception:
+            pass
 
-    # Filter by query
-    q_lower = q.lower()
+    if not all_fixtures:
+        return {"fixtures": [], "error": "No fixtures available. API may be unavailable."}
+
+    # Filter by query — search team names, league name, and country
+    q_lower = q.lower().strip()
     matched = [
-        f for f in fixtures
+        f for f in all_fixtures
         if q_lower in f.get("homeTeam", "").lower()
         or q_lower in f.get("awayTeam", "").lower()
         or q_lower in f.get("league", "").lower()
+        or q_lower in f.get("country", "").lower()
     ]
 
-    return {"fixtures": matched[:20]}
+    # Deduplicate by fixture ID
+    seen = set()
+    unique = []
+    for f in matched:
+        fid = f.get("id")
+        if fid not in seen:
+            seen.add(fid)
+            unique.append(f)
+
+    return {"fixtures": unique[:30]}
 
 from pydantic import BaseModel
 class MatchEnrichRequest(BaseModel):

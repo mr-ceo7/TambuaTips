@@ -212,7 +212,6 @@ async def _fulfill_payment(payment: Payment, user: User, db: AsyncSession):
 
     await db.commit()
     
-    # Try to send a receipt
     import asyncio
     asyncio.create_task(
         send_payment_receipt_email(
@@ -221,6 +220,12 @@ async def _fulfill_payment(payment: Payment, user: User, db: AsyncSession):
             method=payment.method,
             transaction_id=payment.transaction_id or payment.reference
         )
+    )
+    
+    # Track Campaign Purchase globally
+    from app.routers.campaigns import track_campaign_event
+    asyncio.create_task(
+        track_campaign_event("purchase", float(payment.amount))
     )
 
 

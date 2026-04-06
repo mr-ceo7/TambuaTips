@@ -27,6 +27,7 @@ export function JackpotsManagePage() {
     notify_channel: 'both',
   });
   const [defaultPrices, setDefaultPrices] = useState({ midweek: 500, mega: 1000, midweekInt: 5, megaInt: 10 });
+  const [dcPricesConfig, setDcPricesConfig] = useState<Record<string, Record<string, { local: number, intl: number }>>>({});
   const [matchInput, setMatchInput] = useState({ homeTeam: '', awayTeam: '' });
   const [bulkMatches, setBulkMatches] = useState('');
   const [activeVariation, setActiveVariation] = useState(0);
@@ -46,6 +47,11 @@ export function JackpotsManagePage() {
         midweekInt: s.jackpot_midweek_int_price || 5,
         megaInt: s.jackpot_mega_int_price || 10,
       });
+      if (s.jackpot_prices_json) {
+        try {
+          setDcPricesConfig(JSON.parse(s.jackpot_prices_json));
+        } catch(e) {}
+      }
     }).catch(() => {});
   }, []);
 
@@ -341,11 +347,12 @@ export function JackpotsManagePage() {
                 <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-1 tracking-wider">Jackpot Type</label>
                 <select value={form.type} onChange={e => {
                   const newType = e.target.value as JackpotType;
+                  const custom = dcPricesConfig[newType]?.[String(form.dcLevel)];
                   setForm({ 
                     ...form, 
                     type: newType,
-                    price: form.price === 0 ? 0 : (newType === 'midweek' ? defaultPrices.midweek : defaultPrices.mega),
-                    intPrice: form.price === 0 ? 0 : (newType === 'midweek' ? defaultPrices.midweekInt : defaultPrices.megaInt),
+                    price: form.price === 0 ? 0 : (custom?.local || (newType === 'midweek' ? defaultPrices.midweek : defaultPrices.mega)),
+                    intPrice: form.price === 0 ? 0 : (custom?.intl || (newType === 'midweek' ? defaultPrices.midweekInt : defaultPrices.megaInt)),
                   });
                 }} className="admin-input">
                   <option value="midweek">Midweek (13 Matches)</option>
@@ -354,7 +361,16 @@ export function JackpotsManagePage() {
               </div>
               <div>
                 <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-1 tracking-wider">DC Level</label>
-                <select value={form.dcLevel} onChange={e => setForm({ ...form, dcLevel: parseInt(e.target.value) as DCLevel })} className="admin-input">
+                <select value={form.dcLevel} onChange={e => {
+                  const newDc = parseInt(e.target.value) as DCLevel;
+                  const custom = dcPricesConfig[form.type]?.[String(newDc)];
+                  setForm({ 
+                    ...form, 
+                    dcLevel: newDc,
+                    price: form.price === 0 ? 0 : (custom?.local || (form.type === 'midweek' ? defaultPrices.midweek : defaultPrices.mega)),
+                    intPrice: form.price === 0 ? 0 : (custom?.intl || (form.type === 'midweek' ? defaultPrices.midweekInt : defaultPrices.megaInt)),
+                  });
+                }} className="admin-input">
                   {DC_LEVELS.map(dc => <option key={dc} value={dc}>{dc}DC</option>)}
                 </select>
               </div>
