@@ -95,7 +95,7 @@ def monitor_logs():
                         try:
                             genai.configure(api_key=api_key)
                             model = genai.GenerativeModel("gemini-2.5-flash")
-                            prompt = f"Analyze this server traceback. Reply with ONLY plain text, no markdown, no bold, no backticks, no bullet points. Explain what caused the crash and how to fix it in plain English.\n\n{context_out}"
+                            prompt = f"Analyze this server traceback. Reply with ONLY plain text, no markdown, no bold, no backticks, no bullet points. Explain: 1) What the user was trying to access or do that triggered this error. 2) What caused the crash. 3) How to fix it. Write in plain English.\n\n{context_out}"
                             response = model.generate_content(prompt)
                             ai_text = response.text.strip()
                             if ai_text:
