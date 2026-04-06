@@ -95,7 +95,7 @@ def monitor_logs():
                         try:
                             genai.configure(api_key=api_key)
                             model = genai.GenerativeModel("gemini-2.5-flash")
-                            prompt = f"Analyze this traceback. Explain what caused the crash and how to fix it in a maximum of 2 plain English sentences for an SMS alert:\n\n{context_out}"
+                            prompt = f"Analyze this server traceback. Reply with ONLY plain text, no markdown, no bold, no backticks, no bullet points. Explain what caused the crash and how to fix it in exactly 2 short sentences under 200 characters total. This will be sent as an SMS.\n\n{context_out}"
                             response = model.generate_content(prompt)
                             ai_text = response.text.strip()
                             if ai_text:
