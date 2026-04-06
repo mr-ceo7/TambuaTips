@@ -20,9 +20,8 @@ BE_ENV = '/var/www/v2.tambuatips.com/backend/.env'
 INTERNAL_ALERT_URL = 'http://127.0.0.1:8002/api/internal/system-alert'
 
 # AI Setup
-GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
-if HAS_GEMINI and GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
+GEMINI_API_KEYS_STR = os.environ.get('GEMINI_API_KEYS', '')
+GEMINI_API_KEYS = [k.strip() for k in GEMINI_API_KEYS_STR.split(',')] if GEMINI_API_KEYS_STR else []
 
 # Anti-Spam state
 last_alerts = {}
@@ -90,16 +89,25 @@ def monitor_logs():
                 context_out = subprocess.run(["journalctl", "-u", "tambuatips-api", "-n", "50", "--no-pager"], capture_output=True, text=True).stdout
                 
                 # 4. Request Gemini Analysis
-                if HAS_GEMINI and GEMINI_API_KEY:
-                    model = genai.GenerativeModel("gemini-2.5-flash")
-                    prompt = f"Analyze this traceback. Explain what caused the crash and how to fix it in a maximum of 2 plain English sentences for an SMS alert:\n\n{context_out}"
-                    response = model.generate_content(prompt)
-                    ai_text = response.text.strip()
-                    
+                if HAS_GEMINI and GEMINI_API_KEYS:
+                    ai_text = ""
+                    for api_key in GEMINI_API_KEYS:
+                        try:
+                            genai.configure(api_key=api_key)
+                            model = genai.GenerativeModel("gemini-2.5-flash")
+                            prompt = f"Analyze this traceback. Explain what caused the crash and how to fix it in a maximum of 2 plain English sentences for an SMS alert:\n\n{context_out}"
+                            response = model.generate_content(prompt)
+                            ai_text = response.text.strip()
+                            if ai_text:
+                                break # Successful inference!
+                        except Exception as ai_e:
+                            print(f"Gemini API key {api_key[:10]}... failed: {ai_e}")
+                            continue
+                            
                     if ai_text:
                         send_alert("AI Crash Analysis", f"{ai_text}", "WARNING")
             except Exception as e:
-                print(f"Failed AI log analysis: {e}")
+                print(f"Failed AI log analysis framework: {e}")
 
 class WebhookHandler(BaseHTTPRequestHandler):
     def do_POST(self):
