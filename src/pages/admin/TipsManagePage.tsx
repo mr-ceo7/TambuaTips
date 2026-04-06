@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Plus, Search, Trash2, Edit, Check, X, Star, Filter,
-  Zap, ChevronDown, Loader
+  Zap, ChevronDown, Loader, Copy
 } from 'lucide-react';
 import { TeamWithLogo, LeagueLogo } from '../../components/TeamLogo';
 import {
@@ -162,6 +162,25 @@ export function TipsManagePage() {
     });
     setEditingId(tip.id);
     setShowForm(true);
+  };
+
+  const handleDuplicateTip = (tip: Tip) => {
+    setForm({
+      fixtureId: String(tip.fixtureId),
+      homeTeam: tip.homeTeam,
+      awayTeam: tip.awayTeam,
+      league: tip.league,
+      matchDate: tip.matchDate.split('T')[0],
+      prediction: tip.prediction,
+      confidence: tip.confidence,
+      reasoning: tip.reasoning,
+      category: tip.category,
+      notify: false, notify_target: 'subscribers', notify_channel: 'both',
+    });
+    setEditingId(null);
+    setShowForm(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    toast.success('Tip copied to form. You can now adjust details and publish as a new tip.');
   };
 
   const handleDeleteTip = async (id: string) => {
@@ -546,6 +565,9 @@ export function TipsManagePage() {
                     </button>
                   </>
                 )}
+                <button onClick={() => handleDuplicateTip(tip)} className="p-1.5 bg-zinc-800 text-zinc-400 rounded-lg hover:bg-emerald-500/10 hover:text-emerald-400 transition-all" title="Duplicate">
+                  <Copy className="w-3.5 h-3.5" />
+                </button>
                 <button onClick={() => handleEditTip(tip)} className="p-1.5 bg-zinc-800 text-zinc-400 rounded-lg hover:bg-zinc-700 hover:text-white transition-all" title="Edit">
                   <Edit className="w-3.5 h-3.5" />
                 </button>
