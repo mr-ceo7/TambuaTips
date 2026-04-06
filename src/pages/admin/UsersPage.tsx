@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import {
   Search, ChevronDown, ChevronUp, Users as UsersIcon, Shield, Ban,
   Crown, Clock, Globe, MoreVertical, Eye, ArrowUpDown, UserX, UserCheck,
-  Download
+  Download, Gift, XCircle
 } from 'lucide-react';
 import { adminService, type AdminUser, type UserActivityDetail } from '../../services/adminService';
 import { toast } from 'sonner';
@@ -29,6 +29,11 @@ export function UsersPage() {
   const [userDetail, setUserDetail] = useState<UserActivityDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [filterTier, setFilterTier] = useState<string>('all');
+
+  const [grantModalOpen, setGrantModalOpen] = useState<number | null>(null);
+  const [grantTier, setGrantTier] = useState<string>('premium');
+  const [grantDays, setGrantDays] = useState<number>(30);
+  const [granting, setGranting] = useState(false);
 
   useEffect(() => {
     loadUsers();
@@ -77,6 +82,22 @@ export function UsersPage() {
       loadUsers();
     } catch {
       toast.error('Failed to revoke subscription');
+    }
+  };
+
+  const handleGrantSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!grantModalOpen) return;
+    setGranting(true);
+    try {
+      await adminService.grantSubscription(grantModalOpen, grantTier, grantDays);
+      toast.success('Subscription granted successfully');
+      setGrantModalOpen(null);
+      loadUsers();
+    } catch {
+      toast.error('Failed to grant subscription');
+    } finally {
+      setGranting(false);
     }
   };
 
@@ -252,8 +273,9 @@ export function UsersPage() {
                     </td>
                     <td className="px-4 py-3.5 text-right" onClick={e => e.stopPropagation()}>
                       <div className="flex items-center gap-1.5 justify-end">
-                        <button onClick={() => handleExpandUser(u.id)} className="p-1.5 rounded-lg text-zinc-500 hover:text-white hover:bg-zinc-800 transition-all"><Eye className="w-3.5 h-3.5" /></button>
-                        {u.subscription_tier !== 'free' && <button onClick={() => handleRevoke(u.id)} className="p-1.5 rounded-lg text-zinc-500 hover:text-yellow-400 hover:bg-yellow-500/10 transition-all"><Crown className="w-3.5 h-3.5" /></button>}
+                        <button onClick={() => handleExpandUser(u.id)} className="p-1.5 rounded-lg text-zinc-500 hover:text-white hover:bg-zinc-800 transition-all" title="View Details"><Eye className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => setGrantModalOpen(u.id)} className="p-1.5 rounded-lg text-zinc-500 hover:text-emerald-400 hover:bg-emerald-500/10 transition-all" title="Grant Subscription"><Gift className="w-3.5 h-3.5" /></button>
+                        {u.subscription_tier !== 'free' && <button onClick={() => handleRevoke(u.id)} className="p-1.5 rounded-lg text-zinc-500 hover:text-yellow-400 hover:bg-yellow-500/10 transition-all" title="Revoke Subscription"><XCircle className="w-3.5 h-3.5" /></button>}
                         <button onClick={() => handleToggleActive(u)} className={`p-1.5 rounded-lg transition-all ${u.is_active ? 'text-zinc-500 hover:text-red-400 hover:bg-red-500/10' : 'text-zinc-500 hover:text-emerald-400 hover:bg-emerald-500/10'}`}>{u.is_active ? <UserX className="w-3.5 h-3.5" /> : <UserCheck className="w-3.5 h-3.5" />}</button>
                         {!u.is_admin && <button onClick={() => handleMakeAdmin(u.id)} className="p-1.5 rounded-lg text-zinc-500 hover:text-emerald-400 hover:bg-emerald-500/10 transition-all"><Shield className="w-3.5 h-3.5" /></button>}
                       </div>
@@ -299,7 +321,8 @@ export function UsersPage() {
                     <span className="text-[10px] text-zinc-600">{Math.floor(u.total_time_spent / 60)}m</span>
                   </div>
                   <div className="flex items-center gap-0.5" onClick={e => e.stopPropagation()}>
-                    {u.subscription_tier !== 'free' && (<button onClick={() => handleRevoke(u.id)} className="p-1.5 rounded-lg text-zinc-600 active:text-yellow-400 transition-all"><Crown className="w-3.5 h-3.5" /></button>)}
+                    <button onClick={() => setGrantModalOpen(u.id)} className="p-1.5 rounded-lg text-zinc-600 active:text-emerald-400 transition-all"><Gift className="w-3.5 h-3.5" /></button>
+                    {u.subscription_tier !== 'free' && (<button onClick={() => handleRevoke(u.id)} className="p-1.5 rounded-lg text-zinc-600 active:text-yellow-400 transition-all"><XCircle className="w-3.5 h-3.5" /></button>)}
                     <button onClick={() => handleToggleActive(u)} className="p-1.5 rounded-lg text-zinc-600 transition-all">{u.is_active ? <UserX className="w-3.5 h-3.5" /> : <UserCheck className="w-3.5 h-3.5" />}</button>
                     {!u.is_admin && (<button onClick={() => handleMakeAdmin(u.id)} className="p-1.5 rounded-lg text-zinc-600 transition-all"><Shield className="w-3.5 h-3.5" /></button>)}
                     <ChevronDown className={`w-3.5 h-3.5 text-zinc-600 transition-transform ${expandedUserId === u.id ? 'rotate-180' : ''}`} />
@@ -329,6 +352,56 @@ export function UsersPage() {
           {filteredUsers.length === 0 && (<div className="px-4 py-12 text-center text-zinc-500 text-sm">No users found matching your criteria</div>)}
         </div>
       </div>
+
+      {grantModalOpen !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-md overflow-hidden">
+            <div className="p-5 border-b border-zinc-800">
+              <h3 className="text-lg font-bold text-white">Grant Subscription</h3>
+            </div>
+            <form onSubmit={handleGrantSubmit} className="p-5 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">Select Tier</label>
+                <select 
+                  value={grantTier} 
+                  onChange={e => setGrantTier(e.target.value)}
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
+                >
+                  <option value="basic">Basic</option>
+                  <option value="standard">Standard</option>
+                  <option value="premium">Premium</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">Duration (Days)</label>
+                <input 
+                  type="number" 
+                  min="1"
+                  value={grantDays} 
+                  onChange={e => setGrantDays(parseInt(e.target.value))}
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button 
+                  type="button" 
+                  onClick={() => setGrantModalOpen(null)}
+                  className="flex-1 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold rounded-xl transition-all text-sm"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit" 
+                  disabled={granting}
+                  className="flex-1 py-2 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold rounded-xl transition-all text-sm disabled:opacity-50"
+                >
+                  {granting ? 'Granting...' : 'Grant Access'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
