@@ -248,3 +248,9 @@ async def bootstrap_admin(request: Request):
         await session.commit()
 
     return {"status": "success", "message": f"{email} is now the first admin!"}
+
+
+@app.get("/api/panic")
+async def simulated_panic():
+    """Endpoint for testing the smart alert system. Raises a simulated crash traceback."""
+    raise ValueError("TEST ALERT: This is a simulated system crash. Everything is working correctly!")
