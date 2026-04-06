@@ -138,6 +138,7 @@ async def seed_default_jackpots():
 
 import asyncio
 from app.services.match_poller import poll_live_matches
+from app.services.sports_api import init_api_quotas
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -149,6 +150,9 @@ async def lifespan(app: FastAPI):
     await seed_default_ads()
     await seed_default_tiers()
     await seed_default_jackpots()
+    
+    # Sync API quotas
+    await init_api_quotas()
     
     # Start the background match poller task
     poller_task = asyncio.create_task(poll_live_matches())

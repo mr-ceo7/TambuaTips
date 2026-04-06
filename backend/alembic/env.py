@@ -42,10 +42,18 @@ def run_migrations_offline() -> None:
         literal_binds=True,
         dialect_opts={"paramstyle": "format"},
         render_as_batch=True,
+        compare_type=my_compare_type
     )
 
     with context.begin_transaction():
         context.run_migrations()
+
+
+def my_compare_type(context, inspected_column, metadata_column, inspected_type, metadata_type):
+    # Ignore type drift specifically on 'id' columns to avoid Foreign Key modification errors in MySQL/TiDB
+    if metadata_column.name == 'id':
+        return False
+    return None
 
 
 def run_migrations_online() -> None:
@@ -57,7 +65,12 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata, render_as_batch=True)
+        context.configure(
+            connection=connection,
+            target_metadata=target_metadata,
+            render_as_batch=True,
+            compare_type=my_compare_type
+        )
 
         with context.begin_transaction():
             context.run_migrations()

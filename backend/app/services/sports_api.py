@@ -15,10 +15,9 @@ from app.services.cache import get_cached, set_cached
 logger = logging.getLogger(__name__)
 
 API_BASE = "https://v3.football.api-sports.io"
-DAILY_LIMIT = 7500
 
-# Track usage / state per key per day (in-memory; resets on server restart)
-_key_usage: dict[str, dict] = {}  # {key: {date: str, count: int, blocked_until: float, exhausted: bool, reason: str}}
+# Track usage / state per key (in-memory; resets on server restart)
+_key_usage: dict[str, dict] = {}  # {key: {date: str, count: int, limit_day: int, blocked_until: float, last_request: float, exhausted: bool, reason: str}}
 
 
 def _get_today() -> str:
@@ -32,7 +31,9 @@ def _get_key_info(key: str) -> dict:
         entry = {
             "date": today,
             "count": 0,
+            "limit_day": 7500,  # Default safe fallback
             "blocked_until": 0.0,
+            "last_request": 0.0,
             "exhausted": False,
             "reason": None,
         }
@@ -66,7 +67,7 @@ def _is_key_available(key: str) -> bool:
         return False
     if entry["blocked_until"] and time.time() < entry["blocked_until"]:
         return False
-    if entry["count"] >= DAILY_LIMIT:
+    if entry["count"] >= entry["limit_day"]:
         return False
     return True
 
@@ -83,6 +84,16 @@ def _is_exhaustion_error(data: dict, status_code: int) -> bool:
 
 def _update_key_quota_from_headers(key: str, headers: dict):
     remaining_daily = headers.get("x-ratelimit-requests-remaining")
+    limit_daily = headers.get("x-ratelimit-requests-limit") or headers.get("X-RateLimit-Requests-Limit")
+
+    entry = _get_key_info(key)
+
+    if limit_daily is not None:
+        try:
+            entry["limit_day"] = int(limit_daily)
+        except ValueError:
+            pass
+
     if remaining_daily is not None:
         try:
             if int(remaining_daily) <= 0:
@@ -113,22 +124,33 @@ def _get_best_key() -> Optional[str]:
 
 
 async def _api_fetch(endpoint: str) -> dict:
-    """Make a request to API-Football with automatic key rotation."""
+    """Make a request to API-Football with automatic key rotation and throttling."""
     keys = settings.api_football_key_list
     if not keys:
         logger.warning("No API-Football keys configured")
         return {}
 
     async with httpx.AsyncClient(timeout=30) as client:
+        # Sort keys to use the one with the lowest count first
         for key in sorted(keys, key=lambda k: _get_key_usage(k)):
             if not _is_key_available(key):
                 continue
+
+            entry = _get_key_info(key)
+            
+            # Per-second throttling: max 5 req/sec (200ms delay)
+            now = time.time()
+            elapsed = now - entry["last_request"]
+            if elapsed < 0.2:
+                await asyncio.sleep(0.2 - elapsed)
+                now = time.time()
 
             try:
                 response = await client.get(
                     f"{API_BASE}{endpoint}",
                     headers={"x-apisports-key": key},
                 )
+                entry["last_request"] = now
                 _increment_key(key)
                 data = response.json()
                 _update_key_quota_from_headers(key, response.headers)
@@ -290,3 +312,40 @@ async def fetch_fixtures_by_league(league_id: int, date_str: Optional[str] = Non
     fixtures = [_map_fixture(item) for item in (data.get("response") or [])]
     set_cached("fixtures", cache_key, fixtures)
     return fixtures
+
+
+async def init_api_quotas():
+    """Synchronize API quotas for all configured keys on startup."""
+    keys = settings.api_football_key_list
+    if not keys:
+        return
+
+    logger.info("Initializing API-Football quotas for %d keys", len(keys))
+    async with httpx.AsyncClient(timeout=10) as client:
+        for key in keys:
+            try:
+                response = await client.get(
+                    f"{API_BASE}/status",
+                    headers={"x-apisports-key": key},
+                )
+                if response.status_code == 200:
+                    data = response.json()
+                    res = data.get("response", {})
+                    req_data = res.get("requests", {})
+                    limit_day = req_data.get("limit_day", 100)
+                    current = req_data.get("current", 0)
+                    
+                    entry = _get_key_info(key)
+                    entry["limit_day"] = limit_day
+                    entry["count"] = current
+                    
+                    plan = res.get("subscription", {}).get("plan", "Unknown")
+                    logger.info(
+                        "API-Football key synced: plan=%s, daily_quota=%d/%d",
+                        plan, current, limit_day
+                    )
+                else:
+                    logger.warning("Failed to sync API status for key %s...: status %d", key[:8], response.status_code)
+                    _mark_key_exhausted(key, f"status_{response.status_code}")
+            except Exception as e:
+                logger.error("Error syncing API status for key %s: %s", key[:8], str(e))
