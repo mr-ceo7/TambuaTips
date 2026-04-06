@@ -69,16 +69,17 @@ async def send_system_alert(title: str, message: str, level: str = "ERROR"):
     
     async with httpx.AsyncClient() as client:
         for phone in phones:
-            # Strip '+' for provider if needed, assuming international format
-            clean_phone = phone.lstrip('+')
+            # Strip everything except digits (remove + and spaces) to match auth.py provider format
+            import re
+            stripped_phone = re.sub(r'[\D]', '', phone)
             params = {
-                "sms_src": sms_src,
-                "sms_dest": clean_phone,
+                "src": sms_src,
+                "phone_number": stripped_phone,
                 "sms_message": sms_message
             }
             try:
-                # Based on previous research of Trackom provider integration
-                resp = await client.get(sms_url, params=params)
+                # Use POST with params to match auth.py exactly
+                resp = await client.post(sms_url, params=params)
                 logger.info(f"System Alert SMS sent to {phone}. Status: {resp.status_code}")
             except Exception as e:
                 logger.error(f"Failed to send alert SMS to {phone}: {e}")
