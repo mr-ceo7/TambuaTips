@@ -44,7 +44,7 @@ async def trigger_system_alert(
 @router.get("/support-contact")
 async def get_public_support_contact():
     """Public endpoint: Returns support contact details for the help widget. No auth required."""
-    from app.database import async_session
+    from app.database import AsyncSessionLocal
     from sqlalchemy import select
     from app.models.setting import AdminSetting
 
@@ -54,7 +54,7 @@ async def get_public_support_contact():
         "SUPPORT_WHATSAPP_NUMBER": "+254 746 957 502",
     }
 
-    async with async_session() as db:
+    async with AsyncSessionLocal() as db:
         result = await db.execute(select(AdminSetting).where(AdminSetting.key.in_(SUPPORT_DEFAULTS.keys())))
         settings_db = {s.key: s.value for s in result.scalars().all()}
 
