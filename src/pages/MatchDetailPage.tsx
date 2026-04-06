@@ -9,6 +9,7 @@ import { SEO } from '../components/SEO';
 import { useUser } from '../context/UserContext';
 import { MatchDetailSkeleton } from '../components/skeletons/MatchDetailSkeleton';
 import { TeamLogo } from '../components/TeamLogo';
+import { Breadcrumbs } from '../components/Breadcrumbs';
 
 /* Detached: MOCK_ODDS */
 
@@ -23,7 +24,6 @@ const MOCK_STATS = {
 };
 
 export function MatchDetailPage() {
-  <SEO title={'Match Detail'} />
   const { id } = useParams<{ id: string }>();
   const [fixture, setFixture] = useState<FixtureData | null>(null);
   const [tip, setTip] = useState<Tip | undefined>(undefined);
@@ -58,6 +58,7 @@ export function MatchDetailPage() {
   if (!fixture) {
     return (
       <div className="container mx-auto px-4 py-8 max-w-3xl text-center">
+        <SEO title="Match Not Found" noindex={true} />
         <h2 className="text-xl font-bold text-zinc-300 mb-4">Match not found</h2>
         <Link to="/fixtures" className="text-emerald-400 hover:text-emerald-300 text-sm">← Back to Fixtures</Link>
       </div>
@@ -66,11 +67,40 @@ export function MatchDetailPage() {
 
   const kickoff = new Date(fixture.matchDate);
   const matchName = `${fixture.homeTeam} vs ${fixture.awayTeam}`;
-
-  /* Detached: handleAddOdd and isSelected */
+  const seoDescription = `Get expert betting tips, head-to-head stats, and live updates for ${matchName} in the ${fixture.league}. Soccer analysis and predictions.`;
+  
+  const structData = {
+    "@context": "https://schema.org",
+    "@type": "SportsEvent",
+    "name": matchName,
+    "description": seoDescription,
+    "startDate": fixture.matchDate,
+    "homeTeam": {
+      "@type": "SportsTeam",
+      "name": fixture.homeTeam,
+      "logo": fixture.homeLogo
+    },
+    "awayTeam": {
+      "@type": "SportsTeam",
+      "name": fixture.awayTeam,
+      "logo": fixture.awayLogo
+    },
+    "location": {
+      "@type": "Place",
+      "name": fixture.venue || "TBA"
+    },
+    "sport": "Soccer"
+  };
 
   return (
     <div className="container mx-auto px-4 py-4 sm:py-8 max-w-3xl">
+      <SEO 
+        title={`${matchName} - Prediction & Stats`}
+        description={seoDescription}
+        canonical={`https://tambuatips.com/match/${id}`}
+        structData={structData}
+      />
+      <Breadcrumbs crumbs={[{ label: 'Fixtures', href: '/fixtures' }, { label: matchName }]} />
       <Link to="/fixtures" className="inline-flex items-center gap-2 text-zinc-400 hover:text-white mb-6 transition-colors text-sm font-medium">
         <ArrowLeft className="w-4 h-4" /> Back to Fixtures
       </Link>

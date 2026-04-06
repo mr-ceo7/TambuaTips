@@ -43,7 +43,7 @@ export function TeamLogo({ teamName, size = 24, className = '' }: TeamLogoProps)
       >
         <img
           src={logoUrl}
-          alt={`${teamName} badge`}
+          alt={`${teamName} Football Club Logo - TambuaTips Prediction`}
           width={size}
           height={size}
           loading="lazy"
@@ -147,7 +147,7 @@ export function LeagueLogo({ leagueName, size = 16, className = '' }: { leagueNa
     >
       <img 
         src={url} 
-        alt={leagueName}
+        alt={`${leagueName} League Logo - TambuaTips Fixtures`}
         className="w-full h-full object-contain"
         onError={() => setError(true)}
       />

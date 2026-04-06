@@ -382,7 +382,6 @@ function LeagueFilter({ selectedLeague, onSelect }: { selectedLeague: string; on
 }
 
 export function HomePage() {
-  <SEO title={'Home'} />
   const { setShowPricingModal } = useUser();
   const [fixtures, setFixtures] = useState<FixtureData[]>([]);
   const [newsArticles, setNewsArticles] = useState<NewsItem[]>([]);
@@ -391,6 +390,19 @@ export function HomePage() {
   const { activeCampaign } = useCampaign();
   const [loading, setLoading] = useState(true);
   const [searchParams, setSearchParams] = useSearchParams();
+
+  const structData = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "url": "https://tambuatips.com/",
+    "name": "TambuaTips",
+    "description": "Premium sports intelligence hub providing expert data-driven football predictions and live scores.",
+    "potentialAction": {
+      "@type": "SearchAction",
+      "target": "https://tambuatips.com/news?q={search_term_string}",
+      "query-input": "required name=search_term_string"
+    }
+  };
 
   useEffect(() => {
     const paymentStatus = searchParams.get('payment');
@@ -458,6 +470,13 @@ export function HomePage() {
 
   return (
     <div className="container mx-auto px-4 py-4 sm:py-8 max-w-7xl">
+      <SEO 
+        title="Expert Football Betting Tips & Live Scores"
+        description="TambuaTips is your premium sports intelligence hub. Get expert data-driven football predictions, live scores, match previews, and deep sports analytics. Stop guessing, start winning."
+        keywords="football tips, betting predictions, live scores, soccer analytics, jackpot predictions, v2 tambuatips"
+        canonical="https://tambuatips.com/"
+        structData={structData}
+      />
       {/* Top Banner for Campaign */}
       {activeCampaign && activeCampaign.banner_text && (
           <div className="bg-gradient-to-r from-emerald-500 to-emerald-400 p-3 rounded-xl mb-6 shadow-lg shadow-emerald-500/20 text-center relative overflow-hidden">

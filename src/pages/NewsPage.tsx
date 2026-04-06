@@ -14,7 +14,6 @@ const BRAND_AD_ARTICLE: NewsItem = {
 };
 
 export function NewsPage() {
-  <SEO title={'Football News'} />
   const [articles, setArticles] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -23,6 +22,18 @@ export function NewsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedArticle, setSelectedArticle] = useState<NewsItem | null>(null);
+
+  const articleStructData = selectedArticle ? {
+    "@context": "https://schema.org",
+    "@type": "NewsArticle",
+    "headline": selectedArticle.title,
+    "image": [selectedArticle.image],
+    "datePublished": new Date().toISOString(),
+    "author": {
+      "@type": "Organization",
+      "name": selectedArticle.source
+    }
+  } : null;
 
   const observer = useRef<IntersectionObserver | null>(null);
   const lastArticleElementRef = useCallback((node: HTMLDivElement) => {
@@ -80,6 +91,13 @@ export function NewsPage() {
   if (selectedArticle) {
     return (
       <div className="container mx-auto px-4 py-4 sm:py-8 max-w-3xl">
+        <SEO 
+          title={`${selectedArticle.title} - Football News`}
+          description={`Read the latest football news: ${selectedArticle.title}. Source: ${selectedArticle.source}`}
+          image={selectedArticle.image}
+          canonical={`https://tambuatips.com/news?id=${selectedArticle.id}`}
+          structData={articleStructData || undefined}
+        />
         <button onClick={() => setSelectedArticle(null)} className="flex items-center gap-2 text-zinc-400 hover:text-white mb-6 text-sm transition-colors">
           <ArrowLeft className="w-4 h-4" /> Back to News
         </button>
@@ -115,6 +133,12 @@ export function NewsPage() {
 
   return (
     <div className="container mx-auto px-4 py-4 sm:py-8 max-w-7xl">
+      <SEO 
+        title="Latest Football News & Trending Stories"
+        description="Stay updated with the latest football news, trending stories, and transfer updates from across the globe on TambuaTips."
+        canonical="https://tambuatips.com/news"
+        keywords="football news, soccer news, transfer news, trending sports news"
+      />
       <div className="mb-6">
         <h1 className="text-2xl sm:text-3xl font-display font-bold uppercase mb-2">Football News</h1>
         <p className="text-sm text-zinc-400">Trending stories across the globe</p>

@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, Loader2, Calendar as CalendarIcon, Filter, T
 import { fetchFixturesByDate, LEAGUES } from '../services/sportsApiService';
 import { FixtureData } from '../types';
 import { SEO } from '../components/SEO';
+import { Breadcrumbs } from '../components/Breadcrumbs';
 import { FixtureRowSkeleton } from '../components/skeletons/FixtureRowSkeleton';
 import { TeamLogo } from '../components/TeamLogo';
 
@@ -25,7 +26,6 @@ function formatDateLabel(dateStr: string): string {
 }
 
 export function FixturesPage() {
-  <SEO title={'Fixtures'} />
   const [fixtures, setFixtures] = useState<FixtureData[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(getDateStr(0));
@@ -70,6 +70,13 @@ export function FixturesPage() {
 
   return (
     <div className="container mx-auto px-4 py-4 sm:py-8 max-w-7xl">
+      <SEO 
+        title="Today's Football Fixtures & Live Scores"
+        description="Browse today's football fixtures, live scores, and upcoming matches across all major leagues. Get real-time updates and match schedules."
+        canonical="https://tambuatips.com/fixtures"
+        keywords="football fixtures, soccer schedule, today matches, live scores, premier league fixtures"
+      />
+      <Breadcrumbs crumbs={[{ label: 'Fixtures' }]} />
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-2xl sm:text-3xl font-display font-bold uppercase mb-2">Fixtures</h1>

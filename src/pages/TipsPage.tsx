@@ -324,7 +324,6 @@ function JackpotCard({ jackpot, onGetFree }: { jackpot: JackpotPrediction; key?:
 
 // ─── Main Page ───────────────────────────────────────────────
 export function TipsPage() {
-  <SEO title={'Expert Tips'} />
   const { user, hasAccess, hasJackpotAccess, setShowAuthModal, setShowPricingModal, setShowJackpotModal, setSelectedJackpot } = useUser();
   const [activeTab, setActiveTab] = useState<'tips' | 'jackpot'>('tips');
   const [activeCategoryTab, setActiveCategoryTab] = useState<TipCategory>('free');
@@ -337,6 +336,18 @@ export function TipsPage() {
   const [showReferralModal, setShowReferralModal] = useState<boolean | string | number>(false);
   const [loadingTips, setLoadingTips] = useState(true);
   const [loadingJackpot, setLoadingJackpot] = useState(true);
+
+  const structData = {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    "name": "Expert Football Betting Tips & Jackpot Predictions",
+    "description": "Premium sports intelligence hub providing expert data-driven football predictions and jackpot analysis.",
+    "publisher": {
+      "@type": "Organization",
+      "name": "TambuaTips",
+      "logo": "https://tambuatips.com/logo.png"
+    }
+  };
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -439,6 +450,13 @@ export function TipsPage() {
 
   return (
     <div className="container mx-auto px-4 py-4 sm:py-8 max-w-5xl">
+      <SEO 
+        title={activeTab === 'tips' ? 'Expert Football Betting Tips' : 'Sportpesa Jackpot Predictions'}
+        description="Get data-driven football predictions, daily free tips, and expert jackpot analysis for Sportpesa Midweek and Mega Jackpots. Stop guessing, start winning."
+        keywords="football tips, betting predictions, sportpesa jackpot, mega jackpot, midweek jackpot, soccer picks, vip tips"
+        canonical="https://tambuatips.com/tips"
+        structData={structData}
+      />
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-2xl sm:text-3xl font-display font-bold uppercase mb-2">Expert Tips</h1>
