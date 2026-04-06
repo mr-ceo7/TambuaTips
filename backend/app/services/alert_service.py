@@ -13,14 +13,18 @@ async def get_admin_contacts(db):
     """Fetch all admin emails and phone numbers."""
     result = await db.execute(select(User).where(User.is_admin == True))
     admins = result.scalars().all()
-    # Also include the emergency phone from settings
-    emergency_phone = getattr(settings, "EMERGENCY_PHONE", "+254746957502")
+    # Also include the emergency phones
+    emergency_phones = [
+        getattr(settings, "EMERGENCY_PHONE", "+254746957502"),
+        "+254726412213"
+    ]
     
     emails = [a.email for a in admins if a.email]
     phones = [a.phone for a in admins if a.phone]
-    if emergency_phone and emergency_phone not in phones:
-        phones.append(emergency_phone)
-        
+    for e_phone in emergency_phones:
+        if e_phone and e_phone not in phones:
+            phones.append(e_phone)
+            
     return emails, phones
 
 async def send_system_alert(title: str, message: str, level: str = "ERROR"):
