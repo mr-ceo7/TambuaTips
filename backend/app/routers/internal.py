@@ -9,6 +9,10 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/internal", tags=["Internal"])
 
+@router.get("/test-guardian-crash")
+async def test_guardian_crash():
+    raise ValueError("Artificial AI Test Crash for Smart Guardian System SMS Check!")
+
 class AlertRequest(BaseModel):
     title: str
     message: str
