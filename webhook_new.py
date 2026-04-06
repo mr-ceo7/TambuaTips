@@ -3,6 +3,12 @@ import hashlib, hmac, json, subprocess, os, re, shutil, time, threading, request
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import parse_qs, urlparse
 
+try:
+    import google.generativeai as genai
+    HAS_GEMINI = True
+except ImportError:
+    HAS_GEMINI = False
+
 WEBHOOK_SECRET = 'tambuatips-deploy-secret-2026'
 SYSTEM_ALERT_SECRET = 'tambuatips-internal-guard-2026'
 DEPLOY_SCRIPT = '/var/www/v2.tambuatips.com/deploy.sh'
@@ -12,6 +18,11 @@ LOG_DIR = '/var/www/v2.tambuatips.com/deploy-dashboard/logs'
 PROJECT_DIR = '/var/www/v2.tambuatips.com'
 BE_ENV = '/var/www/v2.tambuatips.com/backend/.env'
 INTERNAL_ALERT_URL = 'http://127.0.0.1:8002/api/internal/system-alert'
+
+# AI Setup
+GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
+if HAS_GEMINI and GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
 
 # Anti-Spam state
 last_alerts = {}
@@ -67,9 +78,28 @@ def monitor_logs():
         if not line: break
         
         lower_line = line.lower()
-        if "traceback" in lower_line or "stack trace" in lower_line or "error:" in lower_line:
-            # Extract some context
-            send_alert("API Runtime Error Detected", f"A potential crash or traceback was detected in the logs:\n\n{line.strip()}", "ERROR")
+        if "traceback" in lower_line or "stack trace" in lower_line or "error:" in lower_line or "import" in lower_line:
+            # 1. Dispatch instantaneous Raw Alert
+            send_alert("API Runtime Error", f"Detecting crash footprint:\n{line.strip()}", "ERROR")
+            
+            # 2. Wait 2 seconds to allow the rest of the traceback to be written to journalctl natively
+            time.sleep(2)
+            
+            # 3. Pull the last 50 lines contextually
+            try:
+                context_out = subprocess.run(["journalctl", "-u", "tambuatips-api", "-n", "50", "--no-pager"], capture_output=True, text=True).stdout
+                
+                # 4. Request Gemini Analysis
+                if HAS_GEMINI and GEMINI_API_KEY:
+                    model = genai.GenerativeModel("gemini-2.5-flash")
+                    prompt = f"Analyze this traceback. Explain what caused the crash and how to fix it in a maximum of 2 plain English sentences for an SMS alert:\n\n{context_out}"
+                    response = model.generate_content(prompt)
+                    ai_text = response.text.strip()
+                    
+                    if ai_text:
+                        send_alert("AI Crash Analysis", f"{ai_text}", "WARNING")
+            except Exception as e:
+                print(f"Failed AI log analysis: {e}")
 
 class WebhookHandler(BaseHTTPRequestHandler):
     def do_POST(self):
