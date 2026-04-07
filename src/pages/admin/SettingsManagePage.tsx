@@ -192,12 +192,22 @@ export function SettingsManagePage() {
             </h2>
             <p className="text-xs text-zinc-500 mt-1">Master toggle for the entire referral program</p>
           </div>
-          <button
-            onClick={() => setSettings({ ...settings, referral_enabled: !settings.referral_enabled })}
-            className={`transition-all ${settings.referral_enabled ? 'text-emerald-500' : 'text-zinc-600'}`}
-          >
-            {settings.referral_enabled ? <ToggleRight className="w-10 h-10" /> : <ToggleLeft className="w-10 h-10" />}
-          </button>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 rounded-xl font-bold text-sm transition-all disabled:opacity-50"
+            >
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              {saving ? 'Saving...' : 'Save Setting'}
+            </button>
+            <button
+              onClick={() => setSettings({ ...settings, referral_enabled: !settings.referral_enabled })}
+              className={`transition-all ${settings.referral_enabled ? 'text-emerald-500' : 'text-zinc-600'}`}
+            >
+              {settings.referral_enabled ? <ToggleRight className="w-10 h-10" /> : <ToggleLeft className="w-10 h-10" />}
+            </button>
+          </div>
         </div>
 
         {settings.referral_enabled && (
@@ -506,12 +516,22 @@ export function SettingsManagePage() {
 
       {/* ═══ Global Jackpot Defaults ═══ */}
       <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
-        <div className="mb-6">
-          <h2 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-            <Trophy className="w-4 h-4 text-yellow-500" />
-            Global Jackpot Pricing
-          </h2>
-          <p className="text-xs text-zinc-500 mt-1">Default prices pre-filled when creating new jackpots</p>
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+              <Trophy className="w-4 h-4 text-yellow-500" />
+              Global Jackpot Pricing
+            </h2>
+            <p className="text-xs text-zinc-500 mt-1">Default prices pre-filled when creating new jackpots</p>
+          </div>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="flex items-center gap-2 px-4 py-2 bg-yellow-500 hover:bg-yellow-400 text-zinc-950 rounded-xl font-bold text-sm transition-all shadow-lg shadow-yellow-500/20 disabled:opacity-50"
+          >
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            {saving ? 'Saving...' : 'Save Prices'}
+          </button>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 bg-yellow-500/5 border border-yellow-500/10 rounded-xl p-5">
@@ -625,7 +645,7 @@ export function SettingsManagePage() {
                   onChange={e => setSelectedDcLevel(e.target.value)}
                   className="bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none"
                 >
-                  {['3', '4', '5', '6', '7', '10'].map(dc => (
+                  {['0', '3', '4', '5', '6', '7', '10'].map(dc => (
                     <option key={dc} value={dc}>{dc} DC</option>
                   ))}
                 </select>

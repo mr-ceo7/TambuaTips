@@ -8,7 +8,7 @@ import { useUser } from '../context/UserContext';
 import { adminService, type AdminUser } from '../services/adminService';
 
 const TIP_CATEGORIES: TipCategory[] = ['free', '2+', '4+', 'gg', '10+', 'vip'];
-const DC_LEVELS: DCLevel[] = [3, 4, 5, 6, 7, 10];
+const DC_LEVELS: DCLevel[] = [0, 3, 4, 5, 6, 7, 10];
 
 export function AdminPage() {
   <SEO title={'Admin Panel'} />

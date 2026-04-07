@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import { TeamWithLogo } from '../../components/TeamLogo';
 import { adminService } from '../../services/adminService';
 
-const DC_LEVELS: DCLevel[] = [3, 4, 5, 6, 7, 10];
+const DC_LEVELS: DCLevel[] = [0, 3, 4, 5, 6, 7, 10];
 
 export function JackpotsManagePage() {
   const [jackpots, setJackpots] = useState<JackpotPrediction[]>([]);
