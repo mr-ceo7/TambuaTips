@@ -40,7 +40,7 @@ export function TipsManagePage() {
     homeTeam: '',
     awayTeam: '',
     league: '',
-    matchDate: new Date().toISOString().split('T')[0],
+    matchDate: new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().substring(0, 16),
     prediction: '',
     confidence: 3,
     reasoning: '',
@@ -63,7 +63,7 @@ export function TipsManagePage() {
   const resetForm = () => {
     setForm({
       fixtureId: '', homeTeam: '', awayTeam: '', league: '',
-      matchDate: new Date().toISOString().split('T')[0],
+      matchDate: new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().substring(0, 16),
       prediction: '', confidence: 3, reasoning: '', 
       category: (sessionStorage.getItem('admin_last_category') as TipCategory) || 'free',
       notify: false, notify_target: 'subscribers', notify_channel: 'both',
@@ -100,7 +100,7 @@ export function TipsManagePage() {
       homeTeam: fixture.homeTeam,
       awayTeam: fixture.awayTeam,
       league: fixture.league,
-      matchDate: fixture.matchDate?.split('T')[0] || prev.matchDate,
+      matchDate: fixture.matchDate ? fixture.matchDate.substring(0, 16) : prev.matchDate,
     }));
     setFixtureResults([]);
     setFixtureQuery('');
@@ -153,7 +153,7 @@ export function TipsManagePage() {
       homeTeam: tip.homeTeam,
       awayTeam: tip.awayTeam,
       league: tip.league,
-      matchDate: tip.matchDate.split('T')[0],
+      matchDate: tip.matchDate.substring(0, 16),
       prediction: tip.prediction,
       confidence: tip.confidence,
       reasoning: tip.reasoning,
@@ -170,7 +170,7 @@ export function TipsManagePage() {
       homeTeam: tip.homeTeam,
       awayTeam: tip.awayTeam,
       league: tip.league,
-      matchDate: tip.matchDate.split('T')[0],
+      matchDate: tip.matchDate.substring(0, 16),
       prediction: tip.prediction,
       confidence: tip.confidence,
       reasoning: tip.reasoning,
@@ -370,7 +370,7 @@ export function TipsManagePage() {
               />
             </FormField>
             <FormField label="Match Date">
-              <input type="date" value={form.matchDate} onChange={e => setForm({ ...form, matchDate: e.target.value })} className="admin-input flex-1" />
+              <input type="datetime-local" value={form.matchDate} onChange={e => setForm({ ...form, matchDate: e.target.value })} className="admin-input flex-1" />
             </FormField>
             <div className="sm:col-span-2 lg:col-span-3">
               <div className="flex flex-wrap gap-1.5 mb-2">
@@ -539,7 +539,9 @@ export function TipsManagePage() {
                     tip.category === 'vip' ? 'bg-yellow-500/20 text-yellow-400' :
                     'bg-blue-500/20 text-blue-400'
                   }`}>{CATEGORY_LABELS[tip.category]?.label || tip.category}</span>
-                  <span className="text-[10px] text-zinc-600">{tip.matchDate.split('T')[0]}</span>
+                  <span className="text-[10px] text-zinc-600">
+                    {tip.matchDate.includes('T') ? tip.matchDate.replace('T', ' ').substring(0, 16) : tip.matchDate}
+                  </span>
                 </div>
                 <div className="flex items-center gap-1.5 text-sm font-medium text-zinc-200 truncate">
                   <TeamWithLogo teamName={tip.homeTeam} size={16} textClassName="text-sm" />

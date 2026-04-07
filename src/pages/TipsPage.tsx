@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Zap, Lock, Star, Trophy, Crown, ChevronRight, Target, Plus, Check, Eye, AlertTriangle, X, Gift } from 'lucide-react';
+import { Zap, Lock, Star, Trophy, Crown, ChevronRight, Target, Plus, Check, Eye, AlertTriangle, X, Gift, Clock } from 'lucide-react';
 import { TeamWithLogo, LeagueLogo } from '../components/TeamLogo';
 import { ReferralWidget } from '../components/ReferralWidget';
 import { ReferralModal } from '../components/ReferralModal';
@@ -9,6 +9,7 @@ import { CATEGORY_LABELS } from '../services/pricingService';
 import { SEO } from '../components/SEO';
 import { useUser } from '../context/UserContext';
 // Detached: import { useBetSlip } from '../context/BetSlipContext';
+import { format, parseISO } from 'date-fns';
 
 // ─── Category order for display ──────────────────────────────
 const CATEGORY_ORDER: TipCategory[] = ['free', '2+', '4+', 'gg', '10+', 'vip'];
@@ -194,7 +195,7 @@ function JackpotCard({ jackpot, onGetFree }: { jackpot: JackpotPrediction; key?:
                 {jackpot.type === 'midweek' ? 'Midweek Jackpot' : 'Mega Jackpot'}
               </h4>
               <p className="text-xs text-zinc-400 font-medium">
-                {jackpot.type === 'midweek' ? '13 Matches' : '17 Matches'} • <span className="text-gold-400 font-bold">{jackpot.dcLevel}DC</span> • {variationCount} Variation{variationCount !== 1 ? 's' : ''}
+                {jackpot.type === 'midweek' ? '13 Matches' : '17 Matches'} • <span className="text-gold-400 font-bold">{jackpot.dcLevel === 99 ? 'ALL ' : jackpot.dcLevel}DC</span> • {variationCount} Variation{variationCount !== 1 ? 's' : ''}
               </p>
             </div>
           </div>
@@ -212,9 +213,15 @@ function JackpotCard({ jackpot, onGetFree }: { jackpot: JackpotPrediction; key?:
           </div>
         </div>
 
-        <p className="text-sm text-zinc-400 mb-4">
-          <span className="text-white font-semibold">{variationCount}</span> prediction{variationCount !== 1 ? 's' : ''} with <span className="text-gold-400 font-semibold">{jackpot.dcLevel}</span> Double Chances
-        </p>
+        {jackpot.price === 0 ? (
+          <p className="text-sm text-zinc-400 mb-4">
+            FREE prediction with <span className="text-gold-400 font-semibold">ALL</span> Double Chances to guide you
+          </p>
+        ) : (
+          <p className="text-sm text-zinc-400 mb-4">
+            <span className="text-white font-semibold">{variationCount}</span> prediction{variationCount !== 1 ? 's' : ''} with <span className="text-gold-400 font-semibold">{jackpot.dcLevel === 99 ? 'ALL' : jackpot.dcLevel}</span> Double Chances
+          </p>
+        )}
 
         {/* Locked/Unlocked Content */}
         {isUnlocked && jackpot.variations && jackpot.variations.length > 0 ? (
@@ -239,14 +246,27 @@ function JackpotCard({ jackpot, onGetFree }: { jackpot: JackpotPrediction; key?:
                       <td className="px-2.5 py-1.5 text-zinc-500 font-mono">{idx + 1}</td>
                       <td className="px-2.5 py-1.5">
                         <div className="flex flex-col gap-0.5">
-                          {m.country && (
+                          {(m.country || m.matchDate) && (
                             <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider flex items-center gap-1">
-                              {m.countryFlag && (
+                              {m.country && m.countryFlag && (
                                 m.countryFlag.startsWith('http') 
                                   ? <img src={m.countryFlag} alt={m.country} className="w-3.5 h-2.5 object-cover rounded-[2px]" />
                                   : <span className="text-xs">{m.countryFlag}</span>
                               )}
-                              {m.country}
+                              {m.country && <span>{m.country}</span>}
+                              {m.country && m.matchDate && <span className="mx-0.5 opacity-50">•</span>}
+                              {m.matchDate && (
+                                <span className="text-zinc-400 font-mono flex items-center gap-0.5" title="Kickoff Time">
+                                  <Clock className="w-2.5 h-2.5" />
+                                  {(() => {
+                                    try {
+                                      return format(parseISO(m.matchDate), 'HH:mm');
+                                    } catch {
+                                      return String(m.matchDate).split('T')[1]?.substring(0,5) || String(m.matchDate);
+                                    }
+                                  })()}
+                                </span>
+                              )}
                             </span>
                           )}
                           <span className="text-zinc-300 inline-flex items-center gap-1 flex-wrap">

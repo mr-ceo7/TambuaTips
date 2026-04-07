@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import { TeamWithLogo } from '../../components/TeamLogo';
 import { adminService } from '../../services/adminService';
 
-const DC_LEVELS: DCLevel[] = [0, 3, 4, 5, 6, 7, 10];
+const DC_LEVELS: DCLevel[] = [0, 3, 4, 5, 6, 7, 10, 99];
 
 export function JackpotsManagePage() {
   const [jackpots, setJackpots] = useState<JackpotPrediction[]>([]);
@@ -251,9 +251,26 @@ export function JackpotsManagePage() {
         return;
       }
     }
+    let finalMatches = form.matches;
+    const missingCountries = form.matches.some(m => !m.country);
+    if (missingCountries) {
+      const loadingToastId = toast.loading(`Auto-filling country data for ${form.matches.length} matches...`);
+      try {
+        const enriched = await adminService.enrichMatches(form.matches);
+        if (enriched && enriched.length > 0) {
+          finalMatches = enriched;
+          toast.success(`Enriched ${enriched.length} matches!`, { id: loadingToastId });
+        } else {
+          toast.dismiss(loadingToastId);
+        }
+      } catch (err) {
+        toast.dismiss(loadingToastId);
+      }
+    }
     
     const payload = {
       ...form,
+      matches: finalMatches,
       regional_prices: { international: { price: form.intPrice } }
     };
 
@@ -371,7 +388,7 @@ export function JackpotsManagePage() {
                     intPrice: form.price === 0 ? 0 : (custom?.intl || (form.type === 'midweek' ? defaultPrices.midweekInt : defaultPrices.megaInt)),
                   });
                 }} className="admin-input">
-                  {DC_LEVELS.map(dc => <option key={dc} value={dc}>{dc}DC</option>)}
+                  {DC_LEVELS.map(dc => <option key={dc} value={dc}>{dc === 99 ? 'ALL ' : dc}DC</option>)}
                 </select>
               </div>
               <div className="flex items-end pb-1">

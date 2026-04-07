@@ -25,6 +25,8 @@ export interface DashboardStats {
     total_guests: number;
     online_registered: number;
     online_guests: number;
+    today_registered: number;
+    today_guests: number;
     subscribers_by_tier: Record<string, number>;
     active_subscribers: number;
     conversion_rate: number;

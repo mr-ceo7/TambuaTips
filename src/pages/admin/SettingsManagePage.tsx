@@ -42,7 +42,6 @@ export function SettingsManagePage() {
   });
   
   // Custom states for DC Pricing
-  const [selectedDcJackpot, setSelectedDcJackpot] = useState<'midweek' | 'mega'>('midweek');
   const [selectedDcLevel, setSelectedDcLevel] = useState('3');
   const [dcPrices, setDcPrices] = useState<Record<string, Record<string, { local: number, intl: number }>>>({});
 
@@ -633,20 +632,12 @@ export function SettingsManagePage() {
             <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-4">
               <div className="flex gap-4 mb-4 pb-4 border-b border-zinc-800">
                 <select 
-                  value={selectedDcJackpot} 
-                  onChange={e => setSelectedDcJackpot(e.target.value as 'midweek' | 'mega')}
-                  className="bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none"
-                >
-                  <option value="midweek">Midweek</option>
-                  <option value="mega">Mega</option>
-                </select>
-                <select 
                   value={selectedDcLevel} 
                   onChange={e => setSelectedDcLevel(e.target.value)}
                   className="bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none"
                 >
-                  {['0', '3', '4', '5', '6', '7', '10'].map(dc => (
-                    <option key={dc} value={dc}>{dc} DC</option>
+                  {['0', '3', '4', '5', '6', '7', '10', '99'].map(dc => (
+                    <option key={dc} value={dc}>{dc === '99' ? 'ALL ' : dc + ' '}DC</option>
                   ))}
                 </select>
               </div>
@@ -655,12 +646,18 @@ export function SettingsManagePage() {
                   <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Local Price (KES)</label>
                   <input
                     type="number"
-                    value={dcPrices[selectedDcJackpot]?.[selectedDcLevel]?.local ?? ''}
+                    value={dcPrices['midweek']?.[selectedDcLevel]?.local ?? ''}
                     placeholder="Use Default"
                     onChange={e => {
                       const val = parseInt(e.target.value);
-                      const current = dcPrices[selectedDcJackpot]?.[selectedDcLevel] || { local: 0, intl: 0 };
-                      const newObj = { ...dcPrices, [selectedDcJackpot]: { ...dcPrices[selectedDcJackpot], [selectedDcLevel]: { ...current, local: isNaN(val) ? 0 : val } } };
+                      const currentMidweek = dcPrices['midweek']?.[selectedDcLevel] || { local: 0, intl: 0 };
+                      const currentMega = dcPrices['mega']?.[selectedDcLevel] || { local: 0, intl: 0 };
+                      const newLocal = isNaN(val) ? 0 : val;
+                      const newObj = { 
+                        ...dcPrices, 
+                        'midweek': { ...dcPrices['midweek'], [selectedDcLevel]: { ...currentMidweek, local: newLocal } },
+                        'mega': { ...dcPrices['mega'], [selectedDcLevel]: { ...currentMega, local: newLocal } }
+                      };
                       setDcPrices(newObj);
                     }}
                     className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
@@ -671,12 +668,18 @@ export function SettingsManagePage() {
                   <input
                     type="number"
                     step="0.01"
-                    value={dcPrices[selectedDcJackpot]?.[selectedDcLevel]?.intl ?? ''}
+                    value={dcPrices['midweek']?.[selectedDcLevel]?.intl ?? ''}
                     placeholder="Use Default"
                     onChange={e => {
                       const val = parseFloat(e.target.value);
-                      const current = dcPrices[selectedDcJackpot]?.[selectedDcLevel] || { local: 0, intl: 0 };
-                      const newObj = { ...dcPrices, [selectedDcJackpot]: { ...dcPrices[selectedDcJackpot], [selectedDcLevel]: { ...current, intl: isNaN(val) ? 0 : val } } };
+                      const currentMidweek = dcPrices['midweek']?.[selectedDcLevel] || { local: 0, intl: 0 };
+                      const currentMega = dcPrices['mega']?.[selectedDcLevel] || { local: 0, intl: 0 };
+                      const newIntl = isNaN(val) ? 0 : val;
+                      const newObj = { 
+                        ...dcPrices, 
+                        'midweek': { ...dcPrices['midweek'], [selectedDcLevel]: { ...currentMidweek, intl: newIntl } },
+                        'mega': { ...dcPrices['mega'], [selectedDcLevel]: { ...currentMega, intl: newIntl } }
+                      };
                       setDcPrices(newObj);
                     }}
                     className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"

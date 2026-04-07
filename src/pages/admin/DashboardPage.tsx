@@ -34,6 +34,13 @@ function formatKES(amount: number): string {
   return `KES ${amount.toLocaleString()}`;
 }
 
+function formatCompact(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 10_000) return `${(n / 1_000).toFixed(1)}K`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  return n.toLocaleString();
+}
+
 function timeAgo(timestamp: string | null): string {
   if (!timestamp) return '';
   const diff = Date.now() - new Date(timestamp).getTime();
@@ -148,28 +155,42 @@ export function DashboardPage() {
       </motion.div>
 
       {/* ═══ KPI Cards ═══ */}
-      <motion.div variants={item} className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+      <motion.div variants={item} className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
         {/* Total Users */}
         <KPICard
           icon={Users}
           label="Total Visitors"
-          value={(stats.users.total_registered + stats.users.total_guests).toLocaleString()}
-          change={stats.users.growth.length > 1 ? `+${stats.users.growth[stats.users.growth.length - 1]?.count ?? 0} signups today` : null}
+          value={formatCompact(stats.users.today_registered + stats.users.today_guests)}
+          change={null}
           breakdowns={[
-            { label: 'Registered', value: stats.users.total_registered.toLocaleString(), color: EMERALD },
-            { label: 'Guests', value: stats.users.total_guests.toLocaleString(), color: BLUE }
+            { label: 'Registered', value: formatCompact(stats.users.today_registered), color: EMERALD },
+            { label: 'Guests', value: formatCompact(stats.users.today_guests), color: BLUE }
           ]}
           positive
           color="emerald"
+          extraContent={
+            <div className="mt-2 space-y-1">
+              <div className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-2.5 py-1.5">
+                <ArrowUpRight className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <span className="text-sm font-black text-emerald-400">+{stats.users.today_registered}</span>
+                <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">users today</span>
+              </div>
+              <div className="flex items-center gap-1.5 bg-blue-500/10 border border-blue-500/20 rounded-lg px-2.5 py-1.5">
+                <ArrowUpRight className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                <span className="text-sm font-black text-blue-400">+{stats.users.today_guests}</span>
+                <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">guests today</span>
+              </div>
+            </div>
+          }
         />
         {/* Online Now */}
         <KPICard
           icon={Wifi}
           label="Online Now"
-          value={(stats.users.online_registered + stats.users.online_guests).toString()}
+          value={formatCompact(stats.users.online_registered + stats.users.online_guests)}
           breakdowns={[
-            { label: 'Users', value: stats.users.online_registered.toString(), color: EMERALD },
-            { label: 'Guests', value: stats.users.online_guests.toString(), color: BLUE }
+            { label: 'Users', value: formatCompact(stats.users.online_registered), color: EMERALD },
+            { label: 'Guests', value: formatCompact(stats.users.online_guests), color: BLUE }
           ]}
           badge="LIVE"
           color="emerald"
@@ -179,13 +200,13 @@ export function DashboardPage() {
         <KPICard
           icon={Crown}
           label="Subscribers"
-          value={stats.users.active_subscribers.toString()}
+          value={formatCompact(stats.users.active_subscribers)}
           change={`${stats.users.conversion_rate}% conv.`}
           breakdowns={Object.entries(stats.users.subscribers_by_tier)
             .filter(([t]) => t !== 'free')
             .map(([tier, count]) => ({
               label: tier.charAt(0).toUpperCase() + tier.slice(1),
-              value: count.toString(),
+              value: formatCompact(count),
               color: tier.includes('basic') ? BLUE : tier.includes('standard') ? PURPLE : GOLD
             }))}
           positive={stats.users.conversion_rate > 0}
@@ -213,11 +234,11 @@ export function DashboardPage() {
           icon={Target}
           label="Win Rate"
           value={`${stats.tips.win_rate}%`}
-          change={`${stats.tips.won}W / ${stats.tips.lost}L`}
+          change={`${formatCompact(stats.tips.won)}W / ${formatCompact(stats.tips.lost)}L`}
           breakdowns={[
-            { label: 'Won', value: stats.tips.won.toString(), color: EMERALD },
-            { label: 'Lost', value: stats.tips.lost.toString(), color: RED },
-            { label: 'Void', value: stats.tips.voided.toString(), color: '#a1a1aa' }
+            { label: 'Won', value: formatCompact(stats.tips.won), color: EMERALD },
+            { label: 'Lost', value: formatCompact(stats.tips.lost), color: RED },
+            { label: 'Void', value: formatCompact(stats.tips.voided), color: '#a1a1aa' }
           ]}
           positive={stats.tips.win_rate > 50}
           color={stats.tips.win_rate > 50 ? 'emerald' : 'red'}
@@ -226,11 +247,11 @@ export function DashboardPage() {
         <KPICard
           icon={TrendingUp}
           label="Total Tips"
-          value={stats.tips.total.toString()}
-          change={`${stats.tips.pending} pending`}
+          value={formatCompact(stats.tips.total)}
+          change={`${formatCompact(stats.tips.pending)} pending`}
           breakdowns={[
-            { label: 'Settled', value: (stats.tips.won + stats.tips.lost + stats.tips.voided).toString(), color: BLUE },
-            { label: 'Pending', value: stats.tips.pending.toString(), color: GOLD }
+            { label: 'Settled', value: formatCompact(stats.tips.won + stats.tips.lost + stats.tips.voided), color: BLUE },
+            { label: 'Pending', value: formatCompact(stats.tips.pending), color: GOLD }
           ]}
           color="blue"
         />
@@ -487,9 +508,10 @@ interface KPICardProps {
   color: string;
   pulse?: boolean;
   breakdowns?: { label: string; value: string; color?: string }[];
+  extraContent?: React.ReactNode;
 }
 
-function KPICard({ icon: Icon, label, value, change, badge, positive, color, pulse, breakdowns }: KPICardProps) {
+function KPICard({ icon: Icon, label, value, change, badge, positive, color, pulse, breakdowns, extraContent }: KPICardProps) {
   const colorMap: Record<string, { bg: string; text: string; icon: string; border: string }> = {
     emerald: { bg: 'bg-emerald-500/10', text: 'text-emerald-400', icon: 'text-emerald-500', border: 'border-emerald-500/10' },
     gold: { bg: 'bg-yellow-500/10', text: 'text-yellow-400', icon: 'text-yellow-500', border: 'border-yellow-500/10' },
@@ -501,50 +523,58 @@ function KPICard({ icon: Icon, label, value, change, badge, positive, color, pul
 
   return (
     <motion.div 
-      whileHover={{ y: -4, scale: 1.02 }}
+      whileHover={{ y: -3, scale: 1.01 }}
       transition={{ type: "spring", stiffness: 400, damping: 25 }}
-      className={`bg-zinc-900/80 backdrop-blur-md border border-zinc-800/80 rounded-2xl p-4 sm:p-5 relative overflow-hidden group hover:border-zinc-700/60 hover:shadow-2xl hover:shadow-black/50 transition-colors flex flex-col justify-between`}
+      className={`bg-zinc-900/80 backdrop-blur-md border border-zinc-800/80 rounded-xl p-3 sm:p-4 relative overflow-hidden group hover:border-zinc-700/60 hover:shadow-xl hover:shadow-black/40 transition-colors flex flex-col justify-between`}
     >
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-2">
         {/* Top Row: Icon & Change */}
         <div className="flex justify-between items-start">
-          <div className="flex items-center gap-2">
-            <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl ${c.bg} flex items-center justify-center shrink-0`}>
-              <Icon className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${c.icon}`} />
+          <div className="flex items-center gap-1.5">
+            <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg ${c.bg} flex items-center justify-center shrink-0`}>
+              <Icon className={`w-3 h-3 sm:w-3.5 sm:h-3.5 ${c.icon}`} />
             </div>
             {badge && (
-              <span className={`px-2 py-0.5 text-[9px] font-black uppercase rounded-full ${c.bg} ${c.text} ${pulse ? 'animate-pulse' : ''}`}>
+              <span className={`px-1.5 py-0.5 text-[8px] font-black uppercase rounded-full ${c.bg} ${c.text} ${pulse ? 'animate-pulse' : ''}`}>
                 {badge}
               </span>
             )}
           </div>
           
           {change && (
-            <p className={`text-[10px] sm:text-[11px] font-bold flex items-center text-right gap-0.5 mt-1 sm:mt-1.5 ${positive ? 'text-emerald-400' : 'text-zinc-500'}`}>
-              {positive && <ArrowUpRight className="w-3.5 h-3.5" />}
+            <p className={`text-[10px] sm:text-xs font-bold flex items-center text-right gap-0.5 ${positive ? 'text-emerald-400' : 'text-zinc-500'}`}>
+              {positive && <ArrowUpRight className="w-3 h-3" />}
               {change}
             </p>
           )}
         </div>
 
-        {/* Bottom Row: Label & Value */}
-        <div className="flex flex-col mt-1">
-          <p className="text-[9px] sm:text-[10px] text-zinc-400 uppercase font-bold tracking-widest mb-1.5">{label}</p>
-          <p className="text-xl sm:text-2xl font-bold text-white font-display leading-none tracking-tight">{value}</p>
+        {/* Center: Label & Value */}
+        <div className="flex flex-col items-center justify-center flex-1 py-2 w-full min-w-0">
+          <p className="text-[10px] sm:text-xs text-zinc-400 uppercase font-bold tracking-widest mb-1.5">{label}</p>
+          <p className={`font-bold text-white font-display leading-none tracking-tight text-center break-all ${
+            value.length > 12 ? 'text-lg sm:text-xl' :
+            value.length > 8 ? 'text-xl sm:text-2xl' :
+            value.length > 5 ? 'text-2xl sm:text-3xl' :
+            'text-3xl sm:text-4xl'
+          }`}>{value}</p>
         </div>
       </div>
       
       {/* Breakdowns Row */}
       {breakdowns && breakdowns.length > 0 && (
-        <div className="mt-4 pt-3 border-t border-zinc-800/50 flex flex-wrap gap-1.5 text-[9px] sm:text-[10px] uppercase font-bold tracking-widest leading-tight">
+        <div className="mt-2.5 pt-2 border-t border-zinc-800/50 flex flex-wrap gap-1 text-[9px] sm:text-[10px] uppercase font-bold tracking-widest leading-tight">
           {breakdowns.map((b, i) => (
-            <div key={i} className="flex flex-col min-w-[45%] flex-1 bg-zinc-800/60 border border-zinc-700/40 px-2 py-1.5 rounded-md shadow-[0_2px_4px_rgba(0,0,0,0.2)]" style={{ color: b.color || '#a1a1aa' }}>
-              <span className="opacity-80 mb-0.5 text-[8px] sm:text-[9px]">{b.label}</span>
-              <span className="text-white font-black">{b.value}</span>
+            <div key={i} className="flex flex-col min-w-[42%] flex-1 bg-zinc-800/60 border border-zinc-700/40 px-1.5 py-1 rounded-md" style={{ color: b.color || '#a1a1aa' }}>
+              <span className="opacity-80 text-[8px] sm:text-[9px]">{b.label}</span>
+              <span className="text-white font-black text-xs sm:text-sm">{b.value}</span>
             </div>
           ))}
         </div>
       )}
+
+      {/* Extra Content */}
+      {extraContent}
 
       {/* Decorative glow */}
       <div className={`absolute -top-12 -right-12 w-28 h-28 rounded-full ${c.bg} opacity-0 group-hover:opacity-80 transition-opacity duration-500 blur-3xl pointer-events-none`} />
