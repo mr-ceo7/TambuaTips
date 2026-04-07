@@ -213,7 +213,7 @@ function JackpotCard({ jackpot, onGetFree }: { jackpot: JackpotPrediction; key?:
         </div>
 
         <p className="text-sm text-zinc-400 mb-4">
-          <span className="text-white font-semibold">{variationCount}</span> unique prediction variation{variationCount !== 1 ? 's' : ''} covering <span className="text-gold-400 font-semibold">{jackpot.dcLevel}</span> outcomes per match for maximum coverage.
+          <span className="text-white font-semibold">{variationCount}</span> prediction{variationCount !== 1 ? 's' : ''} with <span className="text-gold-400 font-semibold">{jackpot.dcLevel}</span> Double Chances
         </p>
 
         {/* Locked/Unlocked Content */}
