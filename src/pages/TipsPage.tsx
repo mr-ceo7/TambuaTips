@@ -357,6 +357,35 @@ export function TipsPage() {
   const [loadingJackpot, setLoadingJackpot] = useState(true);
   const [pricingTiers, setPricingTiers] = useState<TierConfig[]>([]);
 
+  // ─── 3D Carousel Mobile State ────────────────────────────────
+  const [activeMobileIndex, setActiveMobileIndex] = useState(1);
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    const pxDistance = touchStart - touchEnd;
+    const minDistance = 40;
+    
+    const maxIndex = pricingTiers.filter(t => t.id === 'basic' || t.id === 'standard' || t.id === 'premium').length - 1;
+    
+    if (pxDistance > minDistance && activeMobileIndex < maxIndex) {
+      setActiveMobileIndex(prev => prev + 1);
+    }
+    if (pxDistance < -minDistance && activeMobileIndex > 0) {
+      setActiveMobileIndex(prev => prev - 1);
+    }
+  };
+
   const structData = {
     "@context": "https://schema.org",
     "@type": "WebPage",
@@ -521,24 +550,16 @@ export function TipsPage() {
                 <h3 className="text-lg font-bold text-white">Subscription Packages</h3>
               </div>
               <div 
-                className="flex overflow-x-auto gap-4 px-8 sm:px-0 pb-6 sm:pb-0 snap-x snap-mandatory sm:grid sm:grid-cols-3 no-scrollbar"
-                onScroll={(e) => {
-                  const container = e.currentTarget;
-                  const itemWidth = window.innerWidth * 0.85 + 16;
-                  const index = Math.max(0, Math.round(container.scrollLeft / itemWidth));
-                  window.requestAnimationFrame(() => {
-                    const cards = container.children;
-                    for(let i=0; i<cards.length; i++) {
-                      if(i === index) {
-                         cards[i].classList.remove('scale-90');
-                         cards[i].classList.add('scale-100');
-                      } else {
-                         cards[i].classList.add('scale-90');
-                         cards[i].classList.remove('scale-100');
-                      }
-                    }
-                  });
+                className="group relative w-full grid grid-cols-1 sm:grid-cols-3 sm:gap-4 touch-pan-y focus:outline-none"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  const maxIndex = pricingTiers.filter(t => t.id === 'basic' || t.id === 'standard' || t.id === 'premium').length - 1;
+                  if (e.key === 'ArrowLeft' && activeMobileIndex > 0) setActiveMobileIndex(p => p - 1);
+                  if (e.key === 'ArrowRight' && activeMobileIndex < maxIndex) setActiveMobileIndex(p => p + 1);
                 }}
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
               >
                 {pricingTiers.filter(t => t.id === 'basic' || t.id === 'standard' || t.id === 'premium').map((pkg, idx) => {
                   let sumPrice = 0;
@@ -553,8 +574,33 @@ export function TipsPage() {
                   const isDiscounted = sumPrice > pkg.price2wk && pkg.price2wk > 0;
                   const discountPct = isDiscounted ? Math.round((1 - pkg.price2wk / sumPrice) * 100) : 0;
 
+                  // 3D calculation
+                  const offset = idx - activeMobileIndex;
+                  const absOffset = Math.abs(offset);
+                  const isMobileActive = offset === 0;
+
                   return (
-                    <div key={pkg.id} className={`min-w-[85vw] sm:min-w-0 shrink-0 snap-center bg-zinc-900 border ${pkg.popular ? 'border-emerald-500 shadow-lg shadow-emerald-500/10' : 'border-zinc-800'} rounded-2xl p-5 flex flex-col relative overflow-hidden transition-all duration-300 ${idx === 1 ? 'scale-100' : 'scale-90 sm:scale-100'} hover:border-emerald-500/50`}>
+                    <div 
+                      key={pkg.id} 
+                      className={`
+                        col-start-1 row-start-1 sm:col-start-auto sm:row-start-auto
+                        justify-self-center sm:justify-self-auto
+                        w-[75vw] sm:w-auto h-full relative
+                        bg-zinc-900 border ${pkg.popular ? 'border-emerald-500 shadow-lg shadow-emerald-500/10' : 'border-zinc-800'} 
+                        rounded-2xl p-5 flex flex-col transition-all duration-500 ease-out hover:border-emerald-500/50
+                        max-sm:[transform:translateX(var(--mob-tx))_scale(var(--mob-s))]
+                        max-sm:[z-index:var(--mob-z)]
+                        max-sm:[opacity:var(--mob-op)]
+                        max-sm:[pointer-events:var(--mob-pe)]
+                      `}
+                      style={{
+                        '--mob-tx': `${offset * 75}%`,
+                        '--mob-s': isMobileActive ? 1 : 0.85,
+                        '--mob-z': isMobileActive ? 30 : 10,
+                        '--mob-op': absOffset > 1 ? 0 : 1,
+                        '--mob-pe': isMobileActive ? 'auto' : 'none',
+                      } as React.CSSProperties}
+                    >
                       {pkg.popular && (
                         <div className="absolute top-3 right-[-30px] bg-emerald-500 text-zinc-950 text-[10px] font-bold px-8 py-1 rotate-45 shadow-sm transform-gpu">
                           POPULAR

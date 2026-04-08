@@ -343,8 +343,8 @@ export function TipsManagePage() {
             )}
 
             {/* Manual Form */}
-            <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-12 gap-3">
-              <div className="sm:col-span-6">
+            <form onSubmit={handleSubmit} className="grid grid-cols-12 gap-3">
+              <div className="col-span-6 sm:col-span-6">
                 <FormField label="Category" required>
                   <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value as TipCategory })} className="admin-input py-2 min-h-[40px] text-sm">
                     {TIP_CATEGORIES.map(cat => (
@@ -353,7 +353,7 @@ export function TipsManagePage() {
                   </select>
                 </FormField>
               </div>
-              <div className="sm:col-span-6">
+              <div className="col-span-6 sm:col-span-6">
                 <FormField label="League">
                   <AutocompleteInput 
                     value={form.league} 
@@ -364,13 +364,13 @@ export function TipsManagePage() {
                   />
                 </FormField>
               </div>
-              <div className="sm:col-span-12">
+              <div className="col-span-12">
                 <FormField label="Match Date & Time">
                   <input type="datetime-local" value={form.matchDate} onChange={e => setForm({ ...form, matchDate: e.target.value })} className="admin-input py-2 w-full min-h-[40px] text-sm" />
                 </FormField>
               </div>
 
-              <div className="sm:col-span-6">
+              <div className="col-span-6">
                 <FormField label="Home Team" required>
                   <AutocompleteInput 
                     value={form.homeTeam} 
@@ -382,7 +382,7 @@ export function TipsManagePage() {
                   />
                 </FormField>
               </div>
-              <div className="sm:col-span-6">
+              <div className="col-span-6">
                 <FormField label="Away Team" required>
                   <AutocompleteInput 
                     value={form.awayTeam} 
@@ -395,12 +395,12 @@ export function TipsManagePage() {
                 </FormField>
               </div>
 
-              <div className="sm:col-span-6">
+              <div className="col-span-6">
                 <FormField label="Prediction" required>
                    <input value={form.prediction} onChange={e => setForm({ ...form, prediction: e.target.value })} placeholder="e.g. Home Win" className="admin-input w-full py-2 min-h-[40px] text-sm" required />
                 </FormField>
               </div>
-              <div className="sm:col-span-6">
+              <div className="col-span-6">
                 <FormField label="Confidence Level">
                   <div className="flex gap-1 h-[40px] items-center bg-zinc-900 border border-zinc-700 rounded-lg px-2 w-full justify-between">
                     {[1, 2, 3, 4, 5].map(n => (
@@ -412,7 +412,7 @@ export function TipsManagePage() {
                 </FormField>
               </div>
 
-              <div className="sm:col-span-12">
+              <div className="col-span-12">
                 <FormField label="Quick Picks">
                    <div className="flex flex-wrap gap-1 bg-zinc-900/50 p-2 rounded-xl border border-zinc-800/50">
                       {DEFAULT_PREDICTIONS.map(p => (
@@ -424,19 +424,19 @@ export function TipsManagePage() {
                 </FormField>
               </div>
 
-              <div className="sm:col-span-12">
+              <div className="col-span-12">
                 <FormField label="Reasoning (Optional)">
                   <input value={form.reasoning} onChange={e => setForm({ ...form, reasoning: e.target.value })} placeholder="Provide an analysis or reasoning..." className="admin-input py-2 w-full min-h-[40px] text-sm" />
                 </FormField>
               </div>
-              <div className="sm:col-span-12">
+              <div className="col-span-12">
                 <FormField label="Fixture ID (Optional)">
                   <input type="number" value={form.fixtureId} onChange={e => setForm({ ...form, fixtureId: e.target.value })} placeholder="Auto HTML search" className="admin-input py-2 min-h-[40px] text-sm" />
                 </FormField>
               </div>
               
               {!editingId && (
-                <div className="sm:col-span-12 flex flex-col gap-3 bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-3 items-start mt-1">
+                <div className="col-span-12 flex flex-col gap-3 bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-3 items-start mt-1">
                   <div className="flex items-center gap-3 shrink-0">
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input type="checkbox" className="w-4 h-4 accent-emerald-500" checked={form.notify} onChange={e => setForm({ ...form, notify: e.target.checked })} />
@@ -460,7 +460,7 @@ export function TipsManagePage() {
                 </div>
               )}
 
-              <div className="sm:col-span-12 flex flex-col sm:flex-row gap-2 mt-2">
+              <div className="col-span-12 flex flex-col sm:flex-row gap-2 mt-2">
                 <button disabled={isSubmitting} type="submit" className="w-full py-2.5 bg-emerald-500 text-zinc-950 font-bold rounded-xl hover:bg-emerald-400 transition-all text-sm disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20">
                   {isSubmitting ? <><Loader className="w-4 h-4 animate-spin"/> Saving...</> : editingId ? 'Update Tip' : 'Publish Tip'}
                 </button>
