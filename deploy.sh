@@ -15,7 +15,7 @@ git checkout .
 git pull origin main
 
 COMMIT=$(git rev-parse --short HEAD)
-LOG_FILE="$LOG_DIR/$COMMIT.txt"
+LOG_FILE="$LOG_DIR/$COMMIT.log"
 TIMESTAMP=$(date +%s)
 
 # Record "building" state
