@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_, delete, update
+from sqlalchemy import select, func, and_, delete, update, or_
 
 from app.dependencies import get_db, require_admin
 from app.models.user import User
@@ -1191,23 +1191,46 @@ class BroadcastPushRequest(BaseModel):
     url: Optional[str] = "/"
     target_tier: str = "all"
     target_country: Optional[str] = None
+    target_users: Optional[str] = None
     delivery_method: str = "both"
 
 def send_webpush_task(subscriptions: list, payload: str):
-    from pywebpush import webpush, WebPushException
+    from pywebpush import webpush, WebPushException, Vapid
+    import os, base64
+    from urllib.parse import urlparse
     success, fail = 0, 0
     
     vapid_subject = settings.VAPID_SUBJECT or "mailto:admin@tambuatips.com"
     if vapid_subject and not vapid_subject.startswith("mailto:") and "@" in vapid_subject:
         vapid_subject = f"mailto:{vapid_subject}"
         
+    # Load VAPID key once to bypass inner string parsing issues
+    v = Vapid()
+    try:
+        if settings.VAPID_PRIVATE_KEY and os.path.exists(settings.VAPID_PRIVATE_KEY):
+            v = Vapid.from_file(settings.VAPID_PRIVATE_KEY)
+        elif settings.VAPID_PRIVATE_KEY:
+            try:
+                key_clean = settings.VAPID_PRIVATE_KEY.replace("-", "+").replace("_", "/")
+                padding = "=" * (4 - (len(key_clean) % 4))
+                v = Vapid.from_raw(base64.b64decode(key_clean + padding))
+            except Exception:
+                v = Vapid.from_string(settings.VAPID_PRIVATE_KEY)
+    except Exception as ve:
+        print(f"VAPID Initialization Error: {ve}")
+
     for sub in subscriptions:
         try:
+            # Prepare precise payload with audience (aud)
+            endpoint = sub.get("endpoint", "")
+            parsed = urlparse(endpoint)
+            audience = f"{parsed.scheme}://{parsed.netloc}"
+            
             webpush(
                 subscription_info=sub,
                 data=payload,
-                vapid_private_key=settings.VAPID_PRIVATE_KEY,
-                vapid_claims={"sub": vapid_subject}
+                vapid_private_key=v.private_pem().decode("utf-8") if v._private_key else settings.VAPID_PRIVATE_KEY,
+                vapid_claims={"sub": vapid_subject, "aud": audience}
             )
             success += 1
         except Exception as ex:
@@ -1264,6 +1287,15 @@ async def broadcast_push(
     if request.target_country and request.target_country != "all":
         filters.append(User.country == request.target_country)
         
+    if request.target_users:
+        search_terms = [t.strip() for t in request.target_users.split(",") if t.strip()]
+        if search_terms:
+            or_conditions = []
+            for term in search_terms:
+                or_conditions.append(User.email.ilike(f"%{term}%"))
+                or_conditions.append(User.phone.ilike(f"%{term}%"))
+            filters.append(or_(*or_conditions))
+            
     query = select(User)
     if filters:
         query = query.where(and_(*filters))

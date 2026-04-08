@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 export function BroadcastPage() {
   const [form, setForm] = useState({
     title: '', body: '', url: '/',
-    targetTier: 'all', targetCountry: '', deliveryMethod: 'both'
+    targetTier: 'all', targetCountry: '', targetUsers: '', deliveryMethod: 'both'
   });
   const [isSending, setIsSending] = useState(false);
   const [lastResult, setLastResult] = useState<{ targeted_users: number; total_subscriptions: number; emails_sent: number; sms_sent: number } | null>(null);
@@ -25,11 +25,12 @@ export function BroadcastPage() {
         url: form.url,
         target_tier: form.targetTier,
         target_country: form.targetCountry || undefined,
+        target_users: form.targetUsers || undefined,
         delivery_method: form.deliveryMethod,
       });
       toast.success(`Broadcast queued! Targeted ${result.targeted_users} users`);
       setLastResult(result);
-      setForm({ title: '', body: '', url: '/', targetTier: 'all', targetCountry: '', deliveryMethod: 'both' });
+      setForm({ title: '', body: '', url: '/', targetTier: 'all', targetCountry: '', targetUsers: '', deliveryMethod: 'both' });
     } catch (err: any) {
       toast.error(err.response?.data?.detail || 'Broadcast failed');
     } finally {
@@ -122,9 +123,24 @@ export function BroadcastPage() {
                 className="admin-input"
               >
                 <option value="all">Everyone</option>
-                <option value="premium">Premium Only</option>
-                <option value="free">Free Only</option>
+                <option value="subscribers">All Paid Subscribers</option>
+                <option value="basic">Basic Tier Only</option>
+                <option value="standard">Standard Tier Only</option>
+                <option value="premium">Premium Tier Only</option>
+                <option value="free">Free Users Only</option>
               </select>
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-1 tracking-wider">
+                Specific Users (Optional)
+              </label>
+              <input
+                type="text"
+                value={form.targetUsers}
+                onChange={e => setForm({ ...form, targetUsers: e.target.value })}
+                placeholder="Comma separated emails or phones"
+                className="admin-input"
+              />
             </div>
             <div>
               <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-1 tracking-wider">

@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TambuaTips Deploy Dashboard</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --bg-color: #000000;
+            --surface: #111111;
+            --surface-hover: #222222;
+            --text-primary: #ededed;
+            --text-secondary: #a1a1aa;
+            --accent: #ededed;
+            --accent-hover: #ffffff;
+            --success: #10b981;
+            --danger: #ef4444;
+            --border: #333333;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            width: 100%;
+        }
+
+        /* Header - Vercel Style */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 2rem;
+        }
+
+        .title-area {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .logo-icon {
+            font-size: 1.5rem;
+            color: var(--accent);
+        }
+
+        h1 { font-size: 1.5rem; font-weight: 600; letter-spacing: -0.5px; }
+
+        .glass-panel {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        /* Top Metrics Grid */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .metric-card {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            background: var(--bg-color);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+        }
+
+        .metric-title { font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 500; }
+        .metric-value { font-size: 1.25rem; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+        
+        .status-dot {
+            width: 10px; height: 10px; border-radius: 50%;
+            display: inline-block;
+        }
+        .status-active { background-color: var(--success); box-shadow: 0 0 8px var(--success); }
+        .status-inactive { background-color: var(--danger); box-shadow: 0 0 8px var(--danger); }
+
+        /* Action Buttons */
+        .btn {
+            background: var(--bg-color);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn:hover { background: var(--surface-hover); border-color: var(--text-secondary); }
+        .btn-primary { background: var(--accent); color: var(--bg-color); border-color: var(--accent); }
+        .btn-primary:hover { background: var(--accent-hover); color: var(--bg-color); }
+        .btn-danger { color: var(--danger); border-color: var(--danger); }
+        .btn-danger:hover { background: rgba(239, 68, 68, 0.1); }
+
+        /* Deployments Table */
+        .deployments-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+        
+        .deployments-table th {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            font-weight: 500;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .deployments-table td {
+            padding: 1rem 0;
+            border-bottom: 1px solid var(--border);
+            vertical-align: middle;
+        }
+
+        .deployments-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .commit-badge {
+            font-family: monospace;
+            background: var(--surface-hover);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+        
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            padding: 4px 10px;
+            border-radius: 12px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border);
+        }
+
+        .status-badge.success { color: var(--success); border-color: rgba(16,185,129,0.3); }
+        .status-badge.error { color: var(--danger); border-color: rgba(239,68,68,0.3); }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 2rem;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 1.5rem;
+        }
+        
+        .tab {
+            padding: 0.5rem 0;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-weight: 500;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -1px;
+            transition: all 0.2s;
+        }
+        
+        .tab:hover { color: var(--text-primary); }
+        .tab.active { color: var(--text-primary); border-bottom-color: var(--accent); }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* Terminals */
+        .terminal-header {
+            display: flex; justify-content: space-between; align-items: center;
+            background: #1e1e1e; padding: 10px 15px; border-radius: 8px 8px 0 0;
+            border: 1px solid var(--border); border-bottom: none;
+        }
+
+        .terminal {
+            background: #0d0d0d;
+            padding: 1rem;
+            height: 400px;
+            overflow-y: auto;
+            font-family: 'JetBrains Mono', 'Courier New', Courier, monospace;
+            font-size: 13px;
+            color: #d4d4d4;
+            line-height: 1.6;
+            border: 1px solid var(--border);
+            border-radius: 0 0 8px 8px;
+        }
+        
+        /* Env Editor */
+        .env-textarea {
+            width: 100%; height: 300px; background: #0d0d0d; border: 1px solid var(--border);
+            border-radius: 0 0 8px 8px; color: #4ade80; font-family: monospace;
+            padding: 1rem; font-size: 13px; resize: vertical; outline: none;
+        }
+        .env-textarea:focus { border-color: var(--text-secondary); }
+
+        /* Utilities */
+        .flex-between { display: flex; justify-content: space-between; align-items: center; }
+        .gap-2 { display: flex; gap: 0.5rem; align-items: center; }
+        
+        .toast {
+            position: fixed; bottom: 20px; right: 20px; background: var(--surface);
+            color: var(--text-primary); border: 1px solid var(--border); padding: 15px 25px;
+            border-radius: 8px; font-weight: 500; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            transform: translateY(150%); transition: transform 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            z-index: 1000; display: flex; align-items: center; gap: 10px;
+        }
+        .toast.show { transform: translateY(0); }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <div class="title-area">
+                <i class="fa-solid fa-layer-group logo-icon"></i>
+                <h1>Tambua Deployments</h1>
+            </div>
+            <div class="gap-2">
+                <button class="btn" onclick="fetchStatus()"><i class="fa-solid fa-rotate-right"></i> Refresh</button>
+                <button class="btn btn-primary" onclick="triggerDeploy()"><i class="fa-solid fa-cloud-arrow-up"></i> Redeploy</button>
+            </div>
+        </header>
+
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-title">API Server</div>
+                <div class="metric-value">
+                    <span id="api-status-dot" class="status-dot"></span>
+                    <span id="api-status-text">Loading...</span>
+                </div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-title">Commit Log</div>
+                <div class="metric-value" style="font-size:1rem; color:var(--text-secondary);" id="commit-msg">Loading...</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-title">Server Uptime</div>
+                <div class="metric-value" id="uptime-text">Loading...</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-title">Disk Usage</div>
+                <div class="metric-value" style="font-size:1rem;" id="disk-text">Loading...</div>
+            </div>
+        </div>
+
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('deployments')">Deployments History</div>
+            <div class="tab" onclick="switchTab('runtime-logs')">Runtime Logs</div>
+            <div class="tab" onclick="switchTab('env-vars')">Environment Variables</div>
+        </div>
+
+        <!-- Deployments Tab -->
+        <div id="tab-deployments" class="tab-content active">
+            <div class="glass-panel">
+                <table class="deployments-table" id="deploy-table">
+                    <thead>
+                        <tr>
+                            <th>Deployment ID</th>
+                            <th>Status</th>
+                            <th>Date / Time</th>
+                            <th style="text-align: right;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="deploy-body">
+                        <tr><td colspan="4" style="text-align:center; color:var(--text-secondary);">Loading deployments...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div id="build-logs-wrapper" style="display:none;">
+                <div class="terminal-header">
+                    <div style="font-weight: 500; font-size: 0.9rem;" id="build-log-title">Build Logs</div>
+                    <button class="btn" onclick="closeBuildLogs()" style="padding: 4px 8px;"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="terminal" id="build-terminal">Loading...</div>
+            </div>
+        </div>
+
+        <!-- Runtime Logs Tab -->
+        <div id="tab-runtime-logs" class="tab-content">
+            <div class="terminal-header">
+                <div style="font-weight: 500; font-size: 0.9rem;"><i class="fa-solid fa-terminal" style="margin-right:8px;"></i> Live API Output</div>
+                <div class="gap-2">
+                    <select id="log-time" class="btn" style="padding: 4px 10px;" onchange="fetchRuntimeLogs()">
+                        <option value="live">Live Tail</option>
+                        <option value="5m">Last 5m</option>
+                        <option value="1h" selected>Last 1h</option>
+                        <option value="12h">Last 12h</option>
+                        <option value="24h">Last 24h</option>
+                        <option value="7d">Last 7d</option>
+                    </select>
+                </div>
+            </div>
+            <div class="terminal" id="runtime-terminal">Loading logs...</div>
+        </div>
+
+        <!-- Env Variables Tab -->
+        <div id="tab-env-vars" class="tab-content">
+            <div class="terminal-header">
+                <div style="font-weight: 500; font-size: 0.9rem;"><i class="fa-solid fa-lock" style="margin-right:8px;"></i> Backend Environment (.env)</div>
+                <button class="btn" onclick="saveEnv()"><i class="fa-solid fa-floppy-disk"></i> Save & Restart</button>
+            </div>
+            <textarea class="env-textarea" id="env-input" spellcheck="false">Loading...</textarea>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"><i class="fa-solid fa-circle-info" id="toast-icon"></i> <span id="toast-msg"></span></div>
+
+    <script>
+        const API_BASE = '/webhook/api';
+        let liveLogInterval = null;
+
+        function showToast(msg, isError=false) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-msg').textContent = msg;
+            document.getElementById('toast-icon').className = isError ? 'fa-solid fa-circle-exclamation' : 'fa-solid fa-circle-check';
+            document.getElementById('toast-icon').style.color = isError ? 'var(--danger)' : 'var(--success)';
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 4000);
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById(`tab-${tabId}`).classList.add('active');
+            
+            if(tabId === 'env-vars') loadEnv();
+            if(tabId === 'runtime-logs') {
+                fetchRuntimeLogs();
+                setupLiveTail();
+            } else {
+                clearInterval(liveLogInterval);
+            }
+        }
+
+        async function fetchStatus() {
+            try {
+                const res = await fetch(`${API_BASE}/status`);
+                const data = await res.json();
+                
+                document.getElementById('api-status-text').textContent = data.api_service === 'active' ? 'Running' : 'Stopped';
+                document.getElementById('api-status-dot').className = `status-dot ${data.api_service === 'active' ? 'status-active' : 'status-inactive'}`;
+                
+                document.getElementById('uptime-text').textContent = data.uptime.replace('up ', '');
+                
+                const diskLines = data.disk.split('\n');
+                let rootDisk = '';
+                for (let line of diskLines) {
+                    if (line.endsWith('/')) { 
+                        const parts = line.split(/\s+/);
+                        rootDisk = `${parts[2]} / ${parts[1]} (${parts[4]})`;
+                        break;
+                    }
+                }
+                document.getElementById('disk-text').textContent = rootDisk || 'N/A';
+                document.getElementById('commit-msg').textContent = `${data.current_commit} - ${data.commit_msg.substring(0, 40)}...`;
+
+                fetchDeployments();
+            } catch (err) {
+                console.error("Status check failed", err);
+            }
+        }
+
+        async function fetchDeployments() {
+            try {
+                const res = await fetch(`${API_BASE}/deployments`);
+                if (!res.ok) throw new Error("No deployments DB found");
+                const data = await res.json();
+                const tbody = document.getElementById('deploy-body');
+                
+                if(!data || data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--text-secondary);">No deployments recorded yet.</td></tr>';
+                    return;
+                }
+
+                // Sort newest first
+                data.sort((a,b) => b.timestamp - a.timestamp);
+
+                let html = '';
+                data.forEach((d, i) => {
+                    const date = new Date(d.timestamp * 1000).toLocaleString();
+                    const statusClass = d.status === 'success' ? 'success' : 'error';
+                    const isLatest = i === 0;
+                    
+                    html += `
+                        <tr>
+                            <td>
+                                <div class="gap-2">
+                                    <span class="commit-badge">${d.id}</span>
+                                    ${isLatest ? '<span style="font-size:0.75rem; background:var(--text-primary); color:var(--bg-color); padding: 2px 6px; border-radius:10px; font-weight:bold;">Current</span>' : ''}
+                                </div>
+                            </td>
+                            <td><span class="status-badge ${statusClass}"><span class="status-dot ${statusClass === 'success' ? 'status-active':'status-inactive'}"></span> ${d.status.toUpperCase()}</span></td>
+                            <td style="color:var(--text-secondary); font-size:0.9rem;">${date}</td>
+                            <td style="text-align: right;">
+                                <button class="btn" style="padding: 4px 10px; font-size: 0.8rem;" onclick="viewBuildLog('${d.id}')">Logs</button>
+                                ${!isLatest && d.status==='success' ? `<button class="btn btn-danger" style="padding: 4px 10px; font-size: 0.8rem;" onclick="triggerRollback('${d.id}')"><i class="fa-solid fa-rotate-left"></i> Rollback</button>` : ''}
+                            </td>
+                        </tr>
+                    `;
+                });
+                tbody.innerHTML = html;
+            } catch (e) {
+                document.getElementById('deploy-body').innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--danger);">Error loading deployments history. Maybe the deployments.json is missing?</td></tr>';
+            }
+        }
+
+        async function viewBuildLog(id) {
+            document.getElementById('build-logs-wrapper').style.display = 'block';
+            const term = document.getElementById('build-terminal');
+            document.getElementById('build-log-title').innerHTML = `<i class="fa-solid fa-file-lines" style="margin-right:8px;"></i> Build Log: ${id}`;
+            term.innerHTML = '<span style="color:var(--text-secondary)">Fetching build logs...</span>';
+            
+            try {
+                const res = await fetch(`${API_BASE}/logs/${id}`);
+                if (!res.ok) throw new Error("Log not found");
+                const text = await res.text();
+                term.textContent = text; // Plain text is fine for build logs
+                term.scrollTop = term.scrollHeight;
+            } catch(e) {
+                term.innerHTML = '<span style="color:var(--danger)">Log file not found or was cleaned up by monitor.</span>';
+            }
+        }
+
+        function closeBuildLogs() {
+            document.getElementById('build-logs-wrapper').style.display = 'none';
+        }
+
+        async function triggerDeploy() {
+            if(!confirm("Trigger new pull & build from GitHub?")) return;
+            try {
+                const res = await fetch(`${API_BASE}/redeploy`, { method: 'POST' });
+                showToast("Build started! Check list in 10s.");
+                setTimeout(fetchStatus, 10000);
+            } catch (err) {
+                showToast("Failed to trigger deploy.", true);
+            }
+        }
+
+        async function triggerRollback(sha) {
+            if(!confirm(`DANGER: Are you sure you want to hard reset to commit ${sha}?`)) return;
+            try {
+                const res = await fetch(`${API_BASE}/rollback`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({commit_sha: sha})
+                });
+                if(!res.ok) throw new Error();
+                showToast(`Rollback to ${sha} initiated!`);
+                setTimeout(fetchStatus, 10000);
+            } catch (err) {
+                showToast("Failed to trigger rollback.", true);
+            }
+        }
+
+        /* ENV Viewer */
+        async function loadEnv() {
+            try {
+                document.getElementById('env-input').value = 'Loading...';
+                const res = await fetch(`${API_BASE}/env/backend`);
+                const data = await res.json();
+                let text = '';
+                for (const [k, v] of Object.entries(data)) { text += `${k}=${v}\n`; }
+                document.getElementById('env-input').value = text;
+            } catch (e) {
+                document.getElementById('env-input').value = 'Error loading environment variables.';
+            }
+        }
+        async function saveEnv() {
+            const text = document.getElementById('env-input').value;
+            const lines = text.split('\n');
+            const data = {};
+            lines.forEach(l => {
+                if(l.trim() && !l.trim().startsWith('#') && l.includes('=')) {
+                    const idx = l.indexOf('=');
+                    data[l.slice(0,idx).trim()] = l.slice(idx+1).trim();
+                }
+            });
+            if(!confirm("Overwrite production .env and restart backend?")) return;
+            try {
+                const res = await fetch(`${API_BASE}/env/backend`, {
+                    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
+                });
+                if(res.ok) { showToast(".env saved & Server Restarted!"); }
+            } catch (e) { showToast("Failed to save .env", true); }
+        }
+
+        /* Runtime Logs */
+        async function fetchRuntimeLogs() {
+            const term = document.getElementById('runtime-terminal');
+            const since = document.getElementById('log-time').value;
+            
+            // Only show loader if we aren't live tailing
+            if(since !== 'live') term.innerHTML = '<span style="color:var(--text-secondary)">Querying Journalctl...</span>';
+            
+            try {
+                const res = await fetch(`${API_BASE}/live-logs?since=${since}`);
+                const text = await res.text();
+                
+                const formatted = text.split('\n').map(line => {
+                    let c = '';
+                    let l = line.toLowerCase();
+                    if (l.includes('error') || l.includes('traceback') || l.includes('fatal')) c = 'color: #f87171;';
+                    else if (l.includes('warning')) c = 'color: #fbbf24;';
+                    else if (l.includes('info')) c = 'color: #38bdf8;';
+                    return `<div style="${c}">${line.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>`;
+                }).join('');
+                
+                term.innerHTML = formatted || "No logs available.";
+                if(since !== 'live') term.scrollTop = term.scrollHeight; 
+                else {
+                    // Smart scroll: only scroll to bottom if user is already at the bottom
+                    const isAtBottom = term.scrollHeight - term.clientHeight <= term.scrollTop + 50;
+                    if (isAtBottom) term.scrollTop = term.scrollHeight;
+                }
+            } catch (err) {
+                term.innerHTML = '<span style="color:var(--danger)">Failed to fetch logs.</span>';
+            }
+        }
+
+        function setupLiveTail() {
+            clearInterval(liveLogInterval);
+            liveLogInterval = setInterval(() => {
+                if(document.getElementById('log-time').value === 'live') fetchRuntimeLogs();
+            }, 3000);
+        }
+
+        // Init
+        fetchStatus();
+    </script>
+</body>
+</html>
