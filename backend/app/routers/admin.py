@@ -413,6 +413,11 @@ async def dashboard_stats(
     total_guests = len(all_visitors)
     online_guests = sum(1 for v in all_visitors if v.last_seen and v.last_seen > three_min_ago)
 
+    # Today's signups
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_registered = sum(1 for u in all_users if u.created_at and u.created_at >= today_start)
+    today_guests = sum(1 for v in all_visitors if v.first_seen and v.first_seen >= today_start)
+
     # Subscribers by tier
     tier_counts = {}
     active_subscribers = 0
@@ -578,6 +583,8 @@ async def dashboard_stats(
         "users": {
             "total_registered": total_users,
             "total_guests": total_guests,
+            "today_registered": today_registered,
+            "today_guests": today_guests,
             "online_registered": online_users,
             "online_guests": online_guests,
             "subscribers_by_tier": tier_counts,

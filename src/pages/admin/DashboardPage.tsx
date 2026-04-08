@@ -170,6 +170,20 @@ export function DashboardPage() {
           ]}
           positive
           color="emerald"
+          extraContent={
+            <div className="mt-2 space-y-1">
+              <div className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-2.5 py-1.5">
+                <ArrowUpRight className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <span className="text-sm font-black text-emerald-400">+{stats.users.today_registered || 0}</span>
+                <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">users today</span>
+              </div>
+              <div className="flex items-center gap-1.5 bg-blue-500/10 border border-blue-500/20 rounded-lg px-2.5 py-1.5">
+                <ArrowUpRight className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                <span className="text-sm font-black text-blue-400">+{stats.users.today_guests || 0}</span>
+                <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">guests today</span>
+              </div>
+            </div>
+          }
         />
         {/* Online Now */}
         <KPICard
