@@ -215,13 +215,16 @@
             border-radius: 0 0 8px 8px;
         }
         
-        /* Env Editor */
-        .env-textarea {
-            width: 100%; height: 300px; background: #0d0d0d; border: 1px solid var(--border);
-            border-radius: 0 0 8px 8px; color: #4ade80; font-family: monospace;
-            padding: 1rem; font-size: 13px; resize: vertical; outline: none;
-        }
-        .env-textarea:focus { border-color: var(--text-secondary); }
+        /* Vercel Env UI */
+        .env-card { background: var(--surface); border: 1px solid var(--border); border-radius: 0 0 8px 8px; border-top: none; padding: 1.5rem; }
+        .env-grid { display: grid; gap: 1rem; }
+        .env-header-row { display: grid; grid-template-columns: 1fr 2fr 40px; gap: 1rem; color: var(--text-secondary); font-size: 0.85rem; font-weight: 500; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
+        .env-row { display: grid; grid-template-columns: 1fr 2fr 40px; gap: 1rem; align-items: start; }
+        .env-input { background: var(--bg-color); border: 1px solid var(--border); color: var(--text-primary); padding: 10px 12px; border-radius: 6px; font-family: monospace; font-size: 13px; width: 100%; outline: none; transition: border-color 0.2s; }
+        .env-input:focus { border-color: var(--text-secondary); }
+        .env-input.value-field { resize: vertical; min-height: 40px; }
+        .add-env-btn { display: block; border: 1px dashed var(--border); color: var(--text-secondary); background: transparent; padding: 12px; margin-top: 1rem; width: 100%; border-radius: 6px; text-align: center; cursor: pointer; transition: all 0.2s; font-family: 'Inter', sans-serif; font-size: 0.9rem; }
+        .add-env-btn:hover { border-color: var(--text-primary); color: var(--text-primary); background: var(--surface-hover); }
 
         /* Utilities */
         .flex-between { display: flex; justify-content: space-between; align-items: center; }
@@ -235,6 +238,31 @@
             z-index: 1000; display: flex; align-items: center; gap: 10px;
         }
         .toast.show { transform: translateY(0); }
+
+        /* Mobile Responsiveness */
+        @media (max-width: 768px) {
+            .container { padding: 1rem; }
+            header { flex-direction: column; align-items: stretch; gap: 1rem; }
+            header .gap-2 { width: 100%; display: grid; grid-template-columns: 1fr 1fr; }
+            header .btn { width: 100%; justify-content: center; }
+            
+            .metrics-grid { grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem; }
+            .tabs { overflow-x: auto; white-space: nowrap; -webkit-overflow-scrolling: touch; padding-bottom: 5px; }
+            
+            .deployments-table th:nth-child(3), .deployments-table td:nth-child(3) { display: none; }
+            
+            .terminal-header { flex-direction: column; align-items: stretch; gap: 10px; }
+            .terminal-header .gap-2 { display: flex; flex-wrap: nowrap; justify-content: space-between; width: 100%; }
+            
+            .env-header-row { display: none; }
+            .env-row { grid-template-columns: 1fr; position: relative; border-bottom: 1px solid var(--border); padding-bottom: 1rem; gap: 0.5rem; }
+            .env-row .btn-danger { position: absolute; top: 0; right: 0; padding: 8px 12px; width: auto; }
+            .env-input { font-size: 14px; } /* Prevents iOS zoom */
+        }
+        @media (max-width: 480px) {
+            .metrics-grid { grid-template-columns: 1fr; }
+            header .gap-2 { grid-template-columns: 1fr; }
+        }
     </style>
 </head>
 <body>
@@ -311,6 +339,8 @@
             <div class="terminal-header">
                 <div style="font-weight: 500; font-size: 0.9rem;"><i class="fa-solid fa-terminal" style="margin-right:8px;"></i> Live API Output</div>
                 <div class="gap-2">
+                    <button class="btn" style="padding: 4px 10px;" onclick="copyLogs()" title="Copy Logs to Clipboard"><i class="fa-regular fa-copy"></i></button>
+                    <button class="btn" style="padding: 4px 10px;" onclick="downloadLogs()" title="Download Logs"><i class="fa-solid fa-download"></i></button>
                     <select id="log-time" class="btn" style="padding: 4px 10px;" onchange="fetchRuntimeLogs()">
                         <option value="live">Live Tail</option>
                         <option value="5m">Last 5m</option>
@@ -327,10 +357,15 @@
         <!-- Env Variables Tab -->
         <div id="tab-env-vars" class="tab-content">
             <div class="terminal-header">
-                <div style="font-weight: 500; font-size: 0.9rem;"><i class="fa-solid fa-lock" style="margin-right:8px;"></i> Backend Environment (.env)</div>
+                <div style="font-weight: 500; font-size: 0.9rem;"><i class="fa-solid fa-lock" style="margin-right:8px;"></i> Environment Variables</div>
                 <button class="btn" onclick="saveEnv()"><i class="fa-solid fa-floppy-disk"></i> Save & Restart</button>
             </div>
-            <textarea class="env-textarea" id="env-input" spellcheck="false">Loading...</textarea>
+            <div class="env-card">
+                <div class="env-grid" id="env-grid">
+                    <!-- Populated dynamically via JS -->
+                </div>
+                <button class="add-env-btn" onclick="addEnvRow()"><i class="fa-solid fa-plus" style="margin-right:8px;"></i> Add New Variable</button>
+            </div>
         </div>
     </div>
 
@@ -484,35 +519,75 @@
             }
         }
 
-        /* ENV Viewer */
+        /* ENV Viewer (Vercel Style) */
+        let envData = [];
+
+        function renderEnvGrid() {
+            const grid = document.getElementById('env-grid');
+            if (envData.length === 0) {
+                grid.innerHTML = '<div style="color:var(--text-secondary); text-align:center; padding: 2rem;">No environment variables found.</div>';
+                return;
+            }
+            
+            let html = `
+                <div class="env-header-row">
+                    <div>KEY</div>
+                    <div>VALUE</div>
+                    <div></div>
+                </div>
+            `;
+            
+            envData.forEach((row, i) => {
+                html += `
+                    <div class="env-row">
+                        <input type="text" class="env-input" placeholder="EXAMPLE_KEY" value="${row.key}" onchange="updateEnvKey(${i}, this.value)">
+                        <textarea class="env-input value-field" placeholder="value" rows="1" onchange="updateEnvValue(${i}, this.value)">${row.value}</textarea>
+                        <button class="btn btn-danger" style="padding: 10px;" onclick="removeEnvRow(${i})" title="Delete Variable"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                `;
+            });
+            grid.innerHTML = html;
+        }
+
         async function loadEnv() {
             try {
-                document.getElementById('env-input').value = 'Loading...';
+                document.getElementById('env-grid').innerHTML = '<div style="color:var(--text-secondary); text-align:center; padding: 2rem;">Loading...</div>';
                 const res = await fetch(`${API_BASE}/env/backend`);
                 const data = await res.json();
-                let text = '';
-                for (const [k, v] of Object.entries(data)) { text += `${k}=${v}\n`; }
-                document.getElementById('env-input').value = text;
+                envData = Object.entries(data).filter(([k]) => k.trim() && !k.trim().startsWith('#')).map(([k, v]) => ({ key: k, value: v }));
+                renderEnvGrid();
             } catch (e) {
-                document.getElementById('env-input').value = 'Error loading environment variables.';
+                document.getElementById('env-grid').innerHTML = '<div style="color:var(--danger); text-align:center; padding: 2rem;">Error loading environment variables.</div>';
             }
         }
+
+        function addEnvRow() {
+            envData.push({ key: '', value: '' });
+            renderEnvGrid();
+        }
+
+        function removeEnvRow(index) {
+            envData.splice(index, 1);
+            renderEnvGrid();
+        }
+
+        function updateEnvKey(index, val) { envData[index].key = val; }
+        function updateEnvValue(index, val) { envData[index].value = val; }
+
         async function saveEnv() {
-            const text = document.getElementById('env-input').value;
-            const lines = text.split('\n');
-            const data = {};
-            lines.forEach(l => {
-                if(l.trim() && !l.trim().startsWith('#') && l.includes('=')) {
-                    const idx = l.indexOf('=');
-                    data[l.slice(0,idx).trim()] = l.slice(idx+1).trim();
-                }
-            });
+            const validData = envData.filter(r => r.key.trim() !== '');
+            const payload = {};
+            validData.forEach(r => { payload[r.key.trim()] = r.value; });
+            
             if(!confirm("Overwrite production .env and restart backend?")) return;
             try {
                 const res = await fetch(`${API_BASE}/env/backend`, {
-                    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
+                    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)
                 });
-                if(res.ok) { showToast(".env saved & Server Restarted!"); }
+                if(res.ok) { 
+                    showToast(".env saved & Server Restarted!");
+                    loadEnv(); // Reload to refresh formatting
+                } else throw new Error();
             } catch (e) { showToast("Failed to save .env", true); }
         }
 
@@ -538,15 +613,45 @@
                 }).join('');
                 
                 term.innerHTML = formatted || "No logs available.";
-                if(since !== 'live') term.scrollTop = term.scrollHeight; 
-                else {
-                    // Smart scroll: only scroll to bottom if user is already at the bottom
-                    const isAtBottom = term.scrollHeight - term.clientHeight <= term.scrollTop + 50;
-                    if (isAtBottom) term.scrollTop = term.scrollHeight;
-                }
+                
+                // Always auto-scroll to bottom to ensure live tail works reliably
+                term.scrollTop = term.scrollHeight;
             } catch (err) {
                 term.innerHTML = '<span style="color:var(--danger)">Failed to fetch logs.</span>';
             }
+        }
+
+        async function copyLogs() {
+            const term = document.getElementById('runtime-terminal');
+            const textToCopy = term.innerText;
+            if(!textToCopy || textToCopy.includes('Loading') || textToCopy.includes('Querying')) return showToast("No logs to copy", true);
+            try {
+                await navigator.clipboard.writeText(textToCopy);
+                showToast("Logs copied to clipboard!");
+            } catch (err) {
+                showToast("Failed to copy logs", true);
+            }
+        }
+
+        function downloadLogs() {
+            const term = document.getElementById('runtime-terminal');
+            const textToDownload = term.innerText;
+            if(!textToDownload || textToDownload.includes('Loading') || textToDownload.includes('Querying')) return showToast("No logs to download", true);
+            
+            const filter = document.getElementById('log-time').value;
+            const dateStr = new Date().toISOString().replace(/[:.]/g, '-').split('T');
+            const filename = `tambuatips-logs-${filter}-${dateStr[0]}_${dateStr[1].substring(0,6)}.txt`;
+            
+            const blob = new Blob([textToDownload], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast("Logs downloaded successfully!");
         }
 
         function setupLiveTail() {
