@@ -29,14 +29,14 @@ const METHOD_COLORS: Record<string, string> = {
 };
 
 function formatKES(amount: number): string {
-  if (amount == null) return 'KES 0';
+  if (amount == null || isNaN(amount)) return 'KES 0';
   if (amount >= 1_000_000) return `KES ${(amount / 1_000_000).toFixed(1)}M`;
   if (amount >= 1_000) return `KES ${(amount / 1_000).toFixed(1)}K`;
   return `KES ${amount.toLocaleString()}`;
 }
 
 function formatCompact(n: number): string {
-  if (n == null) return '0';
+  if (n == null || isNaN(n)) return '0';
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 10_000) return `${(n / 1_000).toFixed(1)}K`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
@@ -162,7 +162,7 @@ export function DashboardPage() {
         <KPICard
           icon={Users}
           label="Total Visitors"
-          value={formatCompact(stats.users.today_registered + stats.users.today_guests)}
+          value={formatCompact((stats.users.today_registered || 0) + (stats.users.today_guests || 0))}
           change={null}
           breakdowns={[
             { label: 'Registered', value: formatCompact(stats.users.today_registered), color: EMERALD },
@@ -189,7 +189,7 @@ export function DashboardPage() {
         <KPICard
           icon={Wifi}
           label="Online Now"
-          value={formatCompact(stats.users.online_registered + stats.users.online_guests)}
+          value={formatCompact((stats.users.online_registered || 0) + (stats.users.online_guests || 0))}
           breakdowns={[
             { label: 'Users', value: formatCompact(stats.users.online_registered), color: EMERALD },
             { label: 'Guests', value: formatCompact(stats.users.online_guests), color: BLUE }
