@@ -1202,33 +1202,21 @@ class BroadcastPushRequest(BaseModel):
     delivery_method: str = "both"
 
 def send_webpush_task(subscriptions: list, payload: str):
-    from pywebpush import webpush, WebPushException, Vapid
-    import os, base64
+    from pywebpush import webpush
     from urllib.parse import urlparse
     success, fail = 0, 0
     
+    vapid_private_key = settings.VAPID_PRIVATE_KEY
     vapid_subject = settings.VAPID_SUBJECT or "mailto:admin@tambuatips.com"
-    if vapid_subject and not vapid_subject.startswith("mailto:") and "@" in vapid_subject:
+    if vapid_subject and not vapid_subject.startswith("mailto:"):
         vapid_subject = f"mailto:{vapid_subject}"
-        
-    # Load VAPID key once to bypass inner string parsing issues
-    v = Vapid()
-    try:
-        if settings.VAPID_PRIVATE_KEY and os.path.exists(settings.VAPID_PRIVATE_KEY):
-            v = Vapid.from_file(settings.VAPID_PRIVATE_KEY)
-        elif settings.VAPID_PRIVATE_KEY:
-            try:
-                key_clean = settings.VAPID_PRIVATE_KEY.replace("-", "+").replace("_", "/")
-                padding = "=" * (4 - (len(key_clean) % 4))
-                v = Vapid.from_raw(base64.b64decode(key_clean + padding))
-            except Exception:
-                v = Vapid.from_string(settings.VAPID_PRIVATE_KEY)
-    except Exception as ve:
-        print(f"VAPID Initialization Error: {ve}")
+
+    if not vapid_private_key:
+        print("VAPID_PRIVATE_KEY not set, skipping push broadcast")
+        return
 
     for sub in subscriptions:
         try:
-            # Prepare precise payload with audience (aud)
             endpoint = sub.get("endpoint", "")
             parsed = urlparse(endpoint)
             audience = f"{parsed.scheme}://{parsed.netloc}"
@@ -1236,7 +1224,7 @@ def send_webpush_task(subscriptions: list, payload: str):
             webpush(
                 subscription_info=sub,
                 data=payload,
-                vapid_private_key=v.private_pem().decode("utf-8") if v._private_key else settings.VAPID_PRIVATE_KEY,
+                vapid_private_key=vapid_private_key,
                 vapid_claims={"sub": vapid_subject, "aud": audience}
             )
             success += 1
