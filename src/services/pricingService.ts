@@ -84,7 +84,7 @@ export async function getPricingTiers(): Promise<TierConfig[]> {
     const query = country ? `?country=${country}` : '';
     const response = await apiClient.get(`/subscriptions/tiers${query}`);
     if (response.data && response.data.length > 0) {
-      return response.data.map((t: any) => ({
+      const mappedTiers = response.data.map((t: any) => ({
         id: t.tier_id,
         name: t.name,
         description: t.description,

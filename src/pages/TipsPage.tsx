@@ -524,17 +524,17 @@ export function TipsPage() {
                 className="flex overflow-x-auto gap-4 px-8 sm:px-0 pb-6 sm:pb-0 snap-x snap-mandatory sm:grid sm:grid-cols-3 no-scrollbar"
                 onScroll={(e) => {
                   const container = e.currentTarget;
-                  const itemWidth = window.innerWidth * 0.85 + 16; // Approx width of 85vw card + gap
+                  const itemWidth = window.innerWidth * 0.85 + 16;
                   const index = Math.max(0, Math.round(container.scrollLeft / itemWidth));
                   window.requestAnimationFrame(() => {
                     const cards = container.children;
                     for(let i=0; i<cards.length; i++) {
                       if(i === index) {
-                         cards[i].classList.remove('scale-90', 'opacity-50');
-                         cards[i].classList.add('scale-100', 'opacity-100');
+                         cards[i].classList.remove('scale-90');
+                         cards[i].classList.add('scale-100');
                       } else {
-                         cards[i].classList.add('scale-90', 'opacity-50');
-                         cards[i].classList.remove('scale-100', 'opacity-100');
+                         cards[i].classList.add('scale-90');
+                         cards[i].classList.remove('scale-100');
                       }
                     }
                   });
@@ -554,7 +554,7 @@ export function TipsPage() {
                   const discountPct = isDiscounted ? Math.round((1 - pkg.price2wk / sumPrice) * 100) : 0;
 
                   return (
-                    <div key={pkg.id} className={`min-w-[85vw] sm:min-w-0 shrink-0 snap-center bg-zinc-900 border ${pkg.popular ? 'border-emerald-500 shadow-lg shadow-emerald-500/10' : 'border-zinc-800'} rounded-2xl p-5 flex flex-col relative overflow-hidden transition-all duration-300 ${idx === 1 ? 'scale-100 opacity-100' : 'scale-90 opacity-50 sm:scale-100 sm:opacity-100'} hover:border-emerald-500/50`}>
+                    <div key={pkg.id} className={`min-w-[85vw] sm:min-w-0 shrink-0 snap-center bg-zinc-900 border ${pkg.popular ? 'border-emerald-500 shadow-lg shadow-emerald-500/10' : 'border-zinc-800'} rounded-2xl p-5 flex flex-col relative overflow-hidden transition-all duration-300 ${idx === 1 ? 'scale-100' : 'scale-90 sm:scale-100'} hover:border-emerald-500/50`}>
                       {pkg.popular && (
                         <div className="absolute top-3 right-[-30px] bg-emerald-500 text-zinc-950 text-[10px] font-bold px-8 py-1 rotate-45 shadow-sm transform-gpu">
                           POPULAR

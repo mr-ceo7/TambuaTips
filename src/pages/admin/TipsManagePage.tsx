@@ -261,217 +261,219 @@ export function TipsManagePage() {
         ))}
       </div>
 
-      {/* ─── Tip Form ────────────────────────────────────── */}
-      {showForm && (
-        <div className="bg-zinc-900/80 border border-zinc-800/60 rounded-2xl p-6 backdrop-blur-sm">
-          <h3 className="text-lg font-bold text-white mb-4 font-display">
-            {editingId ? '✏️ Edit Tip' : '⚡ Quick Add Tip'}
-          </h3>
+      {/* ─── Main Content Flex ─────────────────────────────── */}
+      <div className={`flex flex-col ${showForm ? 'lg:flex-row' : ''} gap-5 items-start relative`}>
+        
+        {/* ─── Tip Form (Left side on PC) ────────────────────── */}
+        {showForm && (
+          <div className="w-full lg:w-[450px] shrink-0 bg-zinc-900/80 border border-zinc-800/60 rounded-2xl p-5 backdrop-blur-sm lg:sticky lg:top-20 max-h-[85vh] overflow-y-auto no-scrollbar">
+            <h3 className="text-lg font-bold text-white mb-4 font-display flex justify-between items-center">
+              {editingId ? '✏️ Edit Tip' : '⚡ Quick Add Tip'}
+            </h3>
 
-          {/* Fixture Search */}
-          {!editingId && (
-            <div className="mb-5 p-4 bg-zinc-800/40 rounded-xl border border-zinc-700/30">
-              <div className="flex items-center gap-2 mb-3">
-                <Zap className="w-4 h-4 text-yellow-400" />
-                <span className="text-xs font-bold text-zinc-300">Quick Fill — Search Fixture</span>
-              </div>
-              <div className="flex flex-col sm:flex-row gap-2">
-                <input
-                  type="date"
-                  value={searchDate}
-                  onChange={e => setSearchDate(e.target.value)}
-                  className="bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
-                />
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+            {/* Fixture Search */}
+            {!editingId && (
+              <div className="mb-5 p-4 bg-zinc-800/40 rounded-xl border border-zinc-700/30">
+                <div className="flex items-center gap-2 mb-3">
+                  <Zap className="w-4 h-4 text-yellow-400" />
+                  <span className="text-xs font-bold text-zinc-300">Quick Fill — Search Fixture</span>
+                </div>
+                <div className="flex flex-col gap-2">
                   <input
-                    value={fixtureQuery}
-                    onChange={e => setFixtureQuery(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && searchFixtures()}
-                    placeholder="Type team name and press Enter..."
-                    className="w-full bg-zinc-900 border border-zinc-700 rounded-lg pl-10 pr-4 py-2 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-emerald-500"
+                    type="date"
+                    value={searchDate}
+                    onChange={e => setSearchDate(e.target.value)}
+                    className="bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
                   />
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+                    <input
+                      value={fixtureQuery}
+                      onChange={e => setFixtureQuery(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && searchFixtures()}
+                      placeholder="Type team and Enter..."
+                      className="w-full bg-zinc-900 border border-zinc-700 rounded-lg pl-10 pr-4 py-2 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                  <button
+                    onClick={searchFixtures}
+                    disabled={fixtureSearching || !fixtureQuery.trim()}
+                    className="px-4 py-2 bg-emerald-500 text-zinc-950 font-bold rounded-lg hover:bg-emerald-400 transition-all text-sm disabled:opacity-50"
+                  >
+                    {fixtureSearching ? <Loader className="w-4 h-4 animate-spin" /> : 'Search'}
+                  </button>
                 </div>
-                <button
-                  onClick={searchFixtures}
-                  disabled={fixtureSearching || !fixtureQuery.trim()}
-                  className="px-4 py-2 bg-emerald-500 text-zinc-950 font-bold rounded-lg hover:bg-emerald-400 transition-all text-sm disabled:opacity-50"
-                >
-                  {fixtureSearching ? <Loader className="w-4 h-4 animate-spin" /> : 'Search'}
-                </button>
-              </div>
 
-              {/* Results */}
-              {fixtureResults.length > 0 && (
-                <div className="mt-3 border border-zinc-700 rounded-xl overflow-hidden max-h-60 overflow-y-auto">
-                  {fixtureResults.map(f => (
-                    <button
-                      key={f.id}
-                      onClick={() => selectFixture(f)}
-                      className="w-full text-left px-4 py-3 border-b border-zinc-800/50 last:border-b-0 hover:bg-emerald-500/5 transition-colors"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="flex items-center gap-1.5 text-sm font-medium text-white">
-                            <TeamWithLogo teamName={f.homeTeam} size={16} textClassName="text-sm font-medium" />
-                            <span className="text-zinc-500">vs</span>
-                            <TeamWithLogo teamName={f.awayTeam} size={16} textClassName="text-sm font-medium" />
+                {/* Results */}
+                {fixtureResults.length > 0 && (
+                  <div className="mt-3 border border-zinc-700 rounded-xl overflow-hidden max-h-60 overflow-y-auto">
+                    {fixtureResults.map(f => (
+                      <button
+                        key={f.id}
+                        onClick={() => selectFixture(f)}
+                        className="w-full text-left px-4 py-3 border-b border-zinc-800/50 last:border-b-0 hover:bg-emerald-500/5 transition-colors"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="flex items-center gap-1.5 text-sm font-medium text-white">
+                              <TeamWithLogo teamName={f.homeTeam} size={16} textClassName="text-sm font-medium" />
+                              <span className="text-zinc-500">vs</span>
+                              <TeamWithLogo teamName={f.awayTeam} size={16} textClassName="text-sm font-medium" />
+                            </div>
+                            <p className="text-[11px] text-zinc-500">{f.league}</p>
                           </div>
-                          <p className="text-[11px] text-zinc-500">{f.league}</p>
+                          <div className="text-right">
+                            <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
+                              f.status === 'live' ? 'bg-red-500/10 text-red-400' :
+                              f.status === 'upcoming' ? 'bg-emerald-500/10 text-emerald-400' :
+                              'bg-zinc-800 text-zinc-500'
+                            }`}>{f.status}</span>
+                            <p className="text-[10px] text-zinc-600 mt-0.5">{f.matchDate?.split('T')[0]}</p>
+                          </div>
                         </div>
-                        <div className="text-right">
-                          <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
-                            f.status === 'live' ? 'bg-red-500/10 text-red-400' :
-                            f.status === 'upcoming' ? 'bg-emerald-500/10 text-emerald-400' :
-                            'bg-zinc-800 text-zinc-500'
-                          }`}>{f.status}</span>
-                          <p className="text-[10px] text-zinc-600 mt-0.5">{f.matchDate?.split('T')[0]}</p>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {fixtureSearchError && (
-                <p className="text-xs text-yellow-400 mt-2">⚠️ {fixtureSearchError}</p>
-              )}
-            </div>
-          )}
-
-          {/* Manual Form */}
-          <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-12 gap-4">
-            <div className="sm:col-span-4">
-              <FormField label="Category" required>
-                <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value as TipCategory })} className="admin-input py-2 min-h-[40px] text-sm">
-                  {TIP_CATEGORIES.map(cat => (
-                    <option key={cat} value={cat}>{CATEGORY_LABELS[cat]?.label || cat}</option>
-                  ))}
-                </select>
-              </FormField>
-            </div>
-            <div className="sm:col-span-4">
-              <FormField label="League">
-                <AutocompleteInput 
-                  value={form.league} 
-                  onChange={val => setForm({ ...form, league: val })} 
-                  options={POPULAR_LEAGUES} 
-                  placeholder="e.g. Premier League"
-                  type="league"
-                />
-              </FormField>
-            </div>
-            <div className="sm:col-span-4">
-              <FormField label="Match Date & Time">
-                <input type="datetime-local" value={form.matchDate} onChange={e => setForm({ ...form, matchDate: e.target.value })} className="admin-input py-2 w-full min-h-[40px] text-sm" />
-              </FormField>
-            </div>
-
-            <div className="sm:col-span-4">
-              <FormField label="Home Team" required>
-                <AutocompleteInput 
-                  value={form.homeTeam} 
-                  onChange={val => setForm({ ...form, homeTeam: val })} 
-                  options={form.league && TEAMS_BY_LEAGUE[form.league] ? TEAMS_BY_LEAGUE[form.league] : ALL_POPULAR_TEAMS} 
-                  placeholder="e.g. Arsenal" 
-                  required 
-                  type="team"
-                />
-              </FormField>
-            </div>
-            <div className="sm:col-span-4">
-              <FormField label="Away Team" required>
-                <AutocompleteInput 
-                  value={form.awayTeam} 
-                  onChange={val => setForm({ ...form, awayTeam: val })} 
-                  options={form.league && TEAMS_BY_LEAGUE[form.league] ? TEAMS_BY_LEAGUE[form.league] : ALL_POPULAR_TEAMS} 
-                  placeholder="e.g. Chelsea" 
-                  required 
-                  type="team"
-                />
-              </FormField>
-            </div>
-            <div className="sm:col-span-4">
-              <FormField label="Fixture ID (Optional)">
-                <input type="number" value={form.fixtureId} onChange={e => setForm({ ...form, fixtureId: e.target.value })} placeholder="Auto HTML search" className="admin-input py-2 min-h-[40px] text-sm" />
-              </FormField>
-            </div>
-
-            <div className="sm:col-span-4">
-              <FormField label="Prediction" required>
-                 <input value={form.prediction} onChange={e => setForm({ ...form, prediction: e.target.value })} placeholder="e.g. Home Win" className="admin-input w-full py-2 min-h-[40px] text-sm" required />
-              </FormField>
-            </div>
-            <div className="sm:col-span-8">
-              <FormField label="Quick Picks">
-                 <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
-                    {DEFAULT_PREDICTIONS.map(p => (
-                      <button key={p} type="button" onClick={() => setForm({ ...form, prediction: p })} className="px-3 min-h-[40px] font-bold bg-zinc-800 text-zinc-400 rounded-md hover:bg-emerald-500/20 hover:text-emerald-400 border border-zinc-700 transition-all whitespace-nowrap shrink-0">
-                        {p}
                       </button>
                     ))}
                   </div>
-              </FormField>
-            </div>
+                )}
 
-            <div className="sm:col-span-8">
-              <FormField label="Reasoning (Optional)">
-                <input value={form.reasoning} onChange={e => setForm({ ...form, reasoning: e.target.value })} placeholder="Provide an analysis or reasoning..." className="admin-input py-2 w-full min-h-[40px] text-sm" />
-              </FormField>
-            </div>
-            <div className="sm:col-span-4">
-              <FormField label="Confidence Level">
-                <div className="flex gap-1 h-[40px] items-center bg-zinc-900 border border-zinc-700 rounded-lg px-3 w-full justify-between sm:justify-start">
-                  {[1, 2, 3, 4, 5].map(n => (
-                    <button key={n} type="button" onClick={() => setForm({ ...form, confidence: n })} className={`p-1 flex-1 sm:flex-none flex justify-center rounded transition-colors ${n <= form.confidence ? 'text-yellow-400' : 'text-zinc-600 hover:text-zinc-400'}`}>
-                      <Star className={`w-5 h-5 ${n <= form.confidence ? 'fill-yellow-400' : ''}`} />
-                    </button>
-                  ))}
-                </div>
-              </FormField>
-            </div>
-            
-            {!editingId && (
-              <div className="sm:col-span-12 flex flex-col sm:flex-row gap-4 bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-4 items-start sm:items-center mt-2">
-                <div className="flex items-center gap-3 shrink-0">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" className="w-4 h-4 accent-emerald-500" checked={form.notify} onChange={e => setForm({ ...form, notify: e.target.checked })} />
-                    <span className="text-sm font-bold text-white whitespace-nowrap">Auto-notify users</span>
-                  </label>
-                </div>
-                {form.notify && (
-                  <div className="flex flex-col sm:flex-row gap-3 flex-1 w-full mt-2 sm:mt-0 sm:justify-end">
-                    <select value={form.notify_target} onChange={e => setForm({ ...form, notify_target: e.target.value })} className="admin-input min-h-[36px] text-sm py-1.5 w-full sm:max-w-[200px]">
-                        <option value="all">Everyone</option>
-                        <option value="subscribers">All Subscribers</option>
-                        <option value="free">Free Users</option>
-                        <option value="basic">Basic Tier</option>
-                        <option value="standard">Standard Tier</option>
-                        <option value="premium">Premium Tier</option>
-                      </select>
-                    <select value={form.notify_channel} onChange={e => setForm({ ...form, notify_channel: e.target.value })} className="admin-input min-h-[36px] text-sm py-1.5 w-full sm:max-w-[200px]">
-                        <option value="both">Push + Email</option>
-                        <option value="push">Push Notification</option>
-                        <option value="email">Email Only</option>
-                      </select>
-                  </div>
+                {fixtureSearchError && (
+                  <p className="text-xs text-yellow-400 mt-2">⚠️ {fixtureSearchError}</p>
                 )}
               </div>
             )}
 
-            <div className="sm:col-span-12 flex gap-3 mt-4">
-              <button disabled={isSubmitting} type="submit" className="flex-1 py-3 bg-emerald-500 text-zinc-950 font-bold rounded-xl hover:bg-emerald-400 transition-all text-sm disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20">
-                {isSubmitting ? <><Loader className="w-5 h-5 animate-spin"/> Saving...</> : editingId ? 'Update Tip' : 'Publish Tip'}
-              </button>
-              <button disabled={isSubmitting} type="button" onClick={resetForm} className="px-8 py-3 bg-zinc-800 border border-zinc-700 text-zinc-300 rounded-xl hover:bg-zinc-700 transition-all text-sm disabled:opacity-50 font-bold">
-                Cancel
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
+            {/* Manual Form */}
+            <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-12 gap-3">
+              <div className="sm:col-span-6">
+                <FormField label="Category" required>
+                  <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value as TipCategory })} className="admin-input py-2 min-h-[40px] text-sm">
+                    {TIP_CATEGORIES.map(cat => (
+                      <option key={cat} value={cat}>{CATEGORY_LABELS[cat]?.label || cat}</option>
+                    ))}
+                  </select>
+                </FormField>
+              </div>
+              <div className="sm:col-span-6">
+                <FormField label="League">
+                  <AutocompleteInput 
+                    value={form.league} 
+                    onChange={val => setForm({ ...form, league: val })} 
+                    options={POPULAR_LEAGUES} 
+                    placeholder="e.g. Premier League"
+                    type="league"
+                  />
+                </FormField>
+              </div>
+              <div className="sm:col-span-12">
+                <FormField label="Match Date & Time">
+                  <input type="datetime-local" value={form.matchDate} onChange={e => setForm({ ...form, matchDate: e.target.value })} className="admin-input py-2 w-full min-h-[40px] text-sm" />
+                </FormField>
+              </div>
 
-      {/* ─── Filter Bar ──────────────────────────────────── */}
+              <div className="sm:col-span-6">
+                <FormField label="Home Team" required>
+                  <AutocompleteInput 
+                    value={form.homeTeam} 
+                    onChange={val => setForm({ ...form, homeTeam: val })} 
+                    options={form.league && TEAMS_BY_LEAGUE[form.league] ? TEAMS_BY_LEAGUE[form.league] : ALL_POPULAR_TEAMS} 
+                    placeholder="e.g. Arsenal" 
+                    required 
+                    type="team"
+                  />
+                </FormField>
+              </div>
+              <div className="sm:col-span-6">
+                <FormField label="Away Team" required>
+                  <AutocompleteInput 
+                    value={form.awayTeam} 
+                    onChange={val => setForm({ ...form, awayTeam: val })} 
+                    options={form.league && TEAMS_BY_LEAGUE[form.league] ? TEAMS_BY_LEAGUE[form.league] : ALL_POPULAR_TEAMS} 
+                    placeholder="e.g. Chelsea" 
+                    required 
+                    type="team"
+                  />
+                </FormField>
+              </div>
+
+              <div className="sm:col-span-6">
+                <FormField label="Prediction" required>
+                   <input value={form.prediction} onChange={e => setForm({ ...form, prediction: e.target.value })} placeholder="e.g. Home Win" className="admin-input w-full py-2 min-h-[40px] text-sm" required />
+                </FormField>
+              </div>
+              <div className="sm:col-span-6">
+                <FormField label="Confidence Level">
+                  <div className="flex gap-1 h-[40px] items-center bg-zinc-900 border border-zinc-700 rounded-lg px-2 w-full justify-between">
+                    {[1, 2, 3, 4, 5].map(n => (
+                      <button key={n} type="button" onClick={() => setForm({ ...form, confidence: n })} className={`p-1 flex flex-col items-center justify-center rounded transition-colors ${n <= form.confidence ? 'text-yellow-400' : 'text-zinc-600 hover:text-zinc-400'}`}>
+                        <Star className={`w-4 h-4 sm:w-5 sm:h-5 ${n <= form.confidence ? 'fill-yellow-400' : ''}`} />
+                      </button>
+                    ))}
+                  </div>
+                </FormField>
+              </div>
+
+              <div className="sm:col-span-12">
+                <FormField label="Quick Picks">
+                   <div className="flex flex-wrap gap-1 bg-zinc-900/50 p-2 rounded-xl border border-zinc-800/50">
+                      {DEFAULT_PREDICTIONS.map(p => (
+                        <button key={p} type="button" onClick={() => setForm({ ...form, prediction: p })} className="flex-1 min-w-[40px] px-2 py-1.5 text-[11px] font-bold bg-zinc-800 text-zinc-300 rounded hover:bg-emerald-500/20 hover:text-emerald-400 border border-zinc-700 transition-all shrink-0">
+                          {p}
+                        </button>
+                      ))}
+                    </div>
+                </FormField>
+              </div>
+
+              <div className="sm:col-span-12">
+                <FormField label="Reasoning (Optional)">
+                  <input value={form.reasoning} onChange={e => setForm({ ...form, reasoning: e.target.value })} placeholder="Provide an analysis or reasoning..." className="admin-input py-2 w-full min-h-[40px] text-sm" />
+                </FormField>
+              </div>
+              <div className="sm:col-span-12">
+                <FormField label="Fixture ID (Optional)">
+                  <input type="number" value={form.fixtureId} onChange={e => setForm({ ...form, fixtureId: e.target.value })} placeholder="Auto HTML search" className="admin-input py-2 min-h-[40px] text-sm" />
+                </FormField>
+              </div>
+              
+              {!editingId && (
+                <div className="sm:col-span-12 flex flex-col gap-3 bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-3 items-start mt-1">
+                  <div className="flex items-center gap-3 shrink-0">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" className="w-4 h-4 accent-emerald-500" checked={form.notify} onChange={e => setForm({ ...form, notify: e.target.checked })} />
+                      <span className="text-sm font-bold text-white whitespace-nowrap">Auto-notify users</span>
+                    </label>
+                  </div>
+                  {form.notify && (
+                    <div className="flex flex-col sm:flex-row gap-2 w-full mt-1">
+                      <select value={form.notify_target} onChange={e => setForm({ ...form, notify_target: e.target.value })} className="admin-input min-h-[36px] text-sm py-1.5 flex-1">
+                          <option value="all">Everyone</option>
+                          <option value="subscribers">Subscribers</option>
+                          <option value="free">Free Users</option>
+                        </select>
+                      <select value={form.notify_channel} onChange={e => setForm({ ...form, notify_channel: e.target.value })} className="admin-input min-h-[36px] text-sm py-1.5 flex-1">
+                          <option value="both">Push + Email</option>
+                          <option value="push">Push Only</option>
+                          <option value="email">Email Only</option>
+                        </select>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="sm:col-span-12 flex flex-col sm:flex-row gap-2 mt-2">
+                <button disabled={isSubmitting} type="submit" className="w-full py-2.5 bg-emerald-500 text-zinc-950 font-bold rounded-xl hover:bg-emerald-400 transition-all text-sm disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20">
+                  {isSubmitting ? <><Loader className="w-4 h-4 animate-spin"/> Saving...</> : editingId ? 'Update Tip' : 'Publish Tip'}
+                </button>
+                <button disabled={isSubmitting} type="button" onClick={resetForm} className="w-full sm:w-auto px-6 py-2.5 bg-zinc-800 border border-zinc-700 text-zinc-300 rounded-xl hover:bg-zinc-700 transition-all text-sm disabled:opacity-50 font-bold">
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* ─── Right Content (Filter + Table) ────────────────── */}
+        <div className="flex-1 flex flex-col gap-4 min-w-0 w-full relative">
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="flex gap-1 bg-zinc-900/60 border border-zinc-800/60 rounded-xl p-1 overflow-x-auto shrink-0">
           <button
@@ -595,7 +597,9 @@ export function TipsManagePage() {
             </div>
           ))
         )}
+        </div>
       </div>
+    </div>
     </div>
   );
 }

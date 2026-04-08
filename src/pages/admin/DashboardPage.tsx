@@ -208,7 +208,7 @@ export function DashboardPage() {
             .filter(([t]) => t !== 'free')
             .map(([tier, count]) => ({
               label: tier.charAt(0).toUpperCase() + tier.slice(1),
-              value: formatCompact(count),
+              value: formatCompact(Number(count)),
               color: tier.includes('basic') ? BLUE : tier.includes('standard') ? PURPLE : GOLD
             }))}
           positive={stats.users.conversion_rate > 0}
