@@ -520,8 +520,27 @@ export function TipsPage() {
                 <Crown className="w-5 h-5 text-emerald-500" />
                 <h3 className="text-lg font-bold text-white">Subscription Packages</h3>
               </div>
-              <div className="grid grid-cols-3 gap-2 sm:gap-4">
-                {pricingTiers.filter(t => t.id === 'basic' || t.id === 'standard' || t.id === 'premium').map(pkg => {
+              <div 
+                className="flex overflow-x-auto gap-4 px-8 sm:px-0 pb-6 sm:pb-0 snap-x snap-mandatory sm:grid sm:grid-cols-3 no-scrollbar"
+                onScroll={(e) => {
+                  const container = e.currentTarget;
+                  const itemWidth = window.innerWidth * 0.85 + 16; // Approx width of 85vw card + gap
+                  const index = Math.max(0, Math.round(container.scrollLeft / itemWidth));
+                  window.requestAnimationFrame(() => {
+                    const cards = container.children;
+                    for(let i=0; i<cards.length; i++) {
+                      if(i === index) {
+                         cards[i].classList.remove('scale-90', 'opacity-50');
+                         cards[i].classList.add('scale-100', 'opacity-100');
+                      } else {
+                         cards[i].classList.add('scale-90', 'opacity-50');
+                         cards[i].classList.remove('scale-100', 'opacity-100');
+                      }
+                    }
+                  });
+                }}
+              >
+                {pricingTiers.filter(t => t.id === 'basic' || t.id === 'standard' || t.id === 'premium').map((pkg, idx) => {
                   let sumPrice = 0;
                   pkg.categories.forEach(cat => {
                     if (cat === 'free') return;
@@ -535,43 +554,43 @@ export function TipsPage() {
                   const discountPct = isDiscounted ? Math.round((1 - pkg.price2wk / sumPrice) * 100) : 0;
 
                   return (
-                    <div key={pkg.id} className={`bg-zinc-900 border ${pkg.popular ? 'border-emerald-500 shadow-lg shadow-emerald-500/10' : 'border-zinc-800'} rounded-2xl p-2.5 sm:p-5 flex flex-col relative overflow-hidden transition-all hover:border-emerald-500/50`}>
+                    <div key={pkg.id} className={`min-w-[85vw] sm:min-w-0 shrink-0 snap-center bg-zinc-900 border ${pkg.popular ? 'border-emerald-500 shadow-lg shadow-emerald-500/10' : 'border-zinc-800'} rounded-2xl p-5 flex flex-col relative overflow-hidden transition-all duration-300 ${idx === 1 ? 'scale-100 opacity-100' : 'scale-90 opacity-50 sm:scale-100 sm:opacity-100'} hover:border-emerald-500/50`}>
                       {pkg.popular && (
-                        <div className="absolute top-2 sm:top-3 right-[-35px] sm:right-[-30px] bg-emerald-500 text-zinc-950 text-[8px] sm:text-[10px] font-bold px-8 py-0.5 sm:py-1 rotate-45 shadow-sm transform-gpu">
+                        <div className="absolute top-3 right-[-30px] bg-emerald-500 text-zinc-950 text-[10px] font-bold px-8 py-1 rotate-45 shadow-sm transform-gpu">
                           POPULAR
                         </div>
                       )}
                       
-                      <div className="flex flex-col sm:flex-row justify-between items-start mb-2 sm:mb-3">
-                        <h4 className="text-sm sm:text-lg font-black text-white">{pkg.name.replace(' Plan', '')}</h4>
+                      <div className="flex justify-between items-start mb-3">
+                        <h4 className="text-lg font-black text-white">{pkg.name.replace(' Plan', '')}</h4>
                         {isDiscounted && (
-                          <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[8px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded uppercase mt-1 sm:mt-0">
+                          <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold px-1.5 py-0.5 rounded uppercase">
                             Save {discountPct}%
                           </span>
                         )}
                       </div>
                       
                       <div className="flex items-end gap-1 mb-1">
-                        <div className="text-lg sm:text-2xl font-black text-white leading-none">
-                          <span className="text-[10px] sm:text-sm text-zinc-400 mr-1">{pkg.currency_symbol || 'KES'}</span>
+                        <div className="text-2xl font-black text-white leading-none whitespace-nowrap">
+                          <span className="text-sm text-zinc-400 mr-1">{pkg.currency_symbol || 'KES'}</span>
                           {pkg.price2wk.toLocaleString()}
                         </div>
-                        <span className="text-[9px] sm:text-xs text-zinc-500 font-normal mb-0.5">/ 2 wks</span>
+                        <div className="text-xs text-zinc-500 font-normal whitespace-nowrap leading-none mb-0.5">/ 2 wks</div>
                       </div>
 
-                      <div className="h-3 sm:h-4 mb-2 sm:mb-3">
+                      <div className="h-4 mb-3">
                         {isDiscounted ? (
-                          <p className="text-[9px] sm:text-[10px] text-zinc-500 line-through">
+                          <p className="text-[10px] text-zinc-500 line-through">
                             Value: {pkg.currency_symbol || 'KES'} {sumPrice.toLocaleString()}
                           </p>
                         ) : null}
                       </div>
 
-                      <div className="flex-1 mb-3 flex flex-col mt-1 sm:mt-0">
-                        <span className="text-[9px] sm:text-[10px] text-zinc-500 font-bold mb-2 uppercase tracking-widest">Contains:</span>
+                      <div className="flex-1 mb-4 flex flex-col">
+                        <span className="text-[10px] text-zinc-500 font-bold mb-2 uppercase tracking-widest">Contains:</span>
                         <div className="flex flex-wrap gap-1.5">
                            {pkg.categories.filter(c => c !== 'free').map(c => (
-                             <span key={c} className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[9px] sm:text-[10px] font-bold px-2 py-1 rounded-md uppercase">
+                             <span key={c} className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold px-2 py-1 rounded-md uppercase leading-tight text-center whitespace-nowrap overflow-hidden text-ellipsis w-auto">
                                {CATEGORY_LABELS[c]?.label || c}
                              </span>
                            ))}
@@ -584,7 +603,7 @@ export function TipsPage() {
                            if (!user) setShowAuthModal(true); 
                            else setShowPricingModal(true, undefined, pkg.id); 
                          }}
-                         className={`w-full py-1.5 sm:py-2.5 rounded-xl text-[9px] sm:text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1 sm:gap-2 ${
+                         className={`w-full py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${
                            pkg.popular 
                              ? 'bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-md shadow-emerald-500/20' 
                              : 'bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-700'
