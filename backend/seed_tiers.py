@@ -1,68 +1,98 @@
 import asyncio
-import os
-import sys
-import json
-
-# Add app to path
-sys.path.append(os.getcwd())
-
 from app.database import AsyncSessionLocal
-from sqlalchemy import select
 from app.models.subscription import SubscriptionTier
 
-TIERS = [
-    {
-        "tier_id": "basic",
-        "name": "Basic",
-        "description": "Perfect for casual bettors who want solid mid-range tips.",
-        "price_2wk": 550,
-        "price_4wk": 860,
-        "categories": ["free", "4+"],
-        "popular": False,
-    },
-    {
-        "tier_id": "standard",
-        "name": "Standard Plan",
-        "description": "All Basic tips plus low-odds and GG picks for consistent wins.",
-        "price_2wk": 1250,
-        "price_4wk": 2000,
-        "categories": ["free", "4+", "2+", "gg"],
-        "popular": True,
-    },
-    {
-        "tier_id": "premium",
-        "name": "Premium VIP",
-        "description": "The ultimate package — everything including VIP specials and high-odds tips.",
-        "price_2wk": 2500,
-        "price_4wk": 4500,
-        "categories": ["free", "4+", "2+", "gg", "10+", "vip"],
-        "popular": False,
-    },
-]
-
-async def seed_tiers():
+async def run_seed():
     async with AsyncSessionLocal() as db:
-        for t_data in TIERS:
-            # Check if exists
-            result = await db.execute(select(SubscriptionTier).where(SubscriptionTier.tier_id == t_data["tier_id"]))
-            existing = result.scalar_one_or_none()
-            if not existing:
-                print(f"Seeding tier: {t_data['tier_id']}")
-                tier = SubscriptionTier(
-                    tier_id=t_data["tier_id"],
-                    name=t_data["name"],
-                    description=t_data["description"],
-                    price_2wk=t_data["price_2wk"],
-                    price_4wk=t_data["price_4wk"],
-                    categories=t_data["categories"],
-                    popular=t_data["popular"]
-                )
-                db.add(tier)
-            else:
-                print(f"Tier {t_data['tier_id']} already exists.")
+        # Default packages
+        default_tiers = [
+            {
+                "tier_id": "basic",
+                "name": "Basic Package",
+                "description": "Basic categories.",
+                "price_2wk": 550,
+                "price_4wk": 860,
+                "categories": ["free", "2+"],
+                "popular": False,
+            },
+            {
+                "tier_id": "standard",
+                "name": "Standard Package",
+                "description": "Standard categories.",
+                "price_2wk": 1250,
+                "price_4wk": 2000,
+                "categories": ["free", "2+", "4+", "gg"],
+                "popular": True,
+            },
+            {
+                "tier_id": "premium",
+                "name": "Premium Package",
+                "description": "All categories.",
+                "price_2wk": 2500,
+                "price_4wk": 4500,
+                "categories": ["free", "2+", "4+", "gg", "10+", "vip"],
+                "popular": False,
+            },
+            # Individual tiers
+            {
+                "tier_id": "tier_2plus",
+                "name": "2+ Odds Only",
+                "description": "Access to only 2+ Odds tips.",
+                "price_2wk": 300,
+                "price_4wk": 500,
+                "categories": ["free", "2+"],
+                "popular": False,
+            },
+            {
+                "tier_id": "tier_4plus",
+                "name": "4+ Odds Only",
+                "description": "Access to only 4+ Odds tips.",
+                "price_2wk": 400,
+                "price_4wk": 600,
+                "categories": ["free", "4+"],
+                "popular": False,
+            },
+            {
+                "tier_id": "tier_gg",
+                "name": "GG Only",
+                "description": "Access to only GG tips.",
+                "price_2wk": 400,
+                "price_4wk": 600,
+                "categories": ["free", "gg"],
+                "popular": False,
+            },
+            {
+                "tier_id": "tier_10plus",
+                "name": "10+ Odds Only",
+                "description": "Access to only 10+ Odds tips.",
+                "price_2wk": 600,
+                "price_4wk": 1000,
+                "categories": ["free", "10+"],
+                "popular": False,
+            },
+            {
+                "tier_id": "tier_vip",
+                "name": "VIP Only",
+                "description": "Access to only VIP tips.",
+                "price_2wk": 1500,
+                "price_4wk": 2500,
+                "categories": ["free", "vip"],
+                "popular": False,
+            }
+        ]
+
+        from sqlalchemy import select
+        
+        for t in default_tiers:
+            result = await db.execute(select(SubscriptionTier).where(SubscriptionTier.tier_id == t["tier_id"]))
+            tier = result.scalar_one_or_none()
+            if not tier:
+                new_tier = SubscriptionTier(**t)
+                db.add(new_tier)
+                print(f"Created {t['tier_id']}")
         
         await db.commit()
-        print("Done.")
+        print("Tiers seeding completed.")
 
 if __name__ == "__main__":
-    asyncio.run(seed_tiers())
+    asyncio.run(run_seed())

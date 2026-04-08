@@ -519,9 +519,9 @@ export function SettingsManagePage() {
           <div>
             <h2 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
               <Trophy className="w-4 h-4 text-yellow-500" />
-              Global Jackpot Pricing
+              Jackpot Configuration
             </h2>
-            <p className="text-xs text-zinc-500 mt-1">Default prices pre-filled when creating new jackpots</p>
+            <p className="text-xs text-zinc-500 mt-1">Configure global jackpot behavior and DC-based pricing</p>
           </div>
           <button
             onClick={handleSave}
@@ -533,54 +533,7 @@ export function SettingsManagePage() {
           </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 bg-yellow-500/5 border border-yellow-500/10 rounded-xl p-5">
-          <div className="space-y-4">
-            <h3 className="text-xs font-bold text-yellow-400 uppercase tracking-wider border-b border-yellow-500/20 pb-2">Midweek Jackpot</h3>
-            <div className="space-y-2">
-              <label className="block text-[10px] font-bold text-zinc-300 uppercase">Local Price (KES)</label>
-              <input
-                type="number"
-                value={settings.jackpot_midweek_price || 0}
-                onChange={e => setSettings({ ...settings, jackpot_midweek_price: parseInt(e.target.value) || 0 })}
-                className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-yellow-500"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="block text-[10px] font-bold text-zinc-300 uppercase">International Price (USD)</label>
-              <input
-                type="number"
-                step="0.01"
-                value={settings.jackpot_midweek_int_price || 0}
-                onChange={e => setSettings({ ...settings, jackpot_midweek_int_price: parseFloat(e.target.value) || 0 })}
-                className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-yellow-500"
-              />
-            </div>
-          </div>
-          <div className="space-y-4">
-            <h3 className="text-xs font-bold text-yellow-400 uppercase tracking-wider border-b border-yellow-500/20 pb-2">Mega Jackpot</h3>
-            <div className="space-y-2">
-              <label className="block text-[10px] font-bold text-zinc-300 uppercase">Local Price (KES)</label>
-              <input
-                type="number"
-                value={settings.jackpot_mega_price || 0}
-                onChange={e => setSettings({ ...settings, jackpot_mega_price: parseInt(e.target.value) || 0 })}
-                className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-yellow-500"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="block text-[10px] font-bold text-zinc-300 uppercase">International Price (USD)</label>
-              <input
-                type="number"
-                step="0.01"
-                value={settings.jackpot_mega_int_price || 0}
-                onChange={e => setSettings({ ...settings, jackpot_mega_int_price: parseFloat(e.target.value) || 0 })}
-                className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-yellow-500"
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-6 border-t border-zinc-800 pt-6 space-y-6">
+        <div className="mt-6 space-y-6">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
               <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">

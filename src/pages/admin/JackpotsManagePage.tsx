@@ -33,6 +33,7 @@ export function JackpotsManagePage() {
   const [activeVariation, setActiveVariation] = useState(0);
   const [bulkPicks, setBulkPicks] = useState('');
   const [bulkAllVariations, setBulkAllVariations] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Drag and Drop State
   const dragItem = React.useRef<number | null>(null);
@@ -274,15 +275,23 @@ export function JackpotsManagePage() {
       regional_prices: { international: { price: form.intPrice } }
     };
 
-    if (editingId) {
-      await updateJackpot(editingId, payload);
-      toast.success('Jackpot updated');
-    } else {
-      await addJackpot(payload);
-      toast.success('Jackpot prediction published');
+    
+    setIsSubmitting(true);
+    try {
+      if (editingId) {
+        await updateJackpot(editingId, payload);
+        toast.success('Jackpot updated');
+      } else {
+        await addJackpot(payload);
+        toast.success('Jackpot prediction published');
+      }
+      loadJackpots();
+      resetForm();
+    } catch (e) {
+      toast.error('Failed to save jackpot');
+    } finally {
+      setIsSubmitting(false);
     }
-    loadJackpots();
-    resetForm();
   };
 
   const resetForm = () => {
@@ -648,10 +657,10 @@ export function JackpotsManagePage() {
             )}
 
             <div className="flex gap-3">
-              <button type="submit" className="flex-1 py-2.5 bg-yellow-500 text-zinc-950 font-bold rounded-xl hover:bg-yellow-400 transition-all text-sm">
-                {editingId ? 'Update Jackpot' : 'Publish Jackpot'}
+              <button type="submit" disabled={isSubmitting} className="flex-1 py-2.5 bg-yellow-500 text-zinc-950 font-bold rounded-xl hover:bg-yellow-400 transition-all text-sm disabled:opacity-50">
+                {isSubmitting ? 'Saving...' : editingId ? 'Update Jackpot' : 'Publish Jackpot'}
               </button>
-              <button type="button" onClick={resetForm} className="px-6 py-2.5 bg-zinc-800 text-zinc-300 rounded-xl hover:bg-zinc-700 transition-all text-sm">
+              <button type="button" onClick={resetForm} disabled={isSubmitting} className="px-6 py-2.5 bg-zinc-800 text-zinc-300 rounded-xl hover:bg-zinc-700 transition-all text-sm disabled:opacity-50">
                 Cancel
               </button>
             </div>

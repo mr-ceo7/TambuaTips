@@ -55,19 +55,25 @@ export const CATEGORY_LABELS: Record<TipCategory, { label: string; minTier: Subs
   '4+': { label: '4+ Odds', minTier: 'standard' },
   'gg': { label: 'GG (BTTS)', minTier: 'standard' },
   '10+': { label: '10+ Odds', minTier: 'premium' },
-  'vip': { label: 'VIP Special (80+)', minTier: 'premium' },
+    'vip': { label: 'VIP Special (80+)', minTier: 'premium' },
 };
 
-const TIER_RANK: Record<SubscriptionTier, number> = {
-  free: 0,
-  basic: 1,
-  standard: 2,
-  premium: 3,
-};
+let cachedTiers: TierConfig[] = [...DEFAULT_TIERS];
 
 export function hasAccessToCategory(userTier: SubscriptionTier, category: TipCategory): boolean {
-  const requiredTier = CATEGORY_LABELS[category]?.minTier || 'premium';
-  return TIER_RANK[userTier] >= TIER_RANK[requiredTier];
+    if (category === 'free') return true;
+    if (userTier === 'premium') return true;
+    
+    // Check if the current tier explicitly contains the category
+    const tierConfig = cachedTiers.find(t => t.id === userTier);
+    if (tierConfig && tierConfig.categories.includes(category)) {
+        return true;
+    }
+    
+    // Fallback logic for legacy users
+    const TIER_RANK: Record<string, number> = { free: 0, basic: 1, standard: 2, premium: 3 };
+    const requiredTier = CATEGORY_LABELS[category]?.minTier || 'premium';
+    return (TIER_RANK[userTier] || 0) >= (TIER_RANK[requiredTier] || 3);
 }
 
 import { detectUserCountry } from './geoService';
@@ -92,11 +98,13 @@ export async function getPricingTiers(): Promise<TierConfig[]> {
         originalPrice2wk: t.original_price_2wk,
         originalPrice4wk: t.original_price_4wk,
       }));
+      cachedTiers = [...mappedTiers];
+      return mappedTiers;
     }
-    return DEFAULT_TIERS;
+    return cachedTiers;
   } catch (error) {
     console.error('Failed to fetch pricing tiers, falling back to default', error);
-    return DEFAULT_TIERS;
+    return cachedTiers;
   }
 }
 

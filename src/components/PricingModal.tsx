@@ -36,9 +36,13 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
     getPricingTiers().then(data => {
       setTiers(data);
       if (targetCategory && data.length > 0) {
-        const requiredTierId = CATEGORY_LABELS[targetCategory]?.minTier;
-        const autoTier = data.find(t => t.id === requiredTierId) || data[0];
+        const validTiers = data.filter(t => t.categories.includes(targetCategory));
+        validTiers.sort((a,b) => a.categories.length - b.categories.length);
+        const autoTier = validTiers[0] || data.find(t => t.id === 'premium') || data[0];
         setSelectedTier(autoTier);
+      } else if (!targetCategory && data.length > 0) {
+        const premiumTier = data.find(t => t.id === 'premium') || data[0];
+        setSelectedTier(premiumTier);
       }
     });
 
@@ -217,7 +221,11 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
                         {selectedTier && <button onClick={() => setSelectedTier(null)} className="text-[10px] text-gold-400 hover:text-gold-300 font-bold uppercase tracking-wider py-1 pl-4">Change</button>}
                       </div>
                       <div className="space-y-2">
-                      {tiers.filter(tier => !selectedTier || selectedTier.id === tier.id).map(tier => {
+                      {tiers.filter(tier => {
+                        if (selectedTier) return selectedTier.id === tier.id;
+                        if (targetCategory) return tier.categories.includes(targetCategory);
+                        return true;
+                      }).map(tier => {
                         const Icon = TIER_ICONS[tier.id] || Zap;
                         const dprice = duration === 2 ? tier.price2wk : tier.price4wk;
                         const originalPrice = duration === 2 ? tier.originalPrice2wk : tier.originalPrice4wk;
@@ -259,13 +267,13 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
                       </div>
                     </div>
 
-                    {targetCategory && selectedTier && !hasAccessToCategory(selectedTier.id as SubscriptionTier, targetCategory) && (
+                    {targetCategory && selectedTier && !selectedTier.categories.includes(targetCategory) && (
                       <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-2.5 mb-3 flex items-center gap-2">
                         <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />
                         <p className="text-[11px] text-amber-100/70 flex-1">
-                          <span className="text-white font-bold">{CATEGORY_LABELS[targetCategory].label}</span> requires a higher plan.
+                          <span className="text-white font-bold">{CATEGORY_LABELS[targetCategory].label}</span> is not included in this plan.
                         </p>
-                        <button onClick={() => setSelectedTier(tiers.find(t => t.id === CATEGORY_LABELS[targetCategory].minTier) || selectedTier)} className="text-[10px] font-bold text-amber-400 uppercase shrink-0 flex items-center gap-1">Upgrade <ArrowRight className="w-3 h-3"/></button>
+                        <button onClick={() => setSelectedTier(tiers.filter(t => t.categories.includes(targetCategory)).sort((a,b) => a.categories.length - b.categories.length)[0] || selectedTier)} className="text-[10px] font-bold text-amber-400 uppercase shrink-0 flex items-center gap-1">Fix <ArrowRight className="w-3 h-3"/></button>
                       </div>
                     )}
 

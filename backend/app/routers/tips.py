@@ -18,25 +18,25 @@ router = APIRouter(prefix="/api/tips", tags=["Tips"])
 
 # Tier access mapping
 TIER_RANK = {"free": 0, "basic": 1, "standard": 2, "premium": 3}
-CATEGORY_MIN_TIER = {
-    "free": "free",
-    "2+": "basic",
-    "4+": "standard",
-    "gg": "standard",
-    "10+": "premium",
-    "vip": "premium",
-}
+from app.models.subscription import SubscriptionTier
 
 
-def user_has_access(user: Optional[User], category: str) -> bool:
+def user_has_access(user: Optional[User], category: str, tier_dict: dict) -> bool:
     if category == "free":
         return True
     if not user:
         return False
     if not user.is_subscription_active:
         return False
-    required = CATEGORY_MIN_TIER.get(category, "premium")
-    return TIER_RANK.get(user.subscription_tier, 0) >= TIER_RANK.get(required, 3)
+    
+    if user.is_admin or user.subscription_tier == "premium":
+        return True
+
+    user_tier_conf = tier_dict.get(user.subscription_tier)
+    if user_tier_conf and isinstance(user_tier_conf.categories, list):
+        return category in user_tier_conf.categories
+        
+    return False
 
 
 @router.get("", response_model=List)
@@ -69,6 +69,11 @@ async def list_tips(
     result = await db.execute(query)
     tips = result.scalars().all()
 
+    # Fetch tiers for access check
+    result_tiers = await db.execute(select(SubscriptionTier))
+    all_tiers = result_tiers.scalars().all()
+    tier_dict = {t.tier_id: t for t in all_tiers}
+
     response = []
     
     # Pre-calculate if the user is Premium/Admin to bypass the marketing filters
@@ -76,7 +81,7 @@ async def list_tips(
     lost_counter = 0
 
     for tip in tips:
-        has_normal_access = user_has_access(user, tip.category)
+        has_normal_access = user_has_access(user, tip.category, tier_dict)
         is_decided = tip.result in ["won", "lost", "void"]
 
         # CONVERSION BOOST: If a non-premium user is looking at historical tips,
@@ -143,7 +148,12 @@ async def get_tip(tip_id: int, db: AsyncSession = Depends(get_db), user: User = 
     tip = result.scalar_one_or_none()
     if not tip:
         raise HTTPException(status_code=404, detail="Tip not found")
-    if not user_has_access(user, tip.category):
+        
+    result_tiers = await db.execute(select(SubscriptionTier))
+    all_tiers = result_tiers.scalars().all()
+    tier_dict = {t.tier_id: t for t in all_tiers}
+
+    if not user_has_access(user, tip.category, tier_dict):
         raise HTTPException(status_code=403, detail="Subscription required")
     return tip
 

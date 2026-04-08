@@ -5,7 +5,7 @@ import { TeamWithLogo, LeagueLogo } from '../components/TeamLogo';
 import { ReferralWidget } from '../components/ReferralWidget';
 import { ReferralModal } from '../components/ReferralModal';
 import { getFreeTips, getPremiumTips, getTipsByCategory, getTipStats, getAllJackpots, getJackpotBundleInfo, type Tip, type TipCategory, type JackpotPrediction, type JackpotBundleInfo } from '../services/tipsService';
-import { CATEGORY_LABELS } from '../services/pricingService';
+import { CATEGORY_LABELS, getPricingTiers, type TierConfig } from '../services/pricingService';
 import { SEO } from '../components/SEO';
 import { useUser } from '../context/UserContext';
 // Detached: import { useBetSlip } from '../context/BetSlipContext';
@@ -66,7 +66,7 @@ function TipCard({ tip, locked = false, onGetFree }: { tip: Tip; locked?: boolea
           <span className="text-zinc-500 text-sm">vs</span>
           <TeamWithLogo teamName={tip.awayTeam} size={22} textClassName="font-bold" />
         </div>
-        <p className="text-xs text-zinc-500">{new Date(tip.matchDate).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+        <p className="text-xs text-zinc-500">{new Date(tip.matchDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
       </Link>
 
       {/* Prediction */}
@@ -346,7 +346,6 @@ function JackpotCard({ jackpot, onGetFree }: { jackpot: JackpotPrediction; key?:
 export function TipsPage() {
   const { user, hasAccess, hasJackpotAccess, setShowAuthModal, setShowPricingModal, setShowJackpotModal, setSelectedJackpot } = useUser();
   const [activeTab, setActiveTab] = useState<'tips' | 'jackpot'>('tips');
-  const [activeCategoryTab, setActiveCategoryTab] = useState<TipCategory>('free');
   const [stats, setStats] = useState({ total: 0, won: 0, lost: 0, pending: 0, voided: 0, winRate: 0 });
   const [jackpots, setJackpots] = useState<JackpotPrediction[]>([]);
   const [bundleInfo, setBundleInfo] = useState<JackpotBundleInfo | null>(null);
@@ -356,6 +355,7 @@ export function TipsPage() {
   const [showReferralModal, setShowReferralModal] = useState<boolean | string | number>(false);
   const [loadingTips, setLoadingTips] = useState(true);
   const [loadingJackpot, setLoadingJackpot] = useState(true);
+  const [pricingTiers, setPricingTiers] = useState<TierConfig[]>([]);
 
   const structData = {
     "@context": "https://schema.org",
@@ -412,8 +412,9 @@ export function TipsPage() {
       );
       const jackpotPromise = getAllJackpots();
       const bundlePromise = getJackpotBundleInfo();
+      const pricingTiersPromise = getPricingTiers();
 
-      const [tipsResults, jackpotResults, bundleResult] = await Promise.all([tipsPromise, jackpotPromise, bundlePromise]);
+      const [tipsResults, jackpotResults, bundleResult, fetchedTiers] = await Promise.all([tipsPromise, jackpotPromise, bundlePromise, pricingTiersPromise]);
 
       if (!isMounted) return;
 
@@ -422,6 +423,7 @@ export function TipsPage() {
       setTipsByCategory(newMap);
       setJackpots(jackpotResults);
       setBundleInfo(bundleResult);
+      setPricingTiers(fetchedTiers);
 
       if (isInitial) {
         setLoadingTips(false);
@@ -511,110 +513,262 @@ export function TipsPage() {
 
       {/* Daily Tips Tab */}
       {activeTab === 'tips' && (
-        <div className="space-y-6">
-          {/* Tip Categories Pill Tabs */}
-          <div className="flex flex-wrap gap-2">
-            {CATEGORY_ORDER.map(cat => {
-              const catInfo = CATEGORY_LABELS[cat];
-              const Icon = CATEGORY_ICONS[cat];
-              const isActive = activeCategoryTab === cat;
-              return (
-                <button
-                  key={cat}
-                  onClick={() => setActiveCategoryTab(cat)}
-                  className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all border ${
-                    isActive 
-                      ? (cat === 'free' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' :
-                         cat === 'vip' ? 'bg-gold-500/20 text-gold-400 border-gold-500/30' :
-                         'bg-blue-500/20 text-blue-400 border-blue-500/30')
-                      : 'bg-zinc-900/50 text-zinc-500 border-zinc-800 hover:bg-zinc-800 hover:text-zinc-300 hover:border-zinc-700'
-                  }`}
-                >
-                  <Icon className="w-3.5 h-3.5" />
-                  {catInfo.label}
-                </button>
-              );
-            })}
-          </div>
+        <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+          {(!user || !hasAccess('vip')) && pricingTiers.length > 0 && (
+            <div className="mb-8">
+              <div className="flex items-center gap-2 mb-4">
+                <Crown className="w-5 h-5 text-emerald-500" />
+                <h3 className="text-lg font-bold text-white">Subscription Packages</h3>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {pricingTiers.filter(t => t.id === 'basic' || t.id === 'standard' || t.id === 'premium').map(pkg => {
+                  let sumPrice = 0;
+                  pkg.categories.forEach(cat => {
+                    if (cat === 'free') return;
+                    const individual = pricingTiers.find(t => t.categories.length === 1 && t.categories[0] === cat);
+                    if (individual) {
+                       sumPrice += individual.price2wk;
+                    }
+                  });
+                  
+                  const isDiscounted = sumPrice > pkg.price2wk && pkg.price2wk > 0;
+                  const discountPct = isDiscounted ? Math.round((1 - pkg.price2wk / sumPrice) * 100) : 0;
 
-          {loadingTips ? (
-            <div className="space-y-6 animate-pulse">
-              <div className="h-6 w-32 bg-zinc-800 rounded mb-4" />
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="h-32 bg-zinc-900/60 border border-zinc-800 rounded-2xl" />
-                <div className="h-32 bg-zinc-900/60 border border-zinc-800 rounded-2xl" />
+                  return (
+                    <div key={pkg.id} className={`bg-zinc-900 border ${pkg.popular ? 'border-emerald-500 shadow-lg shadow-emerald-500/10' : 'border-zinc-800'} rounded-2xl p-5 flex flex-col relative overflow-hidden transition-all hover:border-emerald-500/50`}>
+                      {pkg.popular && (
+                        <div className="absolute top-3 right-[-30px] bg-emerald-500 text-zinc-950 text-[10px] font-bold px-8 py-1 rotate-45 shadow-sm transform-gpu">
+                          POPULAR
+                        </div>
+                      )}
+                      
+                      <div className="flex justify-between items-start mb-3">
+                        <h4 className="text-lg font-bold text-white">{pkg.name}</h4>
+                        {isDiscounted && (
+                          <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold px-2 py-0.5 rounded-md uppercase">
+                            Save {discountPct}%
+                          </span>
+                        )}
+                      </div>
+                      
+                      <div className="flex items-end gap-2 mb-1">
+                        <div className="text-2xl font-bold text-white leading-none">
+                          <span className="text-sm text-zinc-400 mr-1">{pkg.currency_symbol || 'KES'}</span>
+                          {pkg.price2wk.toLocaleString()}
+                        </div>
+                        <span className="text-xs text-zinc-500 font-normal mb-0.5">/ 2 weeks</span>
+                      </div>
+
+                      <div className="h-4 mb-3">
+                        {isDiscounted ? (
+                          <p className="text-xs text-zinc-500 line-through">
+                            Value: {pkg.currency_symbol || 'KES'} {sumPrice.toLocaleString()}
+                          </p>
+                        ) : null}
+                      </div>
+
+                      <p className="text-xs text-zinc-400 mb-5 flex-1">{pkg.description}</p>
+                      
+                      <button 
+                         onClick={(e) => { 
+                           e.preventDefault(); 
+                           if (!user) setShowAuthModal(true); 
+                           else setShowPricingModal(true); 
+                         }}
+                         className={`w-full py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${
+                           pkg.popular 
+                             ? 'bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-md shadow-emerald-500/20' 
+                             : 'bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-700'
+                         }`}
+                       >
+                         Get {pkg.name} Plan
+                       </button>
+                    </div>
+                  );
+                })}
               </div>
             </div>
+          )}
+          {loadingTips ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 animate-pulse">
+              <div className="h-64 bg-zinc-900/60 border border-zinc-800 rounded-2xl" />
+              <div className="h-64 bg-zinc-900/60 border border-zinc-800 rounded-2xl" />
+            </div>
           ) : (
-            (() => {
-              const cat = activeCategoryTab;
-              const tips = tipsByCategory[cat] || [];
-              const catInfo = CATEGORY_LABELS[cat];
-              const Icon = CATEGORY_ICONS[cat];
-              const userHasAccess = hasAccess(cat);
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              {CATEGORY_ORDER.map(cat => {
+                const tips = tipsByCategory[cat] || [];
+                const catInfo = CATEGORY_LABELS[cat];
+                const Icon = CATEGORY_ICONS[cat];
+                const userHasAccess = hasAccess(cat);
+                const isExpanded = expandedCategories[cat];
+                
+                if (tips.length === 0) return null;
 
-              if (tips.length === 0) {
+                // Split strictly between upcoming/live and historical
+                const pendingTips = tips.filter(t => t.result === 'pending');
+                const historyTips = tips.filter(t => t.result !== 'pending');
+                
+                // Show maximum 2 historical matches by default to prevent huge scrolling blocks
+                const displayedHistory = isExpanded ? historyTips : historyTips.slice(0, 2);
+                const displayedTips = [...pendingTips, ...displayedHistory];
+
                 return (
-                  <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-8 text-center mt-6">
-                    <Icon className="w-10 h-10 text-zinc-700 mx-auto mb-3" />
-                    <p className="text-zinc-400 mb-2">No {catInfo.label} tips available right now</p>
-                    <p className="text-xs text-zinc-600">Check back later as our algorithms analyze new matches.</p>
-                  </div>
-                );
-              }
+                  <div key={cat} className="bg-zinc-900/60 border border-zinc-800 rounded-2xl overflow-hidden transition-all">
+                    <div className="p-5">
+                      {/* Category Header Mimicking JackpotCard */}
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                          <div className={`p-2.5 rounded-xl ${
+                            cat === 'free' ? 'bg-emerald-500/20 text-emerald-400' :
+                            cat === 'vip' ? 'bg-gold-500/20 text-gold-400' :
+                            'bg-blue-500/20 text-blue-400'
+                          }`}>
+                            <Icon className="w-6 h-6" />
+                          </div>
+                          <div>
+                            <h4 className="text-base font-bold text-white uppercase tracking-wide">
+                              {catInfo.label.toUpperCase().includes('TIPS') ? catInfo.label.toUpperCase() : `${catInfo.label.toUpperCase()} TIPS`}
+                            </h4>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <p className="text-xs text-zinc-400 font-medium">
+                              {tips.length} Prediction{tips.length !== 1 ? 's' : ''}
+                            </p>
+                            {!userHasAccess && (
+                              <span className="px-2 py-0.5 bg-zinc-800 text-zinc-500 text-[10px] font-bold uppercase rounded-full flex items-center gap-1">
+                                <Lock className="w-2.5 h-2.5" /> {catInfo.minTier} plan
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
 
-              return (
-                <section className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-                  <div className="flex items-center gap-2 mb-4 mt-6">
-                    <Icon className={`w-5 h-5 ${cat === 'free' ? 'text-emerald-500' : cat === 'vip' ? 'text-gold-400' : 'text-blue-400'}`} />
-                    <h2 className="text-lg font-display font-bold uppercase">{catInfo.label}</h2>
-                    {!userHasAccess && (
-                      <span className="ml-auto px-2 py-0.5 bg-zinc-800 text-zinc-500 text-[10px] font-bold uppercase rounded-full flex items-center gap-1">
-                        <Lock className="w-3 h-3" /> {catInfo.minTier} plan
-                      </span>
+
+                    {/* NEW: Master Unlock Buttons for the Category */}
+                      {!userHasAccess && pendingTips.length > 0 && (
+                        <div className="flex flex-col sm:flex-row gap-2 mb-4">
+                          <button
+                            onClick={(e) => { 
+                              e.preventDefault(); 
+                              if (!user) setShowAuthModal(true); 
+                              else setShowPricingModal(true, cat); 
+                            }}
+                            className="flex-1 py-2.5 bg-gold-500/10 hover:bg-gold-500/20 border border-gold-500/20 rounded-xl text-xs text-gold-400 font-bold uppercase flex items-center justify-center gap-1.5 transition-colors"
+                          >
+                            <Lock className="w-4 h-4" /> Unlock
+                          </button>
+
+
+                          {user && (
+                            <button 
+                              onClick={(e) => { e.preventDefault(); setShowReferralModal(true); }}
+                              className="flex-1 py-2.5 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded-xl text-xs text-white font-bold uppercase flex items-center justify-center gap-1.5 transition-colors"
+                            >
+                              <Gift className="w-4 h-4" /> Get for Free
+                            </button>
+                          )}
+                        </div>
+                      )}
+
+
+                    {/* Tips Table */}
+                    <div className="bg-zinc-950/50 border border-emerald-500/20 rounded-xl overflow-hidden mb-0">
+                      <div className="max-h-[32rem] overflow-auto">
+                        <table className="w-full text-xs">
+                          <thead className="sticky top-0 bg-zinc-900 z-10">
+                            <tr className="border-b border-zinc-800">
+                              <th className="px-2.5 py-2 text-left text-zinc-500 font-bold uppercase tracking-wider w-7">#</th>
+                              <th className="px-2.5 py-2 text-left text-zinc-500 font-bold uppercase tracking-wider">Match</th>
+                              <th className="px-2 py-2 text-center text-emerald-400 font-bold uppercase tracking-wider w-24">Tip</th>
+                              <th className="px-2 py-2 text-center text-zinc-500 font-bold uppercase tracking-wider w-16">Result</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {displayedTips.map((tip, idx) => {
+                              const isTipUnlocked = user?.unlocked_tip_ids?.includes(Number(tip.id));
+                              const locked = !userHasAccess && tip.result === 'pending' && !isTipUnlocked;
+                              const onGetFree = (!userHasAccess && tip.result === 'pending' && !isTipUnlocked && user) ? () => setShowReferralModal(tip.id) : undefined;
+                              
+                              return (
+                                <tr key={tip.id} className={`border-b border-zinc-800/50 last:border-0 ${
+                                  tip.result === 'won' ? 'bg-emerald-500/5' : tip.result === 'lost' ? 'bg-red-500/5' : tip.result === 'postponed' ? 'bg-orange-500/5' : ''
+                                }`}>
+                                  <td className="px-2.5 py-1.5 text-zinc-500 font-mono">{idx + 1}</td>
+                                  <td className="px-2.5 py-1.5">
+                                    <div className="flex flex-col gap-0.5">
+                                      <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider flex items-center gap-1">
+                                        {tip.league && <LeagueLogo leagueName={tip.league} size={12} />}
+                                        {tip.league && <span>{tip.league}</span>}
+                                        {tip.league && tip.matchDate && <span className="mx-0.5 opacity-50">•</span>}
+                                        {tip.matchDate && (
+                                          <span className="text-zinc-400 font-mono flex items-center gap-0.5" title="Kickoff Time">
+                                            <Clock className="w-2.5 h-2.5" />
+                                            {new Date(tip.matchDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                          </span>
+                                        )}
+                                      </span>
+                                      <Link to={`/match/${tip.fixtureId}`} className="text-zinc-300 inline-flex items-center gap-1 flex-wrap hover:text-emerald-400 transition-colors">
+                                        <TeamWithLogo teamName={tip.homeTeam} size={14} textClassName="text-xs" />
+                                        <span className="text-zinc-600 mx-0.5">vs</span>
+                                        <TeamWithLogo teamName={tip.awayTeam} size={14} textClassName="text-xs" />
+                                      </Link>
+                                    </div>
+                                  </td>
+                                 <td className="px-2 py-1.5 text-center">
+                                    {locked ? (
+                                      <div className="flex flex-col items-center justify-center h-full py-1">
+                                        <span className="font-mono font-bold text-zinc-700 text-sm tracking-widest blur-[2px] leading-none">
+                                          •••
+                                        </span>
+                                      </div>
+                                    ) : (
+                                      <div className="flex flex-col items-center justify-center h-full py-1">
+                                        <span className="font-mono font-bold text-emerald-400 text-sm leading-none">{tip.prediction}</span>
+                                        <div className="flex items-center justify-center gap-0.5 mt-1.5">
+                                          {[...Array(5)].map((_, i) => (
+                                            <Star key={i} className={`w-2 h-2 ${i < tip.confidence ? 'text-gold-400 fill-gold-400' : 'text-zinc-700'}`} />
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </td>
+                                  <td className="px-2 py-1.5 text-center">
+                                    {tip.result === 'won' ? (
+                                      <span className="text-[10px] font-black text-emerald-400 bg-emerald-500/15 px-2 py-0.5 rounded-full uppercase">Won</span>
+                                    ) : tip.result === 'lost' ? (
+                                      <span className="text-[10px] font-black text-red-400 bg-red-500/15 px-2 py-0.5 rounded-full uppercase">Lost</span>
+                                    ) : tip.result === 'postponed' ? (
+                                      <span className="text-[10px] font-black text-orange-400 bg-orange-500/15 px-2 py-0.5 rounded-full uppercase">PPD</span>
+                                    ) : (
+                                      <span className="text-[10px] text-zinc-600">—</span>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                   {/* History Toggle */}
+                    {historyTips.length > 2 && (
+                      <div className="mt-5 text-center">
+                        <button 
+                          onClick={() => toggleCategory(cat)}
+                          className="text-[10px] font-bold text-zinc-500 hover:text-white uppercase tracking-wider transition-colors inline-flex items-center gap-1 bg-zinc-900/50 px-3 py-1.5 rounded-full border border-zinc-800 hover:border-zinc-700"
+                        >
+                          {isExpanded ? 'Hide Past History' : 'View More History'} 
+                          <ChevronRight className={`w-3 h-3 transition-transform ${isExpanded ? '-rotate-90' : 'rotate-90'}`} />
+                        </button>
+                      </div>
                     )}
                   </div>
-                  
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {(() => {
-                      // Split strictly between upcoming/live and historical
-                      const pendingTips = tips.filter(t => t.result === 'pending');
-                      const historyTips = tips.filter(t => t.result !== 'pending');
-                      const isExpanded = expandedCategories[cat];
-                      
-                      // Show maximum 2 historical matches by default to prevent huge scrolling blocks
-                      const displayedHistory = isExpanded ? historyTips : historyTips.slice(0, 2);
-                      const displayedTips = [...pendingTips, ...displayedHistory];
-
-                      return displayedTips.map(tip => {
-                        const isTipUnlocked = user?.unlocked_tip_ids?.includes(Number(tip.id));
-                        return (
-                          <TipCard 
-                            key={tip.id} 
-                            tip={tip} 
-                            // It is ONLY locked if they dont have access AND the match hasnt finished yet AND it's not explicitly unlocked
-                            locked={!userHasAccess && tip.result === 'pending' && !isTipUnlocked}
-                            onGetFree={(!userHasAccess && tip.result === 'pending' && !isTipUnlocked && user) ? () => setShowReferralModal(tip.id) : undefined}
-                          />
-                        );
-                      });
-                    })()}
-                  </div>
-                  
-                  {tips.filter(t => t.result !== 'pending').length > 2 && (
-                    <div className="mt-4 text-center">
-                      <button 
-                        onClick={() => toggleCategory(cat)}
-                        className="text-[10px] font-bold text-zinc-500 hover:text-white uppercase tracking-wider transition-colors inline-flex items-center gap-1 bg-zinc-900/50 px-3 py-1.5 rounded-full border border-zinc-800 hover:border-zinc-700"
-                      >
-                        {expandedCategories[cat] ? 'Hide Past History' : 'View More History'} 
-                        <ChevronRight className={`w-3 h-3 transition-transform ${expandedCategories[cat] ? '-rotate-90' : 'rotate-90'}`} />
-                      </button>
-                    </div>
-                  )}
-                </section>
+                </div>
               );
-            })()
+            })}
+            </div>
           )}
         </div>
       )}

@@ -23,6 +23,7 @@ export function TipsManagePage() {
   const [stats, setStats] = useState({ total: 0, won: 0, lost: 0, pending: 0, voided: 0, winRate: 0 });
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterResult, setFilterResult] = useState<string>('all');
   const [selectedTips, setSelectedTips] = useState<Set<string>>(new Set());
@@ -136,15 +137,22 @@ export function TipsManagePage() {
 
     sessionStorage.setItem('admin_last_category', form.category);
 
-    if (editingId) {
-      await updateTip(editingId, tipData);
-      toast.success('Tip updated');
-    } else {
-      await addTip({ ...tipData, result: 'pending' });
-      toast.success('Tip published');
+    setIsSubmitting(true);
+    try {
+      if (editingId) {
+        await updateTip(editingId, tipData);
+        toast.success('Tip updated');
+      } else {
+        await addTip({ ...tipData, result: 'pending' });
+        toast.success('Tip published');
+      }
+      await loadData();
+      resetForm();
+    } catch (error) {
+      toast.error('Failed to save tip');
+    } finally {
+      setIsSubmitting(false);
     }
-    await loadData();
-    resetForm();
   };
 
   const handleEditTip = (tip: Tip) => {
@@ -332,47 +340,63 @@ export function TipsManagePage() {
           )}
 
           {/* Manual Form */}
-          <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <FormField label="Category" required>
-              <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value as TipCategory })} className="admin-input">
-                {TIP_CATEGORIES.map(cat => (
-                  <option key={cat} value={cat}>{CATEGORY_LABELS[cat]?.label || cat}</option>
-                ))}
-              </select>
-            </FormField>
-            <FormField label="League">
-              <AutocompleteInput 
-                value={form.league} 
-                onChange={val => setForm({ ...form, league: val })} 
-                options={POPULAR_LEAGUES} 
-                placeholder="e.g. Premier League"
-                type="league"
-              />
-            </FormField>
-            <FormField label="Home Team" required>
-              <AutocompleteInput 
-                value={form.homeTeam} 
-                onChange={val => setForm({ ...form, homeTeam: val })} 
-                options={form.league && TEAMS_BY_LEAGUE[form.league] ? TEAMS_BY_LEAGUE[form.league] : ALL_POPULAR_TEAMS} 
-                placeholder="e.g. Arsenal" 
-                required 
-                type="team"
-              />
-            </FormField>
-            <FormField label="Away Team" required>
-              <AutocompleteInput 
-                value={form.awayTeam} 
-                onChange={val => setForm({ ...form, awayTeam: val })} 
-                options={form.league && TEAMS_BY_LEAGUE[form.league] ? TEAMS_BY_LEAGUE[form.league] : ALL_POPULAR_TEAMS} 
-                placeholder="e.g. Chelsea" 
-                required 
-                type="team"
-              />
-            </FormField>
-            <FormField label="Match Date">
-              <input type="datetime-local" value={form.matchDate} onChange={e => setForm({ ...form, matchDate: e.target.value })} className="admin-input flex-1" />
-            </FormField>
-            <div className="sm:col-span-2 lg:col-span-3">
+          <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+            <div className="sm:col-span-1 lg:col-span-2">
+              <FormField label="Category" required>
+                <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value as TipCategory })} className="admin-input py-1.5 min-h-[34px]">
+                  {TIP_CATEGORIES.map(cat => (
+                    <option key={cat} value={cat}>{CATEGORY_LABELS[cat]?.label || cat}</option>
+                  ))}
+                </select>
+              </FormField>
+            </div>
+            <div className="sm:col-span-2 lg:col-span-2">
+              <FormField label="League">
+                <AutocompleteInput 
+                  value={form.league} 
+                  onChange={val => setForm({ ...form, league: val })} 
+                  options={POPULAR_LEAGUES} 
+                  placeholder="e.g. Premier League"
+                  type="league"
+                />
+              </FormField>
+            </div>
+            <div className="sm:col-span-3 lg:col-span-2">
+              <FormField label="Match Date">
+                <input type="datetime-local" value={form.matchDate} onChange={e => setForm({ ...form, matchDate: e.target.value })} className="admin-input py-1.5 w-full min-h-[34px]" />
+              </FormField>
+            </div>
+            <div className="sm:col-span-1 lg:col-span-2">
+              <FormField label="Home Team" required>
+                <AutocompleteInput 
+                  value={form.homeTeam} 
+                  onChange={val => setForm({ ...form, homeTeam: val })} 
+                  options={form.league && TEAMS_BY_LEAGUE[form.league] ? TEAMS_BY_LEAGUE[form.league] : ALL_POPULAR_TEAMS} 
+                  placeholder="e.g. Arsenal" 
+                  required 
+                  type="team"
+                />
+              </FormField>
+            </div>
+            <div className="sm:col-span-1 lg:col-span-2">
+              <FormField label="Away Team" required>
+                <AutocompleteInput 
+                  value={form.awayTeam} 
+                  onChange={val => setForm({ ...form, awayTeam: val })} 
+                  options={form.league && TEAMS_BY_LEAGUE[form.league] ? TEAMS_BY_LEAGUE[form.league] : ALL_POPULAR_TEAMS} 
+                  placeholder="e.g. Chelsea" 
+                  required 
+                  type="team"
+                />
+              </FormField>
+            </div>
+            <div className="sm:col-span-1 lg:col-span-2">
+              <FormField label="Fixture ID">
+                <input type="number" value={form.fixtureId} onChange={e => setForm({ ...form, fixtureId: e.target.value })} placeholder="Auto HTML search" className="admin-input py-1.5 min-h-[34px]" />
+              </FormField>
+            </div>
+
+            <div className="sm:col-span-3 lg:col-span-4">
               <div className="flex flex-wrap gap-1.5 mb-2">
                 <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mr-2 py-1">Quick Picks:</span>
                 {DEFAULT_PREDICTIONS.map(p => (
@@ -387,41 +411,39 @@ export function TipsManagePage() {
                 ))}
               </div>
               <FormField label="Prediction" required>
-                <input value={form.prediction} onChange={e => setForm({ ...form, prediction: e.target.value })} placeholder="e.g. Home Win, Over 2.5" className="admin-input w-full" required />
+                <input value={form.prediction} onChange={e => setForm({ ...form, prediction: e.target.value })} placeholder="e.g. Home Win" className="admin-input w-full py-1.5 min-h-[34px]" required />
               </FormField>
             </div>
-            <FormField label="Confidence">
-              <div className="flex gap-1 mt-1">
-                {[1, 2, 3, 4, 5].map(n => (
-                  <button key={n} type="button" onClick={() => setForm({ ...form, confidence: n })} className={`p-1.5 rounded ${n <= form.confidence ? 'text-yellow-400' : 'text-zinc-700'}`}>
-                    <Star className={`w-5 h-5 ${n <= form.confidence ? 'fill-yellow-400' : ''}`} />
-                  </button>
-                ))}
-              </div>
-            </FormField>
-            <FormField label="Fixture ID">
-              <input type="number" value={form.fixtureId} onChange={e => setForm({ ...form, fixtureId: e.target.value })} placeholder="Auto-filled from search" className="admin-input" />
-            </FormField>
-            <div className="sm:col-span-2 lg:col-span-3">
-              <FormField label="Reasoning">
-                <textarea value={form.reasoning} onChange={e => setForm({ ...form, reasoning: e.target.value })} placeholder="Analysis / reasoning..." className="admin-input h-20 resize-none" />
+            <div className="sm:col-span-3 lg:col-span-2">
+              <FormField label="Confidence">
+                <div className="flex gap-1 h-[34px] items-center">
+                  {[1, 2, 3, 4, 5].map(n => (
+                    <button key={n} type="button" onClick={() => setForm({ ...form, confidence: n })} className={`p-1 rounded ${n <= form.confidence ? 'text-yellow-400' : 'text-zinc-700'}`}>
+                      <Star className={`w-4 h-4 ${n <= form.confidence ? 'fill-yellow-400' : ''}`} />
+                    </button>
+                  ))}
+                </div>
+              </FormField>
+            </div>
+
+            <div className="sm:col-span-3 lg:col-span-6">
+              <FormField label="Reasoning (Optional)">
+                <input value={form.reasoning} onChange={e => setForm({ ...form, reasoning: e.target.value })} placeholder="Analysis / reasoning..." className="admin-input py-1.5 w-full min-h-[34px]" />
               </FormField>
             </div>
             
             {!editingId && (
-              <div className="sm:col-span-2 lg:col-span-3 bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-4">
-                <div className="flex items-center gap-3 mb-3">
+              <div className="sm:col-span-3 lg:col-span-6 flex flex-col sm:flex-row gap-3 bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-3 items-start sm:items-center">
+                <div className="flex items-center gap-3">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input type="checkbox" className="w-4 h-4 accent-emerald-500" checked={form.notify} onChange={e => setForm({ ...form, notify: e.target.checked })} />
-                    <span className="text-sm font-bold text-white">Auto-notify users on publish</span>
+                    <span className="text-xs font-bold text-white whitespace-nowrap">Auto-notify users</span>
                   </label>
-                  <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded font-bold uppercase tracking-wider">New</span>
+                  <span className="text-[9px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">New</span>
                 </div>
                 {form.notify && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pl-6">
-                    <div>
-                      <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Target Audience</label>
-                      <select value={form.notify_target} onChange={e => setForm({ ...form, notify_target: e.target.value })} className="admin-input text-xs py-1.5">
+                  <div className="flex gap-2 flex-1 w-full mt-2 sm:mt-0 items-center justify-end">
+                    <select value={form.notify_target} onChange={e => setForm({ ...form, notify_target: e.target.value })} className="admin-input min-h-[30px] text-[10px] py-1 max-w-[140px]">
                         <option value="all">Everyone</option>
                         <option value="subscribers">All Subscribers (Paid)</option>
                         <option value="free">Free Users</option>
@@ -429,26 +451,22 @@ export function TipsManagePage() {
                         <option value="standard">Standard Tier</option>
                         <option value="premium">Premium Tier</option>
                       </select>
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Channel</label>
-                      <select value={form.notify_channel} onChange={e => setForm({ ...form, notify_channel: e.target.value })} className="admin-input text-xs py-1.5">
+                    <select value={form.notify_channel} onChange={e => setForm({ ...form, notify_channel: e.target.value })} className="admin-input min-h-[30px] text-[10px] py-1 max-w-[140px]">
                         <option value="both">Push + Email</option>
                         <option value="push">Push Notification Only</option>
                         <option value="email">Email Only</option>
                         <option value="all">Push + Email + SMS</option>
                       </select>
-                    </div>
                   </div>
                 )}
               </div>
             )}
 
-            <div className="sm:col-span-2 lg:col-span-3 flex gap-3">
-              <button type="submit" className="flex-1 py-2.5 bg-emerald-500 text-zinc-950 font-bold rounded-xl hover:bg-emerald-400 transition-all text-sm">
-                {editingId ? 'Update Tip' : 'Publish Tip'}
+            <div className="sm:col-span-3 lg:col-span-6 flex gap-2 mt-2">
+              <button disabled={isSubmitting} type="submit" className="flex-1 py-2 bg-emerald-500 text-zinc-950 font-bold rounded-xl hover:bg-emerald-400 transition-all text-sm disabled:opacity-50 flex items-center justify-center gap-2">
+                {isSubmitting ? <><Loader className="w-4 h-4 animate-spin"/> Saving...</> : editingId ? 'Update Tip' : 'Publish Tip'}
               </button>
-              <button type="button" onClick={resetForm} className="px-6 py-2.5 bg-zinc-800 text-zinc-300 rounded-xl hover:bg-zinc-700 transition-all text-sm">
+              <button disabled={isSubmitting} type="button" onClick={resetForm} className="px-6 py-2 bg-zinc-800 text-zinc-300 rounded-xl hover:bg-zinc-700 transition-all text-sm disabled:opacity-50">
                 Cancel
               </button>
             </div>
