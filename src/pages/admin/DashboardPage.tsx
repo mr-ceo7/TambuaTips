@@ -29,12 +29,14 @@ const METHOD_COLORS: Record<string, string> = {
 };
 
 function formatKES(amount: number): string {
+  if (amount == null) return 'KES 0';
   if (amount >= 1_000_000) return `KES ${(amount / 1_000_000).toFixed(1)}M`;
   if (amount >= 1_000) return `KES ${(amount / 1_000).toFixed(1)}K`;
   return `KES ${amount.toLocaleString()}`;
 }
 
 function formatCompact(n: number): string {
+  if (n == null) return '0';
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 10_000) return `${(n / 1_000).toFixed(1)}K`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
@@ -621,7 +623,7 @@ function ActivityItem({ item }: { item: ActivityFeedItem }) {
         <p className="text-xs text-zinc-300">
           <span className="font-bold text-white">{item.user_name}</span>{' '}
           {item.status === 'completed' ? 'paid' : item.status === 'failed' ? 'failed payment' : 'initiated'}{' '}
-          <span className="font-bold text-emerald-400">KES {item.amount?.toLocaleString()}</span>
+          <span className="font-bold text-emerald-400">KES {(item.amount ?? 0).toLocaleString()}</span>
           {' '}via <span className="capitalize">{item.method}</span>
         </p>
         <p className="text-[10px] text-zinc-600 mt-0.5">{item.item_type} • {item.user_email}</p>
