@@ -19,7 +19,7 @@ interface PricingModalProps {
 const TIER_ICONS: Record<string, React.ElementType> = { basic: Zap, standard: Star, premium: Crown };
 
 export function PricingModal({ isOpen, onClose }: PricingModalProps) {
-  const { user, refreshUser, setShowAuthModal, targetCategory } = useUser();
+  const { user, refreshUser, setShowAuthModal, targetCategory, targetTierId } = useUser();
   const [geoData, setGeoData] = useState<GeoData | null>(null);
   const [loadingGeo, setLoadingGeo] = useState(true);
   
@@ -33,9 +33,20 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
   const [currentPaymentId, setCurrentPaymentId] = useState<number | null>(null);
 
   useEffect(() => {
+    if (!isOpen) {
+      setPaymentView('selection');
+      setCurrentPaymentId(null);
+      setSelectedMethod(null);
+      setSelectedTier(null);
+      return;
+    }
+
     getPricingTiers().then(data => {
       setTiers(data);
-      if (targetCategory && data.length > 0) {
+      if (targetTierId && data.length > 0) {
+        const directTier = data.find(t => t.id === targetTierId) || data[0];
+        setSelectedTier(directTier);
+      } else if (targetCategory && data.length > 0) {
         const validTiers = data.filter(t => t.categories.includes(targetCategory));
         validTiers.sort((a,b) => a.categories.length - b.categories.length);
         const autoTier = validTiers[0] || data.find(t => t.id === 'premium') || data[0];
@@ -45,13 +56,6 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
         setSelectedTier(premiumTier);
       }
     });
-
-    if (!isOpen) {
-      setPaymentView('selection');
-      setCurrentPaymentId(null);
-      setSelectedMethod(null);
-      return;
-    }
     
     if (!document.getElementById('paystack-script')) {
       const script = document.createElement('script');
@@ -73,7 +77,7 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
         setLoadingGeo(false); 
         setSelectedMethod('mpesa');
       });
-  }, [isOpen, targetCategory]);
+  }, [isOpen, targetCategory, targetTierId]);
 
   // Polling for payment status
   useEffect(() => {
@@ -216,30 +220,23 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
                     </div>
 
                     <div className="mb-3">
-                      <div className="flex items-center justify-between mb-2">
-                        <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Choose Plan</h3>
-                        {selectedTier && <button onClick={() => setSelectedTier(null)} className="text-[10px] text-gold-400 hover:text-gold-300 font-bold uppercase tracking-wider py-1 pl-4">Change</button>}
-                      </div>
                       <div className="space-y-2">
                       {tiers.filter(tier => {
                         if (selectedTier) return selectedTier.id === tier.id;
+                        if (targetTierId) return targetTierId === tier.id;
                         if (targetCategory) return tier.categories.includes(targetCategory);
-                        return true;
-                      }).map(tier => {
+                        return tier.id === 'premium';
+                      }).slice(0, 1).map(tier => {
                         const Icon = TIER_ICONS[tier.id] || Zap;
                         const dprice = duration === 2 ? tier.price2wk : tier.price4wk;
                         const originalPrice = duration === 2 ? tier.originalPrice2wk : tier.originalPrice4wk;
                         const defaultOriginalPrice = originalPrice || (dprice * 1.25);
-                        const isSelected = selectedTier?.id === tier.id;
                         return (
-                          <button
+                          <div
                             key={tier.id}
-                            onClick={() => setSelectedTier(tier)}
-                            className={`w-full flex items-center gap-3 p-2.5 rounded-xl border-2 transition-all text-left ${
-                              isSelected ? 'border-emerald-500 bg-emerald-500/10' : 'border-zinc-800 hover:border-zinc-700'
-                            }`}
+                            className={`w-full flex items-center gap-3 p-2.5 rounded-xl border-2 transition-all text-left border-emerald-500 bg-emerald-500/10`}
                           >
-                            <div className={`p-1.5 rounded-lg shrink-0 ${isSelected ? 'bg-emerald-500 text-zinc-950' : 'bg-zinc-800 text-zinc-400'}`}>
+                            <div className={`p-1.5 rounded-lg shrink-0 bg-emerald-500 text-zinc-950`}>
                               <Icon className="w-4 h-4" />
                             </div>
                             <div className="flex-1 min-w-0">
@@ -250,10 +247,7 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
                                 )}
                               </div>
                               <div className="text-[10px] text-zinc-500 truncate">
-                                {tier.categories
-                                  .filter(c => c !== 'free')
-                                  .map(c => CATEGORY_LABELS[c]?.label || c)
-                                  .join(', ')}
+                                Selected Checkout Plan
                               </div>
                             </div>
                             <div className="text-right shrink-0">
@@ -261,7 +255,7 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
                               <div className={`font-bold text-sm ${originalPrice ? 'text-emerald-400' : 'text-white'}`}>{tier.currency_symbol} {dprice.toLocaleString(undefined, {minimumFractionDigits: dprice % 1 !== 0 ? 2 : 0})}</div>
                               <div className="text-[9px] text-emerald-500 font-bold uppercase">{duration} Weeks</div>
                             </div>
-                          </button>
+                          </div>
                         );
                       })}
                       </div>

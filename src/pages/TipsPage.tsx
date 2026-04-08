@@ -520,7 +520,7 @@ export function TipsPage() {
                 <Crown className="w-5 h-5 text-emerald-500" />
                 <h3 className="text-lg font-bold text-white">Subscription Packages</h3>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-3 gap-2 sm:gap-4">
                 {pricingTiers.filter(t => t.id === 'basic' || t.id === 'standard' || t.id === 'premium').map(pkg => {
                   let sumPrice = 0;
                   pkg.categories.forEach(cat => {
@@ -535,53 +535,62 @@ export function TipsPage() {
                   const discountPct = isDiscounted ? Math.round((1 - pkg.price2wk / sumPrice) * 100) : 0;
 
                   return (
-                    <div key={pkg.id} className={`bg-zinc-900 border ${pkg.popular ? 'border-emerald-500 shadow-lg shadow-emerald-500/10' : 'border-zinc-800'} rounded-2xl p-5 flex flex-col relative overflow-hidden transition-all hover:border-emerald-500/50`}>
+                    <div key={pkg.id} className={`bg-zinc-900 border ${pkg.popular ? 'border-emerald-500 shadow-lg shadow-emerald-500/10' : 'border-zinc-800'} rounded-2xl p-2.5 sm:p-5 flex flex-col relative overflow-hidden transition-all hover:border-emerald-500/50`}>
                       {pkg.popular && (
-                        <div className="absolute top-3 right-[-30px] bg-emerald-500 text-zinc-950 text-[10px] font-bold px-8 py-1 rotate-45 shadow-sm transform-gpu">
+                        <div className="absolute top-2 sm:top-3 right-[-35px] sm:right-[-30px] bg-emerald-500 text-zinc-950 text-[8px] sm:text-[10px] font-bold px-8 py-0.5 sm:py-1 rotate-45 shadow-sm transform-gpu">
                           POPULAR
                         </div>
                       )}
                       
-                      <div className="flex justify-between items-start mb-3">
-                        <h4 className="text-lg font-bold text-white">{pkg.name}</h4>
+                      <div className="flex flex-col sm:flex-row justify-between items-start mb-2 sm:mb-3">
+                        <h4 className="text-sm sm:text-lg font-black text-white">{pkg.name.replace(' Plan', '')}</h4>
                         {isDiscounted && (
-                          <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold px-2 py-0.5 rounded-md uppercase">
+                          <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[8px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded uppercase mt-1 sm:mt-0">
                             Save {discountPct}%
                           </span>
                         )}
                       </div>
                       
-                      <div className="flex items-end gap-2 mb-1">
-                        <div className="text-2xl font-bold text-white leading-none">
-                          <span className="text-sm text-zinc-400 mr-1">{pkg.currency_symbol || 'KES'}</span>
+                      <div className="flex items-end gap-1 mb-1">
+                        <div className="text-lg sm:text-2xl font-black text-white leading-none">
+                          <span className="text-[10px] sm:text-sm text-zinc-400 mr-1">{pkg.currency_symbol || 'KES'}</span>
                           {pkg.price2wk.toLocaleString()}
                         </div>
-                        <span className="text-xs text-zinc-500 font-normal mb-0.5">/ 2 weeks</span>
+                        <span className="text-[9px] sm:text-xs text-zinc-500 font-normal mb-0.5">/ 2 wks</span>
                       </div>
 
-                      <div className="h-4 mb-3">
+                      <div className="h-3 sm:h-4 mb-2 sm:mb-3">
                         {isDiscounted ? (
-                          <p className="text-xs text-zinc-500 line-through">
+                          <p className="text-[9px] sm:text-[10px] text-zinc-500 line-through">
                             Value: {pkg.currency_symbol || 'KES'} {sumPrice.toLocaleString()}
                           </p>
                         ) : null}
                       </div>
 
-                      <p className="text-xs text-zinc-400 mb-5 flex-1">{pkg.description}</p>
+                      <div className="flex-1 mb-3 flex flex-col mt-1 sm:mt-0">
+                        <span className="text-[9px] sm:text-[10px] text-zinc-500 font-bold mb-2 uppercase tracking-widest">Contains:</span>
+                        <div className="flex flex-wrap gap-1.5">
+                           {pkg.categories.filter(c => c !== 'free').map(c => (
+                             <span key={c} className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[9px] sm:text-[10px] font-bold px-2 py-1 rounded-md uppercase">
+                               {CATEGORY_LABELS[c]?.label || c}
+                             </span>
+                           ))}
+                        </div>
+                      </div>
                       
                       <button 
                          onClick={(e) => { 
                            e.preventDefault(); 
                            if (!user) setShowAuthModal(true); 
-                           else setShowPricingModal(true); 
+                           else setShowPricingModal(true, undefined, pkg.id); 
                          }}
-                         className={`w-full py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${
+                         className={`w-full py-1.5 sm:py-2.5 rounded-xl text-[9px] sm:text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1 sm:gap-2 ${
                            pkg.popular 
                              ? 'bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-md shadow-emerald-500/20' 
                              : 'bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-700'
                          }`}
                        >
-                         Get {pkg.name} Plan
+                         GET {pkg.name.toUpperCase().replace(' PLAN', '')}
                        </button>
                     </div>
                   );
@@ -654,16 +663,15 @@ export function TipsPage() {
                               if (!user) setShowAuthModal(true); 
                               else setShowPricingModal(true, cat); 
                             }}
-                            className="flex-1 py-2.5 bg-gold-500/10 hover:bg-gold-500/20 border border-gold-500/20 rounded-xl text-xs text-gold-400 font-bold uppercase flex items-center justify-center gap-1.5 transition-colors"
+                            className="flex-1 py-2.5 px-2 bg-gold-500/10 hover:bg-gold-500/20 border border-gold-500/20 rounded-xl text-xs text-gold-400 font-bold uppercase flex items-center justify-center gap-1.5 transition-colors"
                           >
                             <Lock className="w-4 h-4" /> Unlock
                           </button>
 
-
                           {user && (
                             <button 
                               onClick={(e) => { e.preventDefault(); setShowReferralModal(true); }}
-                              className="flex-1 py-2.5 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded-xl text-xs text-white font-bold uppercase flex items-center justify-center gap-1.5 transition-colors"
+                              className="flex-1 py-2.5 px-2 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded-xl text-xs text-white font-bold uppercase flex items-center justify-center gap-1.5 transition-colors"
                             >
                               <Gift className="w-4 h-4" /> Get for Free
                             </button>

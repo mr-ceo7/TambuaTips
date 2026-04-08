@@ -36,8 +36,9 @@ interface UserContextType {
   subscribeTo: (tier: SubscriptionTier, durationWeeks: 2 | 4) => void;
   hasAccess: (category: TipCategory) => boolean;
   showPricingModal: boolean;
-  setShowPricingModal: (show: boolean, category?: TipCategory) => void;
+  setShowPricingModal: (show: boolean, category?: TipCategory, tierId?: string) => void;
   targetCategory: TipCategory | null;
+  targetTierId: string | null;
   googleLogin: (idToken: string) => Promise<{ success: boolean; error?: string }>;
   phoneLogin: (phone: string, code: string) => Promise<{ success: boolean; error?: string }>;
   requestPhoneOtp: (phone: string) => Promise<{ success: boolean; error?: string }>;
@@ -107,11 +108,17 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showPricingModal, _setShowPricingModal] = useState(false);
   const [targetCategory, setTargetCategory] = useState<TipCategory | null>(null);
+  const [targetTierId, setTargetTierId] = useState<string | null>(null);
 
-  const setShowPricingModal = useCallback((show: boolean, category?: TipCategory) => {
+  const setShowPricingModal = useCallback((show: boolean, category?: TipCategory, tierId?: string) => {
     _setShowPricingModal(show);
-    if (show && category) setTargetCategory(category);
-    else if (!show) setTargetCategory(null);
+    if (show) {
+      setTargetCategory(category || null);
+      setTargetTierId(tierId || null);
+    } else {
+      setTargetCategory(null);
+      setTargetTierId(null);
+    }
   }, []);
   const [showJackpotModal, setShowJackpotModal] = useState(false);
   const [selectedJackpot, setSelectedJackpot] = useState<JackpotPrediction | null>(null);
@@ -359,7 +366,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     <UserContext.Provider value={{
       user, isLoggedIn: !!user, googleLogin, phoneLogin, requestPhoneOtp, logout, refreshUser, upgradeToPremium, subscribeTo, hasAccess,
       showAuthModal, setShowAuthModal,
-      showPricingModal, setShowPricingModal, targetCategory,
+      showPricingModal, setShowPricingModal, targetCategory, targetTierId,
       purchaseJackpot, hasAccessToCategory, hasJackpotAccess,
       showJackpotModal, setShowJackpotModal,
       selectedJackpot, setSelectedJackpot,
