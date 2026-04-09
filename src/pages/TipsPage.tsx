@@ -550,7 +550,7 @@ export function TipsPage() {
                 <h3 className="text-lg font-bold text-white">Subscription Packages</h3>
               </div>
               <div 
-                className="group relative w-full grid grid-cols-1 sm:grid-cols-3 sm:gap-4 touch-pan-y focus:outline-none"
+                className="group relative w-full overflow-x-hidden sm:overflow-visible grid grid-cols-1 sm:grid-cols-3 sm:gap-4 touch-pan-y focus:outline-none"
                 tabIndex={0}
                 onKeyDown={(e) => {
                   const maxIndex = pricingTiers.filter(t => t.id === 'basic' || t.id === 'standard' || t.id === 'premium').length - 1;
@@ -616,20 +616,26 @@ export function TipsPage() {
                         )}
                       </div>
                       
-                      <div className="flex items-end gap-1 mb-1">
-                        <div className="text-2xl font-black text-white leading-none whitespace-nowrap">
-                          <span className="text-sm text-zinc-400 mr-1">{pkg.currency_symbol || 'KES'}</span>
-                          {pkg.price2wk.toLocaleString()}
+                      <div className="flex flex-col gap-1 mb-4">
+                        <div className="h-4 flex items-end">
+                          {isDiscounted ? (
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-black text-zinc-500 line-through decoration-red-500/80 decoration-2">
+                                {pkg.currency_symbol || 'KES'} {sumPrice.toLocaleString()}
+                              </span>
+                              <span className="text-[9px] font-black tracking-wider text-red-400 uppercase bg-red-500/10 px-1.5 py-0.5 rounded border border-red-500/20">
+                                Original
+                              </span>
+                            </div>
+                          ) : null}
                         </div>
-                        <div className="text-xs text-zinc-500 font-normal whitespace-nowrap leading-none mb-0.5">/ 2 wks</div>
-                      </div>
-
-                      <div className="h-4 mb-3">
-                        {isDiscounted ? (
-                          <p className="text-[10px] text-zinc-500 line-through">
-                            Value: {pkg.currency_symbol || 'KES'} {sumPrice.toLocaleString()}
-                          </p>
-                        ) : null}
+                        <div className="flex items-end gap-1.5 pt-0.5">
+                          <div className="text-3xl font-black text-white leading-none whitespace-nowrap tracking-tight">
+                            <span className="text-base text-emerald-500 mr-1 font-bold">{pkg.currency_symbol || 'KES'}</span>
+                            {pkg.price2wk.toLocaleString()}
+                          </div>
+                          <div className="text-[10px] text-zinc-500 font-black whitespace-nowrap leading-none mb-1 uppercase tracking-widest">/ 2 wks</div>
+                        </div>
                       </div>
 
                       <div className="flex-1 mb-4 flex flex-col">
