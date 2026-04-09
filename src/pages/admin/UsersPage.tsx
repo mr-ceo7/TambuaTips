@@ -5,6 +5,7 @@ import {
   Download, Gift, XCircle
 } from 'lucide-react';
 import { adminService, type AdminUser, type UserActivityDetail } from '../../services/adminService';
+import { getPricingTiers, type TierConfig } from '../../services/pricingService';
 import { toast } from 'sonner';
 
 type SortField = 'name' | 'email' | 'subscription_tier' | 'last_seen' | 'total_time_spent' | 'created_at';
@@ -34,9 +35,11 @@ export function UsersPage() {
   const [grantTier, setGrantTier] = useState<string>('premium');
   const [grantDays, setGrantDays] = useState<number>(30);
   const [granting, setGranting] = useState(false);
+  const [availableTiers, setAvailableTiers] = useState<TierConfig[]>([]);
 
   useEffect(() => {
     loadUsers();
+    getPricingTiers().then(setAvailableTiers);
   }, []);
 
   const loadUsers = () => {
@@ -210,9 +213,7 @@ export function UsersPage() {
             { key: 'all', label: 'All' },
             { key: 'online', label: '🟢 Online' },
             { key: 'free', label: 'Free' },
-            { key: 'basic', label: 'Basic' },
-            { key: 'standard', label: 'Standard' },
-            { key: 'premium', label: 'Premium' },
+            ...availableTiers.map(t => ({ key: t.id, label: t.name })),
           ].map(f => (
             <button
               key={f.key}
@@ -367,9 +368,9 @@ export function UsersPage() {
                   onChange={e => setGrantTier(e.target.value)}
                   className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
                 >
-                  <option value="basic">Basic</option>
-                  <option value="standard">Standard</option>
-                  <option value="premium">Premium</option>
+                  {availableTiers.map(tier => (
+                    <option key={tier.id} value={tier.id}>{tier.name}</option>
+                  ))}
                 </select>
               </div>
               <div>
@@ -405,16 +406,41 @@ export function UsersPage() {
     </div>
   );
 }
+// Palette of unique tier colors — known tiers get a fixed color, unknown ones get a consistent hash-based color
+const TIER_COLOR_PALETTE: Record<string, string> = {
+  free:      'bg-zinc-800 text-zinc-500',
+  basic:     'bg-blue-500/10 text-blue-400 border border-blue-500/20',
+  standard:  'bg-purple-500/10 text-purple-400 border border-purple-500/20',
+  premium:   'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20',
+};
+
+const DYNAMIC_COLORS = [
+  'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20',
+  'bg-rose-500/10 text-rose-400 border border-rose-500/20',
+  'bg-amber-500/10 text-amber-400 border border-amber-500/20',
+  'bg-teal-500/10 text-teal-400 border border-teal-500/20',
+  'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20',
+  'bg-pink-500/10 text-pink-400 border border-pink-500/20',
+  'bg-lime-500/10 text-lime-400 border border-lime-500/20',
+  'bg-orange-500/10 text-orange-400 border border-orange-500/20',
+  'bg-fuchsia-500/10 text-fuchsia-400 border border-fuchsia-500/20',
+  'bg-sky-500/10 text-sky-400 border border-sky-500/20',
+  'bg-violet-500/10 text-violet-400 border border-violet-500/20',
+  'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20',
+];
+
+function getTierColor(tier: string): string {
+  if (TIER_COLOR_PALETTE[tier]) return TIER_COLOR_PALETTE[tier];
+  // Consistent hash so same tier always gets the same color
+  let hash = 0;
+  for (let i = 0; i < tier.length; i++) hash = tier.charCodeAt(i) + ((hash << 5) - hash);
+  return DYNAMIC_COLORS[Math.abs(hash) % DYNAMIC_COLORS.length];
+}
+
 function TierBadge({ tier, expiresAt }: { tier: string; expiresAt: string | null }) {
-  const colors: Record<string, string> = {
-    free: 'bg-zinc-800 text-zinc-500',
-    basic: 'bg-blue-500/10 text-blue-400 border border-blue-500/20',
-    standard: 'bg-purple-500/10 text-purple-400 border border-purple-500/20',
-    premium: 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20',
-  };
   return (
     <div>
-      <span className={`inline-block px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase ${colors[tier] || colors.free}`}>
+      <span className={`inline-block px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase ${getTierColor(tier)}`}>
         {tier}
       </span>
       {expiresAt && tier !== 'free' && (
