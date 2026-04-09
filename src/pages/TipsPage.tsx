@@ -60,14 +60,24 @@ function TipCard({ tip, locked = false, onGetFree }: { tip: Tip; locked?: boolea
       </div>
 
       {/* Teams */}
-      <Link to={`/match/${tip.fixtureId}`} className="block mb-3 group">
-        <div className="flex items-center gap-2 text-base font-bold text-zinc-200 group-hover:text-emerald-400 transition-colors">
-          <TeamWithLogo teamName={tip.homeTeam} size={22} textClassName="font-bold" />
-          <span className="text-zinc-500 text-sm">vs</span>
-          <TeamWithLogo teamName={tip.awayTeam} size={22} textClassName="font-bold" />
+      {locked && tip.category?.toLowerCase() === 'gg' ? (
+        <div className="block mb-3 group">
+          <div className="flex items-center gap-1.5 text-base font-bold text-zinc-500 italic">
+            <Lock className="w-4 h-4 text-gold-400/50" />
+            <span>Premium Match</span>
+          </div>
+          <p className="text-xs text-zinc-500">{new Date(tip.matchDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
         </div>
-        <p className="text-xs text-zinc-500">{new Date(tip.matchDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-      </Link>
+      ) : (
+        <Link to={`/match/${tip.fixtureId}`} className="block mb-3 group">
+          <div className="flex items-center gap-2 text-base font-bold text-zinc-200 group-hover:text-emerald-400 transition-colors">
+            <TeamWithLogo teamName={tip.homeTeam} size={22} textClassName="font-bold" />
+            <span className="text-zinc-500 text-sm">vs</span>
+            <TeamWithLogo teamName={tip.awayTeam} size={22} textClassName="font-bold" />
+          </div>
+          <p className="text-xs text-zinc-500">{new Date(tip.matchDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+        </Link>
+      )}
 
       {/* Prediction */}
       <div className="relative group/tip">
@@ -787,11 +797,18 @@ export function TipsPage() {
                                           </span>
                                         )}
                                       </span>
-                                      <Link to={`/match/${tip.fixtureId}`} className="text-zinc-300 inline-flex items-center gap-1 flex-wrap hover:text-emerald-400 transition-colors">
-                                        <TeamWithLogo teamName={tip.homeTeam} size={14} textClassName="text-xs" />
-                                        <span className="text-zinc-600 mx-0.5">vs</span>
-                                        <TeamWithLogo teamName={tip.awayTeam} size={14} textClassName="text-xs" />
-                                      </Link>
+                                      {locked && tip.category?.toLowerCase() === 'gg' ? (
+                                        <div className="text-zinc-500 inline-flex items-center gap-1 flex-wrap mt-0.5">
+                                          <Lock className="w-3 h-3 text-gold-400/50" />
+                                          <span className="text-xs font-bold italic">Premium Match</span>
+                                        </div>
+                                      ) : (
+                                        <Link to={`/match/${tip.fixtureId}`} className="text-zinc-300 inline-flex items-center gap-1 flex-wrap hover:text-emerald-400 transition-colors">
+                                          <TeamWithLogo teamName={tip.homeTeam} size={14} textClassName="text-xs" />
+                                          <span className="text-zinc-600 mx-0.5">vs</span>
+                                          <TeamWithLogo teamName={tip.awayTeam} size={14} textClassName="text-xs" />
+                                        </Link>
+                                      )}
                                     </div>
                                   </td>
                                  <td className="px-2 py-1.5 text-center">

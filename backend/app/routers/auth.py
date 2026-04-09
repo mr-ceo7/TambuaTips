@@ -22,7 +22,7 @@ from app.config import settings
 from app.routers.admin import get_referral_settings, get_sms_settings
 from app.routers.campaigns import track_campaign_event
 from app.models.activity import UserActivity, AnonymousVisitor, AnonymousActivity
-from app.schemas.auth import GoogleLoginRequest, PhoneLoginRequest, PhoneVerifyRequest, RefreshRequest, UserResponse, UpdateFavoritesRequest, PushSubscribeRequest, ActivityRequest
+from app.schemas.auth import GoogleLoginRequest, PhoneLoginRequest, PhoneVerifyRequest, MagicLoginRequest, RefreshRequest, UserResponse, UpdateFavoritesRequest, PushSubscribeRequest, ActivityRequest
 from app.security import hash_password, verify_password, create_access_token, create_refresh_token, decode_token
 from app.services.email_service import send_welcome_email
 
@@ -438,6 +438,53 @@ async def verify_phone_otp(body: PhoneVerifyRequest, request: Request, response:
     background_tasks.add_task(track_campaign_event, "login", 0.0)
 
     # Issue JWT tokens (identical to Google flow)
+    access_token = create_access_token(str(user.id), extra={"session_id": session_id})
+    refresh_token = create_refresh_token(str(user.id))
+
+    response.set_cookie(key="access_token", value=access_token, httponly=True, secure=True, samesite="none", max_age=3600)
+    response.set_cookie(key="refresh_token", value=refresh_token, httponly=True, secure=True, samesite="none", max_age=604800)
+
+    return {"status": "success"}
+
+
+@router.post("/magic-login")
+async def magic_login(body: MagicLoginRequest, request: Request, response: Response, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)):
+    """
+    Authenticate a user via their permanent magic login token.
+    Used for SMS-migrated users who receive a unique link.
+    """
+    if not body.token or len(body.token) < 8:
+        raise HTTPException(status_code=400, detail="Invalid token")
+
+    result = await db.execute(select(User).where(User.magic_login_token == body.token))
+    user = result.scalar_one_or_none()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="Invalid or expired login link. Please sign in manually.")
+
+    if not user.is_active:
+        raise HTTPException(status_code=403, detail="Account is disabled.")
+
+    # Generate referral code if missing
+    if not user.referral_code:
+        safe_name = "".join([c for c in user.name if c.isalpha()])[:3].upper()
+        if len(safe_name) < 3: safe_name = "VIP"
+        user.referral_code = f"{safe_name}{uuid.uuid4().hex[:5].upper()}"
+
+    db.add(user)
+    await db.commit()
+
+    # Clean up expired sessions before creating new one
+    await cleanup_expired_sessions(user, db)
+
+    # Create new session (handles multi-device logic)
+    session_id = await create_user_session(user, db)
+
+    # Geo lookup
+    client_ip = get_real_ip(request)
+    background_tasks.add_task(fetch_user_country, user.id, client_ip)
+
+    # Issue JWT tokens (identical to phone/Google flow)
     access_token = create_access_token(str(user.id), extra={"session_id": session_id})
     refresh_token = create_refresh_token(str(user.id))
 

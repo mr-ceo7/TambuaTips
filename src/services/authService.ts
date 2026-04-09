@@ -15,6 +15,11 @@ export const authService = {
     return response.data;
   },
 
+  async magicLogin(token: string): Promise<AuthResponse> {
+    const response = await apiClient.post<AuthResponse>('/auth/magic-login', { token });
+    return response.data;
+  },
+
   async requestPhoneOtp(phone: string, referred_by_code?: string): Promise<AuthResponse> {
     const payload: any = { phone };
     if (referred_by_code) payload.referred_by_code = referred_by_code;

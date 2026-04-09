@@ -22,6 +22,9 @@ class PhoneVerifyRequest(BaseModel):
     code: str
     referred_by_code: Optional[str] = None
 
+class MagicLoginRequest(BaseModel):
+    token: str
+
 
 class RefreshRequest(BaseModel):
     refresh_token: str

@@ -14,6 +14,7 @@ import { MatchDetailPage } from './pages/MatchDetailPage';
 import { StandingsPage } from './pages/StandingsPage';
 import { NewsPage } from './pages/NewsPage';
 import { TipsPage } from './pages/TipsPage';
+import { MagicLoginPage } from './pages/MagicLoginPage';
 import { SplashScreen } from './components/SplashScreen';
 import { PrivacyPolicy } from './pages/legal/PrivacyPolicy';
 import { TermsOfService } from './pages/legal/TermsOfService';
@@ -108,6 +109,7 @@ export default function App() {
               <Route path="/contact" element={<ContactPage />} />
               <Route path="/faq" element={<FAQPage />} />
               <Route path="/about" element={<AboutUsPage />} />
+              <Route path="/welcome" element={<MagicLoginPage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Route>
 

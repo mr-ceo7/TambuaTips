@@ -37,6 +37,9 @@ class User(Base):
     # Anti-screenshot / One-device policies
     session_id = Column(String(100), nullable=True, unique=True, index=True)
     
+    # Magic login token for SMS-migrated users (permanent, no expiry)
+    magic_login_token = Column(String(32), unique=True, nullable=True, index=True)
+    
     # Referral / Affiliate Marketing / Loyalty Economy
     referral_code = Column(String(20), unique=True, nullable=True, index=True)
     referrer_id = Column(BigInteger, ForeignKey('users.id'), nullable=True)
