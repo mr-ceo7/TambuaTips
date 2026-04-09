@@ -133,7 +133,15 @@ async def main():
         return
         
     unique_phones = list(set(phones))
-    print(f"Loaded {len(unique_phones)} unique phone numbers.")
+    
+    # If in test mode, only process the test numbers to save time and verify SMS instantly
+    if args.test:
+        unique_phones = [p for p in unique_phones if p in test_numbers or p.replace("+", "") in [t.replace("+", "") for t in test_numbers]]
+        if not unique_phones:
+            # If test numbers weren't in CSV, insert them manually for the test
+            unique_phones = test_numbers
+            
+    print(f"Loaded {len(unique_phones)} unique phone numbers to process.")
 
     async with SessionLocal() as db:
         for idx, phone in enumerate(unique_phones):
