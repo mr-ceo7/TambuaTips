@@ -1140,8 +1140,10 @@ async def grant_subscription(
     admin: User = Depends(require_admin),
 ):
     """Grant a subscription tier + duration to a user."""
-    if body.tier not in ("basic", "standard", "premium"):
-        raise HTTPException(status_code=400, detail="Invalid tier. Must be basic, standard, or premium.")
+    tier_res = await db.execute(select(SubscriptionTier.tier_id).where(SubscriptionTier.tier_id == body.tier))
+    if not tier_res.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail=f"Invalid tier: {body.tier}")
+
     if body.duration_days < 1 or body.duration_days > 365:
         raise HTTPException(status_code=400, detail="Duration must be 1-365 days.")
 
