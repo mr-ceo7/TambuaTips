@@ -92,7 +92,10 @@ async def get_current_user(
         # Update last_used_at timestamp
         session.last_used_at = datetime.now(UTC).replace(tzinfo=None)
         db.add(session)
-        await db.commit()
+        try:
+            await db.commit()
+        except Exception:
+            await db.rollback()
     else:
         # Fallback for backward compatibility (old single-session system)
         if user.session_id:
@@ -159,7 +162,10 @@ async def get_unverified_user(
         # Update last_used_at timestamp
         session.last_used_at = datetime.now(UTC).replace(tzinfo=None)
         db.add(session)
-        await db.commit()
+        try:
+            await db.commit()
+        except Exception:
+            await db.rollback()
     else:
         # Fallback for backward compatibility
         if user.session_id:
