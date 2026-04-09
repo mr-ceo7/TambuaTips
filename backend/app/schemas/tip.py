@@ -24,7 +24,8 @@ class TipCreate(BaseModel):
     bookmaker_odds: Optional[List[BookmakerOdd]] = None
     confidence: int = 3
     reasoning: Optional[str] = None
-    category: str = "free"
+    category: str = "2+"
+    is_free: bool = False
     notify: bool = False
     notify_target: str = "all"  # all, subscribers, free, basic, standard, premium
     notify_channel: str = "both"  # both, push, email, sms
@@ -36,6 +37,7 @@ class TipUpdate(BaseModel):
     confidence: Optional[int] = None
     reasoning: Optional[str] = None
     category: Optional[str] = None
+    is_free: Optional[bool] = None
     result: Optional[str] = None
 
 

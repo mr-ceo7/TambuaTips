@@ -16,7 +16,7 @@ import { AutocompleteInput } from '../../components/AutocompleteInput';
 
 const DEFAULT_PREDICTIONS = ['1', 'X', '2', '1X', 'X2', '12', 'Ov1.5', 'Ov2.5', 'Ov3.5', 'Un2.5', 'GG', 'NG', 'GG & O2.5'];
 
-const TIP_CATEGORIES: TipCategory[] = ['free', '2+', '4+', 'gg', '10+', 'vip'];
+const TIP_CATEGORIES: TipCategory[] = ['2+', '4+', 'gg', '10+', 'vip'];
 
 export function TipsManagePage() {
   const [tips, setTips] = useState<Tip[]>([]);
@@ -45,7 +45,8 @@ export function TipsManagePage() {
     prediction: '',
     confidence: 3,
     reasoning: '',
-    category: (sessionStorage.getItem('admin_last_category') as TipCategory) || 'free',
+    category: (sessionStorage.getItem('admin_last_category') as TipCategory) || '2+',
+    isFree: sessionStorage.getItem('admin_last_is_free') === 'true',
     notify: false,
     notify_target: 'subscribers',
     notify_channel: 'both',
@@ -66,7 +67,8 @@ export function TipsManagePage() {
       fixtureId: '', homeTeam: '', awayTeam: '', league: '',
       matchDate: new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().substring(0, 16),
       prediction: '', confidence: 3, reasoning: '', 
-      category: (sessionStorage.getItem('admin_last_category') as TipCategory) || 'free',
+      category: (sessionStorage.getItem('admin_last_category') as TipCategory) || '2+',
+      isFree: sessionStorage.getItem('admin_last_is_free') === 'true',
       notify: false, notify_target: 'subscribers', notify_channel: 'both',
     });
     setEditingId(null);
@@ -129,13 +131,14 @@ export function TipsManagePage() {
       confidence: form.confidence,
       reasoning: form.reasoning,
       category: form.category,
-      isPremium: form.category !== 'free',
+      isFree: form.isFree,
       notify: form.notify,
       notify_target: form.notify_target,
       notify_channel: form.notify_channel,
     };
 
     sessionStorage.setItem('admin_last_category', form.category);
+    sessionStorage.setItem('admin_last_is_free', String(form.isFree));
 
     setIsSubmitting(true);
     try {
@@ -166,6 +169,7 @@ export function TipsManagePage() {
       confidence: tip.confidence,
       reasoning: tip.reasoning,
       category: tip.category,
+      isFree: tip.isFree || false,
       notify: false, notify_target: 'subscribers', notify_channel: 'both',
     });
     setEditingId(tip.id);
@@ -183,6 +187,7 @@ export function TipsManagePage() {
       confidence: tip.confidence,
       reasoning: tip.reasoning,
       category: tip.category,
+      isFree: tip.isFree || false,
       notify: false, notify_target: 'subscribers', notify_channel: 'both',
     });
     setEditingId(null);
@@ -231,7 +236,7 @@ export function TipsManagePage() {
   });
 
   return (
-    <div className="space-y-5 overflow-hidden">
+    <div className="space-y-5">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-white font-display">Tips Management</h1>
@@ -266,7 +271,7 @@ export function TipsManagePage() {
         
         {/* ─── Tip Form ────────────────────── */}
         {showForm && (
-          <div className="w-full bg-zinc-900/80 border border-zinc-800/60 rounded-2xl p-5 backdrop-blur-sm">
+          <div className="w-full bg-zinc-900/80 border border-zinc-800/60 rounded-2xl p-5 backdrop-blur-sm relative z-50">
             <h3 className="text-lg font-bold text-white mb-4 font-display flex justify-between items-center">
               {editingId ? '✏️ Edit Tip' : '⚡ Quick Add Tip'}
             </h3>
@@ -357,6 +362,13 @@ export function TipsManagePage() {
                     ))}
                   </select>
                 </FormField>
+
+                <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/30 p-2.5 rounded-lg mt-1 mb-1">
+                  <label className="flex items-center gap-2 cursor-pointer w-full text-emerald-400">
+                    <input type="checkbox" className="w-4 h-4 accent-emerald-500" checked={form.isFree} onChange={e => setForm({ ...form, isFree: e.target.checked })} />
+                    <span className="text-sm font-bold whitespace-nowrap">🎁 Make this tip FREE</span>
+                  </label>
+                </div>
 
                 <FormField label="League">
                   <AutocompleteInput 

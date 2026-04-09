@@ -85,7 +85,7 @@ export function AutocompleteInput({ value, onChange, options, placeholder, requi
       />
       
       {isOpen && filtered.length > 0 && (
-        <div className="absolute z-50 w-full mt-1 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl max-h-48 overflow-y-auto">
+        <div className="absolute z-50 w-full mt-1 bg-zinc-950 border border-zinc-800 rounded-lg shadow-xl max-h-48 overflow-y-auto">
           {filtered.map((option, idx) => (
             <div
               key={option}
@@ -96,7 +96,7 @@ export function AutocompleteInput({ value, onChange, options, placeholder, requi
               }}
               onMouseEnter={() => setActiveIndex(idx)}
               className={`px-3 py-2 cursor-pointer text-sm transition-colors ${
-                idx === activeIndex ? 'bg-emerald-500/20 text-emerald-400' : 'text-zinc-300 hover:bg-zinc-700'
+                idx === activeIndex ? 'bg-emerald-500/20 text-emerald-400' : 'text-zinc-300 hover:bg-zinc-900'
               }`}
             >
               {type === 'league' ? (

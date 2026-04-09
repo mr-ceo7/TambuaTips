@@ -21,8 +21,8 @@ TIER_RANK = {"free": 0, "basic": 1, "standard": 2, "premium": 3}
 from app.models.subscription import SubscriptionTier
 
 
-def user_has_access(user: Optional[User], category: str, tier_dict: dict) -> bool:
-    if category == "free":
+def user_has_access(user: Optional[User], tip: Tip, tier_dict: dict) -> bool:
+    if getattr(tip, "is_premium", 1) == 0:
         return True
     if not user:
         return False
@@ -34,7 +34,7 @@ def user_has_access(user: Optional[User], category: str, tier_dict: dict) -> boo
 
     user_tier_conf = tier_dict.get(user.subscription_tier)
     if user_tier_conf and isinstance(user_tier_conf.categories, list):
-        return category in user_tier_conf.categories
+        return getattr(tip, "category", "") in user_tier_conf.categories
         
     return False
 
@@ -42,6 +42,7 @@ def user_has_access(user: Optional[User], category: str, tier_dict: dict) -> boo
 @router.get("", response_model=List)
 async def list_tips(
     category: Optional[str] = Query(None),
+    is_free: Optional[bool] = Query(None),
     date_str: Optional[str] = Query(None, alias="date"),
     fixture_id: Optional[int] = Query(None),
     db: AsyncSession = Depends(get_db),
@@ -51,6 +52,9 @@ async def list_tips(
 
     if category:
         query = query.where(Tip.category == category)
+        
+    if is_free is not None:
+        query = query.where(Tip.is_premium == (0 if is_free else 1))
 
     if date_str == "all":
         pass  # Admin fetching everything
@@ -81,7 +85,7 @@ async def list_tips(
     lost_counter = 0
 
     for tip in tips:
-        has_normal_access = user_has_access(user, tip.category, tier_dict)
+        has_normal_access = user_has_access(user, tip, tier_dict)
         is_decided = tip.result in ["won", "lost", "void"]
 
         # CONVERSION BOOST: If a non-premium user is looking at historical tips,
@@ -153,7 +157,7 @@ async def get_tip(tip_id: int, db: AsyncSession = Depends(get_db), user: User = 
     all_tiers = result_tiers.scalars().all()
     tier_dict = {t.tier_id: t for t in all_tiers}
 
-    if not user_has_access(user, tip.category, tier_dict):
+    if not user_has_access(user, tip, tier_dict):
         raise HTTPException(status_code=403, detail="Subscription required")
     return tip
 
@@ -173,7 +177,7 @@ async def create_tip(body: TipCreate, background_tasks: BackgroundTasks, db: Asy
         confidence=body.confidence,
         reasoning=body.reasoning,
         category=body.category,
-        is_premium=0 if body.category == "free" else 1,
+        is_premium=0 if getattr(body, "is_free", False) else 1,
     )
     db.add(tip)
     await db.commit()
@@ -209,7 +213,11 @@ async def update_tip(tip_id: int, body: TipUpdate, db: AsyncSession = Depends(ge
     if not tip:
         raise HTTPException(status_code=404, detail="Tip not found")
 
-    for field, value in body.model_dump(exclude_unset=True).items():
+    dumped_data = body.model_dump(exclude_unset=True)
+    if "is_free" in dumped_data:
+        setattr(tip, "is_premium", 0 if dumped_data.pop("is_free") else 1)
+
+    for field, value in dumped_data.items():
         setattr(tip, field, value)
 
     await db.commit()

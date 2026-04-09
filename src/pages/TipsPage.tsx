@@ -9,12 +9,11 @@ import { CATEGORY_LABELS, getPricingTiers, type TierConfig } from '../services/p
 import { SEO } from '../components/SEO';
 import { useUser } from '../context/UserContext';
 // Detached: import { useBetSlip } from '../context/BetSlipContext';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, isToday, isTomorrow, isYesterday } from 'date-fns';
 
 // ─── Category order for display ──────────────────────────────
-const CATEGORY_ORDER: TipCategory[] = ['free', '2+', '4+', 'gg', '10+', 'vip'];
+const CATEGORY_ORDER: TipCategory[] = ['2+', '4+', 'gg', '10+', 'vip'];
 const CATEGORY_ICONS: Record<TipCategory, React.ElementType> = {
-  'free': Zap,
   '2+': Target,
   '4+': Star,
   'gg': Trophy,
@@ -51,7 +50,7 @@ function TipCard({ tip, locked = false, onGetFree }: { tip: Tip; locked?: boolea
           <span className="text-xs text-zinc-500 uppercase tracking-wider">{tip.league}</span>
         </div>
         <span className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded-full flex items-center gap-1 ${
-          tip.category?.toLowerCase() === 'free' ? 'bg-emerald-500/20 text-emerald-400' :
+          tip.isFree ? 'bg-emerald-500/20 text-emerald-400' :
           tip.category?.toLowerCase() === 'vip' ? 'bg-gold-500/20 text-gold-400' :
           'bg-blue-500/20 text-blue-400'
         }`}>
@@ -355,11 +354,12 @@ function JackpotCard({ jackpot, onGetFree }: { jackpot: JackpotPrediction; key?:
 // ─── Main Page ───────────────────────────────────────────────
 export function TipsPage() {
   const { user, hasAccess, hasJackpotAccess, setShowAuthModal, setShowPricingModal, setShowJackpotModal, setSelectedJackpot } = useUser();
-  const [activeTab, setActiveTab] = useState<'tips' | 'jackpot'>('tips');
+  const [activeTab, setActiveTab] = useState<'free' | 'tips' | 'jackpot'>('free');
   const [stats, setStats] = useState({ total: 0, won: 0, lost: 0, pending: 0, voided: 0, winRate: 0 });
   const [jackpots, setJackpots] = useState<JackpotPrediction[]>([]);
   const [bundleInfo, setBundleInfo] = useState<JackpotBundleInfo | null>(null);
   const [tipsByCategory, setTipsByCategory] = useState<Record<string, Tip[]>>({});
+  const [freeTips, setFreeTips] = useState<Tip[]>([]);
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
   const [showScreenshotWarning, setShowScreenshotWarning] = useState(false);
   const [showReferralModal, setShowReferralModal] = useState<boolean | string | number>(false);
@@ -452,14 +452,16 @@ export function TipsPage() {
       const jackpotPromise = getAllJackpots();
       const bundlePromise = getJackpotBundleInfo();
       const pricingTiersPromise = getPricingTiers();
+      const freeTipsPromise = getFreeTips();
 
-      const [tipsResults, jackpotResults, bundleResult, fetchedTiers] = await Promise.all([tipsPromise, jackpotPromise, bundlePromise, pricingTiersPromise]);
+      const [tipsResults, jackpotResults, bundleResult, fetchedTiers, fetchedFreeTips] = await Promise.all([tipsPromise, jackpotPromise, bundlePromise, pricingTiersPromise, freeTipsPromise]);
 
       if (!isMounted) return;
 
       const newMap: Record<string, Tip[]> = {};
       tipsResults.forEach(r => { newMap[r.cat] = r.tips; });
       setTipsByCategory(newMap);
+      setFreeTips(fetchedFreeTips);
       setJackpots(jackpotResults);
       setBundleInfo(bundleResult);
       setPricingTiers(fetchedTiers);
@@ -533,6 +535,14 @@ export function TipsPage() {
       {/* Tab Bar */}
       <div className="flex bg-zinc-900/60 border border-zinc-800 rounded-xl p-1 mb-6">
         <button
+          onClick={() => setActiveTab('free')}
+          className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2 ${
+            activeTab === 'free' ? 'bg-emerald-500 text-zinc-950' : 'text-zinc-400 hover:text-white'
+          }`}
+        >
+          <Gift className="w-4 h-4" /> Free Tips
+        </button>
+        <button
           onClick={() => setActiveTab('tips')}
           className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2 ${
             activeTab === 'tips' ? 'bg-emerald-500 text-zinc-950' : 'text-zinc-400 hover:text-white'
@@ -549,6 +559,196 @@ export function TipsPage() {
           <Trophy className="w-4 h-4" /> Jackpot
         </button>
       </div>
+
+      
+      {/* Free Tips Tab */}
+      {activeTab === 'free' && (
+        <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <div className="mb-6 flex items-center justify-between bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-xl">
+            <div>
+              <h2 className="text-emerald-400 font-bold font-display text-lg flex items-center gap-2">
+                <Gift className="w-5 h-5" />
+                TambuaTips Free Picks
+              </h2>
+              <p className="text-xs text-zinc-400 mt-1">100% unlocked predictions for our community</p>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 gap-6">
+            {loadingTips ? (
+              <div className="flex justify-center items-center py-20">
+                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-emerald-500"></div>
+              </div>
+            ) : (() => {
+              const freeTipsByCat = freeTips.reduce((acc, tip) => {
+                const c = tip.category || '2+';
+                if (!acc[c]) acc[c] = [];
+                acc[c].push(tip);
+                return acc;
+              }, {} as Record<string, import('../services/tipsService').Tip[]>);
+
+              const availableCategories = Object.keys(freeTipsByCat).sort();
+
+              if (availableCategories.length === 0) {
+                return (
+                   <div className="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-12 text-center">
+                     <Gift className="w-12 h-12 text-emerald-500/20 mx-auto mb-4" />
+                     <p className="text-zinc-500 font-bold">No free tips available today. Check out our Daily Tips!</p>
+                   </div>
+                );
+              }
+
+              return availableCategories.map(cat => {
+                const tips = freeTipsByCat[cat];
+                const catInfo = CATEGORY_LABELS[cat as TipCategory] || { label: cat.toUpperCase(), desc: 'Free Tips', minTier: 'free' };
+                const Icon = CATEGORY_ICONS[cat as TipCategory] || Gift;
+                const isExpanded = expandedCategories[`free-${cat}`];
+                
+                if (tips.length === 0) return null;
+
+                const pendingTips = tips.filter(t => t.result === 'pending');
+                const historyTips = tips.filter(t => t.result !== 'pending');
+                const displayedHistory = isExpanded ? historyTips : historyTips.slice(0, 2);
+                const displayedTips = [...pendingTips, ...displayedHistory];
+
+                return (
+                  <div key={`free-${cat}`} className="bg-zinc-900/60 border border-emerald-500/30 rounded-2xl overflow-hidden transition-all shadow-[0_0_15px_rgba(16,185,129,0.05)]">
+                    <div className="p-5">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2.5 rounded-xl bg-emerald-500/20 text-emerald-400">
+                            <Icon className="w-6 h-6" />
+                          </div>
+                          <div>
+                            <h4 className="text-base font-bold text-white uppercase tracking-wide flex items-center gap-2">
+                              {catInfo.label.toUpperCase().includes('TIPS') ? catInfo.label.toUpperCase() : `${catInfo.label.toUpperCase()} TIPS`}
+                              <span className="bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded text-[10px] uppercase font-black">FREE</span>
+                            </h4>
+                            <p className="text-xs text-zinc-400 font-medium mt-0.5">
+                              {tips.length} Prediction{tips.length !== 1 ? 's' : ''}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-zinc-950/50 border-t border-emerald-500/20 overflow-hidden">
+                      <div className="max-h-[32rem] overflow-auto">
+                        <table className="w-full text-xs">
+                          <thead className="sticky top-0 bg-zinc-900 z-10">
+                            <tr className="border-b border-zinc-800">
+                              <th className="px-2.5 py-2 text-left text-zinc-500 font-bold uppercase tracking-wider w-7">#</th>
+                              <th className="px-2.5 py-2 text-left text-zinc-500 font-bold uppercase tracking-wider">Match</th>
+                              <th className="px-2 py-2 text-center text-emerald-400 font-bold uppercase tracking-wider w-24">Tip</th>
+                              <th className="px-2 py-2 text-center text-zinc-500 font-bold uppercase tracking-wider w-16">Result</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {(() => {
+                              const labelsOrder: string[] = [];
+                              const groupedTips = displayedTips.reduce((acc, tip) => {
+                                const dateObj = new Date(tip.matchDate);
+                                let label = format(dateObj, 'MMM d, yyyy');
+                                if (isToday(dateObj)) label = 'Today';
+                                else if (isTomorrow(dateObj)) label = 'Tomorrow';
+                                else if (isYesterday(dateObj)) label = 'Yesterday';
+                                
+                                if (!acc[label]) {
+                                  acc[label] = [];
+                                  labelsOrder.push(label);
+                                }
+                                acc[label].push(tip);
+                                return acc;
+                              }, {} as Record<string, import('../services/tipsService').Tip[]>);
+
+                              let globalIdx = 0;
+                              return labelsOrder.map(dateLabel => {
+                                const groupTips = groupedTips[dateLabel];
+                                return (
+                                  <React.Fragment key={dateLabel}>
+                                    <tr className="bg-zinc-800/40 border-b border-zinc-800">
+                                      <td colSpan={4} className="px-2.5 py-1 w-full text-[10px] font-black text-zinc-400 uppercase tracking-widest text-center">
+                                        —— {dateLabel} ——
+                                      </td>
+                                    </tr>
+                                    {groupTips.map((tip) => {
+                                      const idx = globalIdx++;
+                                      return (
+                                        <tr key={tip.id} className={`border-b border-zinc-800/50 last:border-0 ${
+                                          tip.result === 'won' ? 'bg-emerald-500/5' : tip.result === 'lost' ? 'bg-red-500/5' : ''
+                                        }`}>
+                                          <td className="px-2.5 py-1.5 text-zinc-500 font-mono">{idx + 1}</td>
+                                          <td className="px-2.5 py-1.5">
+                                            <div className="flex flex-col gap-0.5">
+                                              <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider flex items-center gap-1">
+                                                {tip.league && <LeagueLogo leagueName={tip.league} size={12} />}
+                                                {tip.league && <span>{tip.league}</span>}
+                                                {tip.league && tip.matchDate && <span className="mx-0.5 opacity-50">•</span>}
+                                                {tip.matchDate && (
+                                                  <span className="text-zinc-400 font-mono flex items-center gap-0.5" title="Kickoff Time">
+                                                    <Clock className="w-2.5 h-2.5" />
+                                                    {new Date(tip.matchDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                  </span>
+                                                )}
+                                              </span>
+                                              <Link to={`/match/${tip.fixtureId}`} className="text-zinc-300 inline-flex items-center gap-1 flex-wrap hover:text-emerald-400 transition-colors">
+                                                <TeamWithLogo teamName={tip.homeTeam} size={14} textClassName="text-xs" />
+                                                <span className="text-zinc-600 mx-0.5">vs</span>
+                                                <TeamWithLogo teamName={tip.awayTeam} size={14} textClassName="text-xs" />
+                                              </Link>
+                                            </div>
+                                          </td>
+                                          <td className="px-2 py-1.5 text-center">
+                                            <div className="flex flex-col items-center justify-center h-full py-1">
+                                              <span className="font-bold text-emerald-400 text-sm leading-none block mb-0.5 whitespace-nowrap">{tip.prediction}</span>
+                                              <span className="text-[9px] text-zinc-500 font-bold uppercase leading-none">{tip.odds && `@${tip.odds}`}</span>
+                                            </div>
+                                          </td>
+                                          <td className="px-2 py-1.5 text-center align-middle">
+                                            {tip.result === 'won' ? (
+                                              <span className="text-[10px] font-black text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full uppercase border border-emerald-500/20 mx-auto block w-fit">WON</span>
+                                            ) : tip.result === 'lost' ? (
+                                              <span className="text-[10px] font-black text-red-500 bg-red-500/10 px-2 py-0.5 rounded-full uppercase mx-auto block w-fit">LOST</span>
+                                            ) : tip.result === 'void' ? (
+                                              <span className="text-[10px] font-black text-zinc-400 bg-zinc-800 px-2 py-0.5 rounded-full uppercase mx-auto block w-fit">VOID</span>
+                                            ) : tip.result === 'postponed' ? (
+                                              <span className="text-[10px] font-black text-orange-400 bg-orange-500/15 px-2 py-0.5 rounded-full uppercase mx-auto block w-fit">PPD</span>
+                                            ) : (
+                                              <span className="text-[10px] text-zinc-600 mx-auto block w-fit">—</span>
+                                            )}
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
+                                  </React.Fragment>
+                                );
+                              });
+                            })()}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                    {historyTips.length > 2 && (
+                      <div className="bg-zinc-900 border-t border-zinc-800 p-2">
+                        <button
+                          onClick={() => setExpandedCategories(prev => ({ ...prev, [`free-${cat}`]: !prev[`free-${cat}`] }))}
+                          className="w-full py-2 flex items-center justify-center gap-1.5 text-xs font-bold text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 rounded-lg transition-colors"
+                        >
+                          {isExpanded ? (
+                            <>Collapse History</>
+                          ) : (
+                            <>View All History ({historyTips.length}) <ChevronRight className="w-3.5 h-3.5" /></>
+                          )}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              });
+            })()}
+          </div>
+        </div>
+      )}
 
       {/* Daily Tips Tab */}
       {activeTab === 'tips' && (
@@ -617,10 +817,10 @@ export function TipsPage() {
                         </div>
                       )}
                       
-                      <div className="flex justify-between items-start mb-3">
+                      <div className="flex justify-between items-start mb-3 relative z-10">
                         <h4 className="text-lg font-black text-white">{pkg.name.replace(' Plan', '')}</h4>
                         {isDiscounted && (
-                          <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold px-1.5 py-0.5 rounded uppercase">
+                          <span className={`bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold px-1.5 py-0.5 rounded uppercase ${pkg.popular ? 'mr-10 mt-1' : ''}`}>
                             Save {discountPct}%
                           </span>
                         )}
@@ -774,12 +974,40 @@ export function TipsPage() {
                             </tr>
                           </thead>
                           <tbody>
-                            {displayedTips.map((tip, idx) => {
-                              const isTipUnlocked = user?.unlocked_tip_ids?.includes(Number(tip.id));
-                              const locked = !userHasAccess && tip.result === 'pending' && !isTipUnlocked;
-                              const onGetFree = (!userHasAccess && tip.result === 'pending' && !isTipUnlocked && user) ? () => setShowReferralModal(tip.id) : undefined;
-                              
-                              return (
+                            {(() => {
+                              const labelsOrder: string[] = [];
+                              const groupedTips = displayedTips.reduce((acc, tip) => {
+                                const dateObj = new Date(tip.matchDate);
+                                let label = format(dateObj, 'MMM d, yyyy');
+                                if (isToday(dateObj)) label = 'Today';
+                                else if (isTomorrow(dateObj)) label = 'Tomorrow';
+                                else if (isYesterday(dateObj)) label = 'Yesterday';
+                                
+                                if (!acc[label]) {
+                                  acc[label] = [];
+                                  labelsOrder.push(label);
+                                }
+                                acc[label].push(tip);
+                                return acc;
+                              }, {} as Record<string, Tip[]>);
+
+                              let globalIdx = 0;
+                              return labelsOrder.map(dateLabel => {
+                                const groupTips = groupedTips[dateLabel];
+                                return (
+                                  <React.Fragment key={dateLabel}>
+                                    <tr className="bg-zinc-800/40 border-b border-zinc-800">
+                                      <td colSpan={4} className="px-2.5 py-1 w-full text-[10px] font-black text-zinc-400 uppercase tracking-widest text-center">
+                                        —— {dateLabel} ——
+                                      </td>
+                                    </tr>
+                                    {groupTips.map((tip) => {
+                                      const idx = globalIdx++;
+                                      const isTipUnlocked = user?.unlocked_tip_ids?.includes(Number(tip.id));
+                                      const locked = !userHasAccess && tip.result === 'pending' && !isTipUnlocked;
+                                      const onGetFree = (!userHasAccess && tip.result === 'pending' && !isTipUnlocked && user) ? () => setShowReferralModal(tip.id) : undefined;
+                                      
+                                      return (
                                 <tr key={tip.id} className={`border-b border-zinc-800/50 last:border-0 ${
                                   tip.result === 'won' ? 'bg-emerald-500/5' : tip.result === 'lost' ? 'bg-red-500/5' : tip.result === 'postponed' ? 'bg-orange-500/5' : ''
                                 }`}>
@@ -841,8 +1069,12 @@ export function TipsPage() {
                                     )}
                                   </td>
                                 </tr>
-                              );
-                            })}
+                                      );
+                                    })}
+                                  </React.Fragment>
+                                );
+                              });
+                            })()}
                           </tbody>
                         </table>
                       </div>

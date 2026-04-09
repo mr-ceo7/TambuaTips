@@ -1,6 +1,6 @@
 import apiClient from './apiClient';
 
-export type TipCategory = 'free' | '2+' | '4+' | 'gg' | '10+' | 'vip';
+export type TipCategory = '2+' | '4+' | 'gg' | '10+' | 'vip';
 export type JackpotType = 'midweek' | 'mega';
 export type DCLevel = 0 | 3 | 4 | 5 | 6 | 7 | 10 | 99;
 
@@ -24,6 +24,7 @@ export interface Tip {
   reasoning: string;
   category: TipCategory;
   isPremium: boolean;
+  isFree: boolean;
   result: 'pending' | 'won' | 'lost' | 'void';
   createdAt: string;
   updatedAt: string;
@@ -84,6 +85,7 @@ function mapTip(data: any): Tip {
     reasoning: data.reasoning || '',
     category: data.category,
     isPremium: Boolean(data.is_premium),
+    isFree: !Boolean(data.is_premium),
     result: data.result,
     createdAt: data.created_at,
     updatedAt: data.created_at || data.created_at,
@@ -123,13 +125,13 @@ export async function getTodayTips(): Promise<Tip[]> {
 }
 
 export async function getFreeTips(): Promise<Tip[]> {
-  const res = await apiClient.get('/tips', { params: { category: 'free' } });
+  const res = await apiClient.get('/tips', { params: { is_free: true } });
   return res.data.map(mapTip);
 }
 
 export async function getPremiumTips(): Promise<Tip[]> {
   const tips = await getTodayTips();
-  return tips.filter(t => t.category !== 'free');
+  return tips.filter(t => t.isPremium);
 }
 
 export async function getTipsByCategory(category: TipCategory): Promise<Tip[]> {
@@ -191,6 +193,7 @@ export async function addTip(tip: Partial<Tip>): Promise<Tip | null> {
       confidence: tip.confidence,
       reasoning: tip.reasoning,
       category: tip.category,
+      is_free: tip.isFree,
     };
     const res = await apiClient.post('/tips', payload);
     return mapTip(res.data);
@@ -215,6 +218,7 @@ export async function updateTip(id: string, updates: Partial<Tip>): Promise<Tip 
     if (updates.confidence !== undefined) payload.confidence = updates.confidence;
     if (updates.reasoning !== undefined) payload.reasoning = updates.reasoning;
     if (updates.category !== undefined) payload.category = updates.category;
+    if (updates.isFree !== undefined) payload.is_free = updates.isFree;
     if (updates.result !== undefined) payload.result = updates.result;
 
     const res = await apiClient.put(`/tips/${id}`, payload);
