@@ -16,7 +16,8 @@ import { AutocompleteInput } from '../../components/AutocompleteInput';
 
 const DEFAULT_PREDICTIONS = ['1', 'X', '2', '1X', 'X2', '12', 'Ov1.5', 'Ov2.5', 'Ov3.5', 'Un2.5', 'GG', 'NG', 'GG & O2.5'];
 
-const TIP_CATEGORIES: TipCategory[] = ['2+', '4+', 'gg', '10+', 'vip'];
+const TIP_CATEGORIES: TipCategory[] = ['free', '2+', '4+', 'gg', '10+', 'vip'];
+
 
 export function TipsManagePage() {
   const [tips, setTips] = useState<Tip[]>([]);
