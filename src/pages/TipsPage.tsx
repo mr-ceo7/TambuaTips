@@ -14,6 +14,7 @@ import { format, parseISO, isToday, isTomorrow, isYesterday } from 'date-fns';
 // ─── Category order for display ──────────────────────────────
 const CATEGORY_ORDER: TipCategory[] = ['2+', '4+', 'gg', '10+', 'vip'];
 const CATEGORY_ICONS: Record<TipCategory, React.ElementType> = {
+  'free': Zap,
   '2+': Target,
   '4+': Star,
   'gg': Trophy,
