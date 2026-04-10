@@ -135,7 +135,7 @@ export async function getPremiumTips(): Promise<Tip[]> {
 }
 
 export async function getTipsByCategory(category: TipCategory): Promise<Tip[]> {
-  const res = await apiClient.get('/tips', { params: { category } });
+  const res = await apiClient.get('/tips', { params: { category, is_free: false } });
   return res.data.map(mapTip);
 }
 
