@@ -36,7 +36,7 @@ export function CampaignBadge() {
   return (
     <motion.button
       onClick={handleClick}
-      className="fixed bottom-24 md:bottom-8 right-4 z-40 flex items-center gap-2.5 px-4 py-3 rounded-2xl text-white font-bold text-sm shadow-2xl backdrop-blur-md border border-white/10 cursor-pointer"
+      className="fixed bottom-40 md:bottom-20 right-4 z-50 flex items-center gap-2.5 px-4 py-3 rounded-2xl text-white font-bold text-sm shadow-2xl backdrop-blur-md border border-white/10 cursor-pointer"
       style={{
         background: `linear-gradient(135deg, ${badgeColor}, ${badgeColor}CC)`,
         boxShadow: `0 8px 32px ${badgeColor}40`,

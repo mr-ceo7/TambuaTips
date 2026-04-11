@@ -125,7 +125,7 @@ export function Header() {
             )}
 
             <button
-              onClick={() => setShowPricingModal(true, 'vip')}
+              onClick={() => setShowPricingModal(true)}
               className="hidden sm:block rounded-lg bg-emerald-500 px-4 py-2 text-sm font-bold text-zinc-950 hover:bg-emerald-400 transition-all hover:scale-105 active:scale-95 hover:shadow-lg hover:shadow-emerald-500/20"
             >
               Go Premium

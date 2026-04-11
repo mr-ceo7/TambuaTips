@@ -141,6 +141,100 @@ async def seed_default_jackpots():
 import asyncio
 from app.services.match_poller import poll_live_matches
 from app.services.sports_api import init_api_quotas
+from sqlalchemy import text, inspect as sa_inspect
+
+
+# ── Automatic Schema Migrations ─────────────────────────────
+# Compares SQLAlchemy model definitions against the live database
+# and safely adds any missing columns. Fully automatic — just
+# define new columns in your models and deploy.
+
+def _sa_type_to_ddl(col) -> str:
+    """Convert a SQLAlchemy column type to a MySQL DDL string."""
+    from sqlalchemy import String, Integer, BigInteger, Float, Boolean, DateTime, Text, JSON
+    t = type(col.type)
+    if t == String:
+        length = getattr(col.type, 'length', 255) or 255
+        return f"VARCHAR({length})"
+    elif t == Text:
+        return "TEXT"
+    elif t == BigInteger:
+        return "BIGINT"
+    elif t == Integer:
+        return "INT"
+    elif t == Float:
+        return "FLOAT"
+    elif t == Boolean:
+        return "TINYINT(1)"
+    elif t == DateTime:
+        return "DATETIME"
+    elif t == JSON:
+        return "JSON"
+    else:
+        # Fallback: use the compile output
+        try:
+            from sqlalchemy.dialects import mysql
+            return col.type.compile(dialect=mysql.dialect())
+        except Exception:
+            return "TEXT"
+
+
+def _col_default_ddl(col) -> str:
+    """Build the DEFAULT clause for a column."""
+    if col.server_default is not None:
+        val = col.server_default.arg
+        if callable(val):
+            return ""
+        return f" DEFAULT {val}" if isinstance(val, str) and val.isdigit() else f" DEFAULT '{val}'"
+    return ""
+
+
+async def run_migrations():
+    """
+    Automatically detect and add missing columns to existing tables.
+    - create_all handles new tables.
+    - This handles new columns on existing tables.
+    Fully idempotent and safe to run on every startup.
+    """
+    async with engine.begin() as conn:
+        # Get list of tables that actually exist in the database
+        result = await conn.execute(text(
+            "SELECT table_name FROM information_schema.tables "
+            "WHERE table_schema = DATABASE()"
+        ))
+        existing_tables = {row[0] for row in result.fetchall()}
+
+        if not existing_tables:
+            return  # Fresh database, create_all will handle everything
+
+        for table_name, table in Base.metadata.tables.items():
+            if table_name not in existing_tables:
+                continue  # New table — create_all already handled it
+
+            # Get columns that exist in the database for this table
+            result = await conn.execute(text(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_schema = DATABASE() AND table_name = :table"
+            ), {"table": table_name})
+            db_columns = {row[0] for row in result.fetchall()}
+
+            # Compare with model columns
+            for col in table.columns:
+                if col.name in db_columns:
+                    continue  # Already exists
+
+                # Build the ALTER TABLE statement
+                col_type = _sa_type_to_ddl(col)
+                nullable = "NULL" if col.nullable else "NOT NULL"
+                default = _col_default_ddl(col)
+
+                alter_sql = f"ALTER TABLE `{table_name}` ADD COLUMN `{col.name}` {col_type} {nullable}{default}"
+
+                try:
+                    await conn.execute(text(alter_sql))
+                    logger.info(f"Auto-migration: added `{table_name}`.`{col.name}` ({col_type} {nullable}{default})")
+                except Exception as e:
+                    logger.warning(f"Auto-migration skip `{table_name}`.`{col.name}`: {e}")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -148,6 +242,9 @@ async def lifespan(app: FastAPI):
     # Startup: Create tables if they don't exist (dev convenience)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+    # Run safe column migrations for existing tables
+    await run_migrations()
         
     await seed_default_ads()
     await seed_default_tiers()

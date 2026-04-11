@@ -18,6 +18,28 @@ interface PricingModalProps {
 
 const TIER_ICONS: Record<string, React.ElementType> = { basic: Zap, standard: Star, premium: Crown };
 
+// ── Module-level cache: pre-fetch on page load so modal opens instantly ──
+let _cachedTiers: TierConfig[] | null = null;
+let _cachedGeo: GeoData | null = null;
+
+// Pre-fetch tiers immediately on module load
+getPricingTiers().then(data => { _cachedTiers = data; }).catch(() => {});
+
+// Pre-fetch geo immediately on module load
+fetch('https://ipapi.co/json/')
+  .then(res => res.json())
+  .then(data => { _cachedGeo = data; })
+  .catch(() => { _cachedGeo = { country_code: 'KE', currency: 'KES' }; });
+
+// Pre-load Paystack script
+if (typeof document !== 'undefined' && !document.getElementById('paystack-script')) {
+  const script = document.createElement('script');
+  script.id = 'paystack-script';
+  script.src = 'https://js.paystack.co/v2/inline.js';
+  script.async = true;
+  document.body.appendChild(script);
+}
+
 export function PricingModal({ isOpen, onClose }: PricingModalProps) {
   const { user, refreshUser, setShowAuthModal, targetCategory, targetTierId } = useUser();
   const [geoData, setGeoData] = useState<GeoData | null>(null);
@@ -41,7 +63,10 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
       return;
     }
 
-    getPricingTiers().then(data => {
+    // Use cached data if available, otherwise fetch (fallback)
+    const loadTiers = _cachedTiers ? Promise.resolve(_cachedTiers) : getPricingTiers();
+    loadTiers.then(data => {
+      _cachedTiers = data;
       setTiers(data);
       if (targetTierId && data.length > 0) {
         const directTier = data.find(t => t.id === targetTierId) || data[0];
@@ -56,27 +81,28 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
         setSelectedTier(premiumTier);
       }
     });
-    
-    if (!document.getElementById('paystack-script')) {
-      const script = document.createElement('script');
-      script.id = 'paystack-script';
-      script.src = 'https://js.paystack.co/v2/inline.js';
-      script.async = true;
-      document.body.appendChild(script);
+
+    // Use cached geo, or fetch as fallback
+    if (_cachedGeo) {
+      setGeoData(_cachedGeo);
+      setLoadingGeo(false);
+      if (_cachedGeo.currency === 'KES' || _cachedGeo.country_code === 'KE') setSelectedMethod('mpesa');
+    } else {
+      fetch('https://ipapi.co/json/')
+        .then(res => res.json())
+        .then(data => { 
+          _cachedGeo = data;
+          setGeoData(data); 
+          setLoadingGeo(false); 
+          if (data.currency === 'KES' || data.country_code === 'KE') setSelectedMethod('mpesa');
+        })
+        .catch(() => { 
+          _cachedGeo = { country_code: 'KE', currency: 'KES' };
+          setGeoData(_cachedGeo); 
+          setLoadingGeo(false); 
+          setSelectedMethod('mpesa');
+        });
     }
-    
-    fetch('https://ipapi.co/json/')
-      .then(res => res.json())
-      .then(data => { 
-        setGeoData(data); 
-        setLoadingGeo(false); 
-        if (data.currency === 'KES' || data.country_code === 'KE') setSelectedMethod('mpesa');
-      })
-      .catch(() => { 
-        setGeoData({ country_code: 'KE', currency: 'KES' }); 
-        setLoadingGeo(false); 
-        setSelectedMethod('mpesa');
-      });
   }, [isOpen, targetCategory, targetTierId]);
 
   // Polling for payment status
@@ -209,7 +235,19 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
 
             <div className="p-4 overflow-y-auto">
               <AnimatePresence mode="wait">
-                {paymentView === 'selection' && (
+                {paymentView === 'selection' && tiers.length === 0 && (
+                  <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="py-8 space-y-3">
+                    <div className="flex justify-center mb-4">
+                      <div className="w-8 h-8 border-2 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin" />
+                    </div>
+                    <div className="h-10 bg-zinc-800 rounded-lg animate-pulse" />
+                    <div className="h-16 bg-zinc-800 rounded-xl animate-pulse" />
+                    <div className="h-16 bg-zinc-800 rounded-xl animate-pulse" />
+                    <div className="h-16 bg-zinc-800 rounded-xl animate-pulse" />
+                    <p className="text-center text-[10px] text-zinc-500 uppercase tracking-widest">Loading packages...</p>
+                  </motion.div>
+                )}
+                {paymentView === 'selection' && tiers.length > 0 && (
                   <motion.div key="selection" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }}>
                     <div className="flex bg-zinc-800 rounded-lg p-0.5 mb-3">
                       <button onClick={() => setDuration(2)} className={`flex-1 py-1.5 rounded-md text-xs font-bold transition-all ${duration === 2 ? 'bg-emerald-500 text-zinc-950' : 'text-zinc-400'}`}>2 Weeks</button>
@@ -220,23 +258,27 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
                     </div>
 
                     <div className="mb-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Choose Plan</h3>
+                      </div>
                       <div className="space-y-2">
-                      {tiers.filter(tier => {
-                        if (selectedTier) return selectedTier.id === tier.id;
-                        if (targetTierId) return targetTierId === tier.id;
-                        if (targetCategory) return tier.categories.includes(targetCategory);
-                        return tier.id === 'premium';
-                      }).slice(0, 1).map(tier => {
+                      {tiers.filter(t => t.id === 'basic' || t.id === 'standard' || t.id === 'premium').map(tier => {
                         const Icon = TIER_ICONS[tier.id] || Zap;
                         const dprice = duration === 2 ? tier.price2wk : tier.price4wk;
                         const originalPrice = duration === 2 ? tier.originalPrice2wk : tier.originalPrice4wk;
                         const defaultOriginalPrice = originalPrice || (dprice * 1.25);
+                        const isSelected = selectedTier?.id === tier.id;
                         return (
-                          <div
+                          <button
                             key={tier.id}
-                            className={`w-full flex items-center gap-3 p-2.5 rounded-xl border-2 transition-all text-left border-emerald-500 bg-emerald-500/10`}
+                            onClick={() => setSelectedTier(tier)}
+                            className={`w-full flex items-center gap-3 p-2.5 rounded-xl border-2 transition-all text-left ${
+                              isSelected 
+                                ? 'border-emerald-500 bg-emerald-500/10' 
+                                : 'border-zinc-800 hover:border-zinc-700 bg-zinc-800/30'
+                            }`}
                           >
-                            <div className={`p-1.5 rounded-lg shrink-0 bg-emerald-500 text-zinc-950`}>
+                            <div className={`p-1.5 rounded-lg shrink-0 ${isSelected ? 'bg-emerald-500 text-zinc-950' : 'bg-zinc-800 text-zinc-400'}`}>
                               <Icon className="w-4 h-4" />
                             </div>
                             <div className="flex-1 min-w-0">
@@ -247,15 +289,18 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
                                 )}
                               </div>
                               <div className="text-[10px] text-zinc-500 truncate">
-                                Selected Checkout Plan
+                                {tier.categories.filter(c => c !== 'free').map(c => CATEGORY_LABELS[c]?.label || c).join(', ')}
                               </div>
                             </div>
                             <div className="text-right shrink-0">
-                              <div className="text-[10px] text-zinc-500 line-through decoration-red-500/50">{tier.currency_symbol} {defaultOriginalPrice.toLocaleString(undefined, {minimumFractionDigits: defaultOriginalPrice % 1 !== 0 ? 2 : 0})}</div>
-                              <div className={`font-bold text-sm ${originalPrice ? 'text-emerald-400' : 'text-white'}`}>{tier.currency_symbol} {dprice.toLocaleString(undefined, {minimumFractionDigits: dprice % 1 !== 0 ? 2 : 0})}</div>
-                              <div className="text-[9px] text-emerald-500 font-bold uppercase">{duration} Weeks</div>
+                              {originalPrice ? (
+                                <div className="text-[10px] text-zinc-500 line-through decoration-red-500/50">{tier.currency_symbol} {defaultOriginalPrice.toLocaleString(undefined, {minimumFractionDigits: defaultOriginalPrice % 1 !== 0 ? 2 : 0})}</div>
+                              ) : null}
+                              <div className={`font-bold text-sm ${isSelected ? 'text-emerald-400' : 'text-white'}`}>{tier.currency_symbol} {dprice.toLocaleString(undefined, {minimumFractionDigits: dprice % 1 !== 0 ? 2 : 0})}</div>
+                              <div className="text-[9px] text-zinc-500 font-bold uppercase">{duration} Weeks</div>
                             </div>
-                          </div>
+                            {isSelected && <Check className="w-4 h-4 text-emerald-500 shrink-0" />}
+                          </button>
                         );
                       })}
                       </div>

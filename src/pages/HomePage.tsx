@@ -157,7 +157,7 @@ function AnimatedPremiumAd() {
             transition={{ delay: 0.8, type: 'spring', stiffness: 200 }}
             className="pointer-events-auto"
           >
-            <button onClick={() => setShowPricingModal(true, 'vip')} className="inline-flex items-center gap-2 px-6 py-2.5 bg-gold-500 text-zinc-950 font-bold rounded-xl hover:bg-gold-400 transition-all hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(234,179,8,0.3)] text-sm">
+            <button onClick={() => setShowPricingModal(true)} className="inline-flex items-center gap-2 px-6 py-2.5 bg-gold-500 text-zinc-950 font-bold rounded-xl hover:bg-gold-400 transition-all hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(234,179,8,0.3)] text-sm">
               Go Premium Now <ArrowRight className="w-4 h-4" />
             </button>
           </motion.div>
@@ -506,7 +506,7 @@ export function HomePage() {
         
         {/* 1. HIGH-CONVERTING CTA (Mobile Priority #1, Desktop Top Left) */}
         <section className="order-1 lg:order-1 lg:col-span-2">
-          <button onClick={() => setShowPricingModal(true, 'vip')} className="w-full text-left bg-gradient-to-r from-[#061f10] to-zinc-900 rounded-xl p-4 sm:p-5 flex items-center justify-between gap-4 shadow-lg border border-emerald-500/20 hover:border-emerald-500/40 transition-colors group">
+          <button onClick={() => setShowPricingModal(true)} className="w-full text-left bg-gradient-to-r from-[#061f10] to-zinc-900 rounded-xl p-4 sm:p-5 flex items-center justify-between gap-4 shadow-lg border border-emerald-500/20 hover:border-emerald-500/40 transition-colors group">
             <div className="flex items-center gap-3 sm:gap-4">
               <div className="bg-emerald-500/10 p-2 sm:p-3 rounded-lg backdrop-blur-sm border border-emerald-500/20 group-hover:bg-emerald-500/20 transition-colors">
                 <Crown className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-400" />
