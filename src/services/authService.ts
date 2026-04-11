@@ -11,6 +11,12 @@ export const authService = {
     if (referred_by_code) {
       payload.referred_by_code = referred_by_code;
     }
+    // Include affiliate code if cached
+    const affCode = localStorage.getItem('tambua_affiliate_code');
+    const affExpires = localStorage.getItem('tambua_affiliate_expires');
+    if (affCode && affExpires && Date.now() < Number(affExpires)) {
+      payload.referred_by_affiliate = affCode;
+    }
     const response = await apiClient.post<AuthResponse>('/auth/google', payload);
     return response.data;
   },
@@ -30,6 +36,12 @@ export const authService = {
   async verifyPhoneOtp(phone: string, code: string, referred_by_code?: string): Promise<AuthResponse> {
     const payload: any = { phone, code };
     if (referred_by_code) payload.referred_by_code = referred_by_code;
+    // Include affiliate code if cached
+    const affCode = localStorage.getItem('tambua_affiliate_code');
+    const affExpires = localStorage.getItem('tambua_affiliate_expires');
+    if (affCode && affExpires && Date.now() < Number(affExpires)) {
+      payload.referred_by_affiliate = affCode;
+    }
     const response = await apiClient.post<AuthResponse>('/auth/phone/verify-otp', payload);
     return response.data;
   },

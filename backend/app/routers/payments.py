@@ -9,7 +9,7 @@ from datetime import datetime, timedelta, UTC
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 
 from app.config import settings
 from app.dependencies import get_db, get_current_user
@@ -19,6 +19,7 @@ from app.models.payment import Payment
 from app.models.campaign import Campaign
 from app.models.jackpot import Jackpot, JackpotPurchase
 from app.models.subscription import SubscriptionTier
+from app.models.affiliate import Affiliate, AffiliateConversion, AffiliateCommissionConfig
 from app.schemas.payment import MpesaPaymentRequest, PaymentRequest, PaymentResponse, MpesaCallbackData
 from app.services.email_service import send_payment_receipt_email
 
@@ -209,6 +210,70 @@ async def _fulfill_payment(payment: Payment, user: User, db: AsyncSession):
                     payment_id=payment.id,
                 )
                 db.add(purchase)
+
+    # === Affiliate Commission Logic ===
+    if locked_user.affiliate_id:
+        result_aff = await db.execute(select(Affiliate).where(Affiliate.id == locked_user.affiliate_id))
+        affiliate = result_aff.scalar_one_or_none()
+        
+        if affiliate and affiliate.status == "approved":
+            # Find commission config for this item
+            q_conf = select(AffiliateCommissionConfig).where(
+                AffiliateCommissionConfig.item_type == payment.item_type
+            )
+            
+            # Subscriptions match by tier_id and duration (2wk/4wk)
+            weeks_val = locals().get("weeks", 2)
+            if payment.item_type == "subscription":
+                dur = "4wk" if weeks_val == 4 else "2wk"
+                q_conf = q_conf.where(
+                    AffiliateCommissionConfig.tier_id == payment.item_id,
+                    AffiliateCommissionConfig.duration == dur
+                )
+                
+            res_conf = await db.execute(q_conf)
+            config = res_conf.scalar_one_or_none()
+            
+            if config:
+                # Determine if this is a first-time purchase or renewal
+                prev_purchases = await db.execute(
+                    select(func.count(AffiliateConversion.id))
+                    .where(
+                        AffiliateConversion.affiliate_id == affiliate.id,
+                        AffiliateConversion.user_id == locked_user.id,
+                        AffiliateConversion.conversion_type == "purchase"
+                    )
+                )
+                is_first_purchase = (prev_purchases.scalar() == 0)
+                
+                if is_first_purchase or config.earn_on_renewal:
+                    affiliate_commission = float(payment.amount) * config.commission_percent / 100.0
+                    admin_commission = 0.0
+                    
+                    if affiliate.affiliate_admin_id:
+                        admin_commission = affiliate_commission * config.affiliate_admin_commission_percent / 100.0
+                        
+                        # Apply admin commission to the admin
+                        res_admin = await db.execute(select(Affiliate).where(Affiliate.id == affiliate.affiliate_admin_id))
+                        affiliate_admin = res_admin.scalar_one_or_none()
+                        if affiliate_admin:
+                            affiliate_admin.commission_earned = (affiliate_admin.commission_earned or 0.0) + admin_commission
+                            db.add(affiliate_admin)
+
+                    conversion = AffiliateConversion(
+                        affiliate_id=affiliate.id,
+                        user_id=locked_user.id,
+                        conversion_type="purchase",
+                        payment_id=payment.id,
+                        amount=float(payment.amount),
+                        commission_amount=affiliate_commission,
+                        affiliate_admin_commission=admin_commission
+                    )
+                    db.add(conversion)
+                    
+                    affiliate.total_revenue = (affiliate.total_revenue or 0.0) + affiliate_commission
+                    affiliate.commission_earned = (affiliate.commission_earned or 0.0) + affiliate_commission
+                    db.add(affiliate)
 
     await db.commit()
     

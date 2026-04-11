@@ -17,10 +17,12 @@ import os
 logger = logging.getLogger(__name__)
 
 # Import all models so SQLAlchemy registers them
-from app.models import user, tip, jackpot, subscription, payment, ad, notification, campaign  # noqa: F401
+from app.models import user, tip, jackpot, subscription, payment, ad, notification, campaign, affiliate  # noqa: F401
 
 # Import routers
 from app.routers import auth, tips, jackpots, payments, subscriptions, sports, news, admin, notifications, campaigns, rewards, internal, seo
+from app.routers import affiliates as affiliates_router
+from app.routers import affiliate_tracking
 
 
 async def seed_default_ads():
@@ -177,7 +179,7 @@ app.mount("/media", StaticFiles(directory="media"), name="media")
 # ── CORS ─────────────────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins,
+    allow_origins=settings.cors_origins + ["http://affiliate.tambualocal.com:3000", "http://affiliate.tambualocal.com:5173", "http://affiliate.localhost:3000", "http://affiliate.localhost:5173", "http://localhost:3000", "http://localhost:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -197,6 +199,8 @@ app.include_router(campaigns.router)
 app.include_router(rewards.router)
 app.include_router(internal.router)
 app.include_router(seo.router)
+app.include_router(affiliates_router.router)
+app.include_router(affiliate_tracking.router)
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):

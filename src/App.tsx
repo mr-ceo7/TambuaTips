@@ -25,6 +25,10 @@ import { FAQPage } from './pages/FAQPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { AboutUsPage } from './pages/AboutUsPage';
 
+// Affiliate
+import { AffiliateApp } from './pages/affiliate/AffiliateApp';
+import { affiliateTrackingService } from './services/affiliateService';
+
 // Admin
 import { AdminLayout } from './components/admin/AdminLayout';
 import { DashboardPage } from './pages/admin/DashboardPage';
@@ -38,6 +42,9 @@ import { AdsManagePage } from './pages/admin/AdsManagePage';
 import { SettingsManagePage } from './pages/admin/SettingsManagePage';
 import { CampaignsManagePage } from './pages/admin/CampaignsManagePage';
 import { CampaignProvider, useCampaign } from './context/CampaignContext';
+
+// Lazy-load affiliate admin page
+const AffiliatesManagePage = React.lazy(() => import('./pages/admin/AffiliatesManagePage'));
 
 function CampaignMetaManager() {
   const { activeCampaign } = useCampaign();
@@ -80,8 +87,51 @@ function ReferralCatcher() {
   return null;
 }
 
+function AffiliateCatcher() {
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const aff = params.get('aff');
+    if (aff) {
+      // Validate and cache the affiliate code
+      affiliateTrackingService.validateCode(aff).then(res => {
+        if (res.data.valid) {
+          localStorage.setItem('tambua_affiliate_code', aff);
+          localStorage.setItem('tambua_affiliate_expires', String(Date.now() + 30 * 24 * 60 * 60 * 1000));
+          // Track the click
+          affiliateTrackingService.trackClick(aff, document.referrer || undefined).catch(() => {});
+        }
+      }).catch(() => {});
+
+      // Clean URL
+      const url = new URL(window.location.href);
+      url.searchParams.delete('aff');
+      window.history.replaceState({}, '', url.toString());
+    } else {
+      // Check if cached code has expired
+      const expires = localStorage.getItem('tambua_affiliate_expires');
+      if (expires && Date.now() > Number(expires)) {
+        localStorage.removeItem('tambua_affiliate_code');
+        localStorage.removeItem('tambua_affiliate_expires');
+      }
+    }
+  }, []);
+  return null;
+}
+
 export default function App() {
   const [showSplash, setShowSplash] = useState(true);
+
+  // Subdomain detection: if on affiliate.*, render the affiliate portal
+  const hostname = window.location.hostname;
+  const isAffiliatePortal = hostname.startsWith('affiliate.') || hostname === 'affiliate.localhost' || localStorage.getItem('dev_affiliate_mode') === 'true';
+
+  if (isAffiliatePortal) {
+    return (
+      <BrowserRouter>
+        <AffiliateApp />
+      </BrowserRouter>
+    );
+  }
 
   return (
     <>
@@ -93,6 +143,7 @@ export default function App() {
         <BrowserRouter>
           <CampaignMetaManager />
           <ReferralCatcher />
+          <AffiliateCatcher />
           <Routes>
             {/* Public site */}
             <Route element={<Layout />}>
@@ -125,6 +176,11 @@ export default function App() {
               <Route path="ads" element={<AdsManagePage />} />
               <Route path="campaigns" element={<CampaignsManagePage />} />
               <Route path="settings" element={<SettingsManagePage />} />
+              <Route path="affiliates" element={
+                <React.Suspense fallback={<div style={{display:'flex',justifyContent:'center',padding:'3rem'}}><div style={{color:'#10b981'}}>Loading...</div></div>}>
+                  <AffiliatesManagePage />
+                </React.Suspense>
+              } />
             </Route>
           </Routes>
         </BrowserRouter>

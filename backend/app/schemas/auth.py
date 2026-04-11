@@ -12,6 +12,7 @@ from pydantic import BaseModel, EmailStr, Field
 class GoogleLoginRequest(BaseModel):
     id_token: str
     referred_by_code: Optional[str] = None
+    referred_by_affiliate: Optional[str] = None  # Affiliate marketing code
 
 class PhoneLoginRequest(BaseModel):
     phone: str
@@ -21,6 +22,7 @@ class PhoneVerifyRequest(BaseModel):
     phone: str
     code: str
     referred_by_code: Optional[str] = None
+    referred_by_affiliate: Optional[str] = None  # Affiliate marketing code
 
 class MagicLoginRequest(BaseModel):
     token: str

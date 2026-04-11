@@ -16,6 +16,14 @@ from sqlalchemy import select, func, and_, delete, update, or_
 
 from app.dependencies import get_db, require_admin
 from app.models.user import User
+from app.models.affiliate import (
+    Affiliate, AffiliateClick, AffiliateConversion,
+    AffiliatePayout, AffiliateCommissionConfig,
+)
+from app.schemas.affiliate import (
+    AffiliateResponse, AffiliateStatusUpdate, AffiliateAdminAssign,
+    CommissionConfigResponse, CommissionConfigUpdate, PayoutRequest,
+)
 from app.models.payment import Payment
 from app.models.tip import Tip
 from app.models.jackpot import Jackpot, JackpotPurchase
@@ -1385,3 +1393,433 @@ async def delete_admin_ad(ad_id: int, db: AsyncSession = Depends(get_db), admin:
     await db.delete(ad)
     await db.commit()
     return {"status": "success"}
+
+
+# ═══════════════════════════════════════════════════════════════
+#  AFFILIATE MARKETING MANAGEMENT
+# ═══════════════════════════════════════════════════════════════
+
+@router.get("/affiliates")
+async def list_affiliates(
+    status_filter: Optional[str] = Query(None, alias="status"),
+    is_admin_filter: Optional[bool] = Query(None, alias="is_admin"),
+    search: Optional[str] = Query(None),
+    page: int = Query(1, ge=1),
+    per_page: int = Query(25, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """List all affiliates with filtering and pagination."""
+    query = select(Affiliate)
+    count_query = select(func.count(Affiliate.id))
+
+    filters = []
+    if status_filter:
+        filters.append(Affiliate.status == status_filter)
+    if is_admin_filter is not None:
+        filters.append(Affiliate.is_affiliate_admin == is_admin_filter)
+    if search:
+        search_like = f"%{search.lower()}%"
+        filters.append(
+            or_(
+                func.lower(Affiliate.name).like(search_like),
+                func.lower(Affiliate.email).like(search_like),
+                func.lower(Affiliate.referral_code).like(search_like),
+            )
+        )
+
+    if filters:
+        query = query.where(and_(*filters))
+        count_query = count_query.where(and_(*filters))
+
+    total = (await db.execute(count_query)).scalar() or 0
+
+    offset = (page - 1) * per_page
+    query = query.order_by(Affiliate.created_at.desc()).offset(offset).limit(per_page)
+    result = await db.execute(query)
+    affiliates = result.scalars().all()
+
+    items = []
+    for aff in affiliates:
+        # Get the admin name if assigned
+        admin_name = None
+        if aff.affiliate_admin_id:
+            admin_res = await db.execute(select(Affiliate.name).where(Affiliate.id == aff.affiliate_admin_id))
+            admin_name = admin_res.scalar_one_or_none()
+
+        items.append({
+            **AffiliateResponse.model_validate(aff).model_dump(),
+            "admin_name": admin_name,
+        })
+
+    return {
+        "affiliates": items,
+        "total": total,
+        "page": page,
+        "per_page": per_page,
+        "total_pages": (total + per_page - 1) // per_page if per_page > 0 else 0,
+    }
+
+
+@router.get("/affiliates/{affiliate_id}")
+async def get_affiliate_detail(affiliate_id: int, db: AsyncSession = Depends(get_db), admin: User = Depends(require_admin)):
+    """Get detailed info for a single affiliate."""
+    result = await db.execute(select(Affiliate).where(Affiliate.id == affiliate_id))
+    aff = result.scalar_one_or_none()
+    if not aff:
+        raise HTTPException(status_code=404, detail="Affiliate not found")
+
+    # Recent conversions
+    conv_result = await db.execute(
+        select(AffiliateConversion)
+        .where(AffiliateConversion.affiliate_id == affiliate_id)
+        .order_by(AffiliateConversion.created_at.desc())
+        .limit(20)
+    )
+    conversions = conv_result.scalars().all()
+
+    conv_items = []
+    for c in conversions:
+        user_res = await db.execute(select(User.name, User.email).where(User.id == c.user_id))
+        user_info = user_res.first()
+        conv_items.append({
+            "id": c.id,
+            "type": c.conversion_type,
+            "amount": c.amount,
+            "commission": c.commission_amount,
+            "admin_commission": c.affiliate_admin_commission,
+            "user_name": user_info.name if user_info else "Unknown",
+            "user_email": user_info.email if user_info else "",
+            "created_at": c.created_at.isoformat() if c.created_at else None,
+        })
+
+    return {
+        "affiliate": AffiliateResponse.model_validate(aff).model_dump(),
+        "conversions": conv_items,
+    }
+
+
+@router.patch("/affiliates/{affiliate_id}/status")
+async def update_affiliate_status(
+    affiliate_id: int,
+    body: AffiliateStatusUpdate,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Approve or suspend an affiliate."""
+    result = await db.execute(select(Affiliate).where(Affiliate.id == affiliate_id))
+    aff = result.scalar_one_or_none()
+    if not aff:
+        raise HTTPException(status_code=404, detail="Affiliate not found")
+
+    aff.status = body.status
+    db.add(aff)
+    await db.commit()
+    return {"status": "success", "message": f"Affiliate status updated to '{body.status}'"}
+
+
+@router.patch("/affiliates/{affiliate_id}/make-admin")
+async def toggle_affiliate_admin(
+    affiliate_id: int,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Promote or demote an affiliate to/from affiliate admin."""
+    result = await db.execute(select(Affiliate).where(Affiliate.id == affiliate_id))
+    aff = result.scalar_one_or_none()
+    if not aff:
+        raise HTTPException(status_code=404, detail="Affiliate not found")
+
+    aff.is_affiliate_admin = not aff.is_affiliate_admin
+    db.add(aff)
+    await db.commit()
+
+    action = "promoted to" if aff.is_affiliate_admin else "demoted from"
+    return {"status": "success", "message": f"Affiliate {action} admin", "is_affiliate_admin": aff.is_affiliate_admin}
+
+
+@router.patch("/affiliates/{affiliate_id}/assign-admin")
+async def assign_affiliate_admin(
+    affiliate_id: int,
+    body: AffiliateAdminAssign,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Assign an affiliate to an affiliate admin (or unassign with null)."""
+    result = await db.execute(select(Affiliate).where(Affiliate.id == affiliate_id))
+    aff = result.scalar_one_or_none()
+    if not aff:
+        raise HTTPException(status_code=404, detail="Affiliate not found")
+
+    if body.affiliate_admin_id is not None:
+        # Validate the admin exists and is actually an affiliate admin
+        admin_res = await db.execute(
+            select(Affiliate).where(Affiliate.id == body.affiliate_admin_id, Affiliate.is_affiliate_admin == True)
+        )
+        affiliate_admin = admin_res.scalar_one_or_none()
+        if not affiliate_admin:
+            raise HTTPException(status_code=400, detail="Target affiliate admin not found or is not an admin")
+        if body.affiliate_admin_id == affiliate_id:
+            raise HTTPException(status_code=400, detail="Cannot assign affiliate to themselves")
+
+    aff.affiliate_admin_id = body.affiliate_admin_id
+    db.add(aff)
+    await db.commit()
+    return {"status": "success"}
+
+
+# ── Commission Config ────────────────────────────────────────
+
+@router.get("/affiliate-commissions")
+async def get_commission_configs(db: AsyncSession = Depends(get_db), admin: User = Depends(require_admin)):
+    """Get all commission configs."""
+    result = await db.execute(select(AffiliateCommissionConfig).order_by(AffiliateCommissionConfig.item_type, AffiliateCommissionConfig.tier_id))
+    configs = result.scalars().all()
+    return {"configs": [CommissionConfigResponse.model_validate(c) for c in configs]}
+
+
+@router.put("/affiliate-commissions")
+async def update_commission_configs(
+    configs: List[CommissionConfigUpdate],
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Upsert commission configs. Each config is identified by (item_type, tier_id, duration)."""
+    for cfg in configs:
+        result = await db.execute(
+            select(AffiliateCommissionConfig).where(
+                AffiliateCommissionConfig.item_type == cfg.item_type,
+                AffiliateCommissionConfig.tier_id == cfg.tier_id,
+                AffiliateCommissionConfig.duration == cfg.duration,
+            )
+        )
+        existing = result.scalar_one_or_none()
+
+        if existing:
+            existing.commission_percent = cfg.commission_percent
+            existing.affiliate_admin_commission_percent = cfg.affiliate_admin_commission_percent
+            existing.earn_on_renewal = cfg.earn_on_renewal
+            db.add(existing)
+        else:
+            new_config = AffiliateCommissionConfig(
+                item_type=cfg.item_type,
+                tier_id=cfg.tier_id,
+                duration=cfg.duration,
+                commission_percent=cfg.commission_percent,
+                affiliate_admin_commission_percent=cfg.affiliate_admin_commission_percent,
+                earn_on_renewal=cfg.earn_on_renewal,
+            )
+            db.add(new_config)
+
+    await db.commit()
+    return {"status": "success", "message": f"{len(configs)} commission config(s) saved"}
+
+
+# ── Payouts ──────────────────────────────────────────────────
+
+@router.post("/affiliates/{affiliate_id}/pay")
+async def pay_affiliate(
+    affiliate_id: int,
+    body: PayoutRequest,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Trigger M-Pesa B2C payout to a single affiliate."""
+    from app.services.mpesa_b2c import initiate_b2c_payment
+
+    result = await db.execute(select(Affiliate).where(Affiliate.id == affiliate_id))
+    aff = result.scalar_one_or_none()
+    if not aff:
+        raise HTTPException(status_code=404, detail="Affiliate not found")
+
+    balance = aff.commission_balance
+    if balance <= 0:
+        raise HTTPException(status_code=400, detail="No pending commission to pay out")
+
+    # Create payout record
+    now = datetime.now(UTC).replace(tzinfo=None)
+    payout = AffiliatePayout(
+        affiliate_id=aff.id,
+        amount=balance,
+        phone=aff.phone,
+        status="pending",
+        period_start=body.period_start or now.replace(day=1),
+        period_end=body.period_end or now,
+    )
+    db.add(payout)
+    await db.commit()
+    await db.refresh(payout)
+
+    try:
+        reference = f"AFF-PAY-{payout.id}"
+        b2c_result = initiate_b2c_payment(aff.phone, balance, reference)
+
+        # If we get here without exception, mark success
+        payout.status = "completed"
+        payout.transaction_id = b2c_result.get("ConversationID") or b2c_result.get("transaction_id", "")
+
+        # Credit the paid amount
+        aff.commission_paid = (aff.commission_paid or 0.0) + balance
+        db.add(aff)
+        db.add(payout)
+        await db.commit()
+
+        return {
+            "status": "success",
+            "payout_id": payout.id,
+            "amount": balance,
+            "transaction_id": payout.transaction_id,
+        }
+
+    except Exception as e:
+        payout.status = "failed"
+        db.add(payout)
+        await db.commit()
+        raise HTTPException(status_code=500, detail=f"Payout failed: {str(e)}")
+
+
+@router.post("/affiliates/pay-all")
+async def pay_all_affiliates(
+    body: PayoutRequest,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Batch payout: pay all affiliates with positive balance."""
+    from app.services.mpesa_b2c import initiate_b2c_payment
+
+    result = await db.execute(
+        select(Affiliate).where(Affiliate.status == "approved")
+    )
+    affiliates = result.scalars().all()
+
+    now = datetime.now(UTC).replace(tzinfo=None)
+    results_list = []
+
+    for aff in affiliates:
+        balance = aff.commission_balance
+        if balance <= 0:
+            continue
+
+        payout = AffiliatePayout(
+            affiliate_id=aff.id,
+            amount=balance,
+            phone=aff.phone,
+            status="pending",
+            period_start=body.period_start or now.replace(day=1),
+            period_end=body.period_end or now,
+        )
+        db.add(payout)
+        await db.commit()
+        await db.refresh(payout)
+
+        try:
+            reference = f"AFF-PAY-{payout.id}"
+            b2c_result = await initiate_b2c_payment(aff.phone, balance, reference)
+
+            payout.status = "completed"
+            payout.transaction_id = b2c_result.get("ConversationID") or b2c_result.get("transaction_id", "")
+            aff.commission_paid = (aff.commission_paid or 0.0) + balance
+            db.add(aff)
+            db.add(payout)
+            await db.commit()
+
+            results_list.append({"affiliate_id": aff.id, "name": aff.name, "amount": balance, "status": "completed"})
+        except Exception as e:
+            payout.status = "failed"
+            db.add(payout)
+            await db.commit()
+            results_list.append({"affiliate_id": aff.id, "name": aff.name, "amount": balance, "status": "failed", "error": str(e)})
+
+    return {
+        "status": "success",
+        "total_paid": len([r for r in results_list if r["status"] == "completed"]),
+        "total_failed": len([r for r in results_list if r["status"] == "failed"]),
+        "details": results_list,
+    }
+
+
+@router.get("/affiliate-payouts")
+async def list_affiliate_payouts(
+    page: int = Query(1, ge=1),
+    per_page: int = Query(25, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """List all payout history."""
+    count = (await db.execute(select(func.count(AffiliatePayout.id)))).scalar() or 0
+
+    result = await db.execute(
+        select(AffiliatePayout)
+        .order_by(AffiliatePayout.created_at.desc())
+        .offset((page - 1) * per_page)
+        .limit(per_page)
+    )
+    payouts = result.scalars().all()
+
+    items = []
+    for p in payouts:
+        aff_res = await db.execute(select(Affiliate.name, Affiliate.email).where(Affiliate.id == p.affiliate_id))
+        aff_info = aff_res.first()
+        items.append({
+            "id": p.id,
+            "affiliate_name": aff_info.name if aff_info else "Unknown",
+            "affiliate_email": aff_info.email if aff_info else "",
+            "amount": p.amount,
+            "method": p.method,
+            "phone": p.phone,
+            "status": p.status,
+            "transaction_id": p.transaction_id,
+            "period_start": p.period_start.isoformat() if p.period_start else None,
+            "period_end": p.period_end.isoformat() if p.period_end else None,
+            "created_at": p.created_at.isoformat() if p.created_at else None,
+        })
+
+    return {"payouts": items, "total": count, "page": page, "per_page": per_page}
+
+
+@router.get("/affiliate-stats")
+async def affiliate_overview_stats(db: AsyncSession = Depends(get_db), admin: User = Depends(require_admin)):
+    """Aggregate affiliate program stats for admin dashboard."""
+    total_affiliates = (await db.execute(select(func.count(Affiliate.id)))).scalar() or 0
+    pending_affiliates = (await db.execute(
+        select(func.count(Affiliate.id)).where(Affiliate.status == "pending")
+    )).scalar() or 0
+    active_affiliates = (await db.execute(
+        select(func.count(Affiliate.id)).where(Affiliate.status == "approved")
+    )).scalar() or 0
+
+    total_clicks = (await db.execute(select(func.count(AffiliateClick.id)))).scalar() or 0
+    total_signups = (await db.execute(
+        select(func.count(AffiliateConversion.id)).where(AffiliateConversion.conversion_type == "signup")
+    )).scalar() or 0
+    total_purchases = (await db.execute(
+        select(func.count(AffiliateConversion.id)).where(AffiliateConversion.conversion_type == "purchase")
+    )).scalar() or 0
+
+    total_commission = (await db.execute(
+        select(func.coalesce(func.sum(AffiliateConversion.commission_amount), 0.0))
+        .where(AffiliateConversion.conversion_type == "purchase")
+    )).scalar() or 0.0
+    total_paid = (await db.execute(
+        select(func.coalesce(func.sum(AffiliatePayout.amount), 0.0))
+        .where(AffiliatePayout.status == "completed")
+    )).scalar() or 0.0
+
+    total_revenue_from_affiliates = (await db.execute(
+        select(func.coalesce(func.sum(AffiliateConversion.amount), 0.0))
+        .where(AffiliateConversion.conversion_type == "purchase")
+    )).scalar() or 0.0
+
+    return {
+        "total_affiliates": total_affiliates,
+        "pending_affiliates": pending_affiliates,
+        "active_affiliates": active_affiliates,
+        "total_clicks": total_clicks,
+        "total_signups": total_signups,
+        "total_purchases": total_purchases,
+        "total_commission": float(total_commission),
+        "total_paid": float(total_paid),
+        "unpaid_commission": float(total_commission) - float(total_paid),
+        "total_revenue_from_affiliates": float(total_revenue_from_affiliates),
+    }
+

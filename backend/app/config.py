@@ -32,6 +32,15 @@ class Settings(BaseSettings):
     MPESA_CALLBACK_SECRET: str = ""
     MPESA_ENV: str = "sandbox"
 
+    # M-Pesa B2C (Affiliate Payouts)
+    MPESA_B2C_CONSUMER_KEY: str = ""
+    MPESA_B2C_CONSUMER_SECRET: str = ""
+    MPESA_B2C_SHORTCODE: str = ""
+    MPESA_B2C_INITIATOR_NAME: str = ""
+    MPESA_B2C_SECURITY_CREDENTIAL: str = ""
+    MPESA_B2C_CALLBACK_URL: str = ""
+    MPESA_B2C_TIMEOUT_URL: str = ""
+
     # PayPal
     PAYPAL_CLIENT_ID: str = ""
     PAYPAL_CLIENT_SECRET: str = ""
@@ -48,7 +57,7 @@ class Settings(BaseSettings):
     PAYSTACK_PUBLIC_KEY: str = ""
 
     # ── CORS ─────────────────────────────────────────────────
-    ALLOWED_ORIGINS: str = "http://localhost:8000,http://localhost:3000,https://www.tambuatips.com,https://tambua-tips-preview.vercel.app"
+    ALLOWED_ORIGINS: str = "http://localhost:8000,http://localhost:3000,http://localhost:5173,http://affiliate.tambualocal.com:5173,http://affiliate.tambualocal.com:3000,http://affiliate.localhost:3000,http://affiliate.localhost:5173,https://www.tambuatips.com,https://tambua-tips-preview.vercel.app,https://affiliate.tambuatips.com"
 
     # ── Gemini AI ────────────────────────────────────────────
     GEMINI_API_KEY: str = ""

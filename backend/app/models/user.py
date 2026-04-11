@@ -48,6 +48,9 @@ class User(Base):
     referral_discount_active = Column(Boolean, default=False, nullable=False, server_default="0")
     unlocked_tip_ids = Column(JSON, default=list)
     
+    # Affiliate marketing — which affiliate drove this user's sign-up
+    affiliate_id = Column(BigInteger, ForeignKey('affiliates.id'), nullable=True)
+    
     # Self-referential relationship for referrals
     referred_users = relationship("User", backref="referrer", remote_side=[id])
 

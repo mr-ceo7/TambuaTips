@@ -17,7 +17,7 @@ SMS_URL = "https://trackomgroup.com/sms_old/sendSmsApi/sendsms_v15.php"
 SMS_SRC = "ARVOCAP"  # Hardcoding for the script to be safe, could also pull from admin settings
 
 # Full English draft with Tagline as agreed
-SMS_TEMPLATE = "TambuaTips has upgraded! We no longer send tips via SMS. Your FREE account is ready on our new platform. Tap to access your tips: {link} Stop Guessing, Start Winning! tambuatips.com"
+SMS_TEMPLATE = "TambuaTips has upgraded! We no longer send tips via SMS. Your FREE account is ready on our new platform. Tap to access your tips: {link} Stop Guessing, Start Winning! https://tambuatips.com"
 
 # The file containing the phone numbers
 CSV_FILE = "../tambua_data.csv"

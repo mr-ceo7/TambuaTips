@@ -3,7 +3,7 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import {
   LayoutDashboard, Users, TrendingUp, Trophy, DollarSign, Settings,
-  Bell, ChevronLeft, ChevronRight, LogOut, Shield, Menu, X, Megaphone, Presentation
+  Bell, ChevronLeft, ChevronRight, LogOut, Shield, Menu, X, Megaphone, Presentation, Handshake
 } from 'lucide-react';
 import { useUser } from '../../context/UserContext';
 import { usePageTitle } from '../../hooks/usePageTitle';
@@ -17,6 +17,7 @@ const NAV_ITEMS = [
   { path: '/admin/pricing', icon: Settings, label: 'Pricing', end: false },
   { path: '/admin/ads', icon: Megaphone, label: 'Ads', end: false },
   { path: '/admin/campaigns', icon: Presentation, label: 'Campaigns', end: false },
+  { path: '/admin/affiliates', icon: Handshake, label: 'Affiliates', end: false },
   { path: '/admin/broadcast', icon: Bell, label: 'Broadcast', end: false },
   { path: '/admin/settings', icon: Settings, label: 'Settings', end: false },
 ];

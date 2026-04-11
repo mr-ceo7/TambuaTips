@@ -7,12 +7,24 @@ These commands are formatted to be copied and pasted directly into your terminal
 > - Replace placeholders like `[EMAIL]`, `[ID]`, and `[TIER]` with actual values.
 
 ---
+## 1. Create User & Activate Subscription
+This single command creates Joseph's account, assigns him the auto-generated email, sets his tier to premium, and gives him 28 days of access.
+
+```bash
+mysql -u root -p'$DB_PASS' -e "USE tambuatips_v2_db; INSERT INTO users (name, email, password, subscription_tier, subscription_expires_at, created_at, updated_at) VALUES ('steward-Omwenga', 'phone_254721857014@tambuatips.local', 'manual_registration', 'tier_4plus', DATE_ADD(NOW(), INTERVAL 28 DAY), NOW(), NOW());"
+```
+## 2. Log the Payment
+Now that his account exists, this command will successfully log his KES 640 M-Pesa payment and attach it to his new
+
+```bash
+mysql -u root -p'$DB_PASS' -e "USE tambuatips_v2_db; INSERT INTO payments (user_id, amount, currency, method, status, reference, transaction_id, item_type, item_id, created_at, updated_at) VALUES ((SELECT id FROM users WHERE email = 'phone_254721857014@tambuatips.local' LIMIT 1), 640, 'KES', 'mpesa', 'completed', 'MANUAL-PAY', 'TXN-$(date +%s)', 'subscription', 'tier_4plus', NOW(), NOW());"
+```
 
 ## ── User & Subscription Management ─────────────────────────────
 
 ### 🔎 Search User by Email
 ```bash
-mysql -u root -p'$DB_PASS' -e "USE tambuatips_v2_db; SELECT id, name, email, subscription_tier, subscription_expires_at FROM users WHERE email LIKE '%[EMAIL]%';"
+mysql -u root -p'$DB_PASS' -e "USE tambuatips_v2_db; SELECT id, name, email, subscription_tier, subscription_expires_at FROM users WHERE email LIKE '%[phone_254720053143@tambuatips.local]%';"
 ```
 
 ### 🗓️ Check Subscription Expiry

@@ -18,6 +18,7 @@ from app.database import AsyncSessionLocal
 from app.dependencies import get_db, get_current_user, get_current_user_optional, get_unverified_user
 from app.models.user import User, UserSession
 from app.models.setting import AdminSetting
+from app.models.affiliate import Affiliate, AffiliateConversion
 from app.config import settings
 from app.routers.admin import get_referral_settings, get_sms_settings
 from app.routers.campaigns import track_campaign_event
@@ -208,6 +209,27 @@ async def google_auth(body: GoogleLoginRequest, request: Request, response: Resp
                         db.add(referrer)
                         db.add(user)
                         await db.commit()
+
+            # Affiliate fulfillment (separate from standard user referrals)
+            if body.referred_by_affiliate:
+                aff_result = await db.execute(select(Affiliate).where(Affiliate.referral_code == body.referred_by_affiliate))
+                affiliate = aff_result.scalar_one_or_none()
+                if affiliate and affiliate.status == "approved":
+                    user.affiliate_id = affiliate.id
+                    
+                    # Track signup conversion
+                    conversion = AffiliateConversion(
+                        affiliate_id=affiliate.id,
+                        user_id=user.id,
+                        conversion_type="signup"
+                    )
+                    db.add(conversion)
+                    
+                    # Update counter
+                    affiliate.total_signups = (affiliate.total_signups or 0) + 1
+                    db.add(affiliate)
+                    db.add(user)
+                    await db.commit()
 
         # Update dynamic fields (Profile Pic update if changed, Session ID rotation)
         if picture and user.profile_picture != picture:
@@ -414,6 +436,23 @@ async def verify_phone_otp(body: PhoneVerifyRequest, request: Request, response:
                     user.subscription_expires_at = datetime.now(UTC).replace(tzinfo=None) + timedelta(days=new_user_days)
                 
                 db.add(referrer)
+
+    # Affiliate fulfillment (separate from standard user referrals)
+    if is_new_user and body.referred_by_affiliate:
+        aff_result = await db.execute(select(Affiliate).where(Affiliate.referral_code == body.referred_by_affiliate))
+        affiliate = aff_result.scalar_one_or_none()
+        if affiliate and affiliate.status == "approved":
+            user.affiliate_id = affiliate.id
+            
+            conversion = AffiliateConversion(
+                affiliate_id=affiliate.id,
+                user_id=user.id,
+                conversion_type="signup"
+            )
+            db.add(conversion)
+            
+            affiliate.total_signups = (affiliate.total_signups or 0) + 1
+            db.add(affiliate)
 
     # Session management
     if not user.referral_code:

@@ -24,7 +24,7 @@ class Tip(Base):
     confidence = Column(Integer, nullable=False, default=3)
     reasoning = Column(Text, nullable=True)
     category = Column(String(20), nullable=False, default="free")  # free, 2+, 4+, gg, 10+, vip
-    is_premium = Column(Integer, nullable=False, default=0)
+    is_premium = Column(Integer, nullable=False, default=0)  # 0=free, 1=premium
     result = Column(String(20), nullable=False, default="pending")  # pending, won, lost, void
 
     created_at = Column(DateTime, default=datetime.utcnow)
