@@ -19,7 +19,20 @@ export interface TierConfig {
   originalPrice4wk?: number;
 }
 
+const FREE_TIER: TierConfig = {
+  id: 'free',
+  name: 'Free',
+  description: 'Free access tier.',
+  price2wk: 0,
+  price4wk: 0,
+  categories: ['free'],
+  popular: false,
+  currency: 'KES',
+  currency_symbol: 'KES',
+};
+
 const DEFAULT_TIERS: TierConfig[] = [
+  FREE_TIER,
   {
     id: 'basic',
     name: 'Basic',
@@ -60,6 +73,13 @@ export const CATEGORY_LABELS: Record<TipCategory, { label: string; minTier: Subs
 
 let cachedTiers: TierConfig[] = [...DEFAULT_TIERS];
 
+function ensureFreeTier(tiers: TierConfig[]): TierConfig[] {
+  if (tiers.some((tier) => tier.id === 'free')) {
+    return tiers;
+  }
+  return [FREE_TIER, ...tiers];
+}
+
 export function hasAccessToCategory(userTier: SubscriptionTier, category: TipCategory): boolean {
     if (category === 'free') return true;
     if (userTier === 'premium') return true;
@@ -98,12 +118,14 @@ export async function getPricingTiers(): Promise<TierConfig[]> {
         originalPrice2wk: t.original_price_2wk,
         originalPrice4wk: t.original_price_4wk,
       }));
-      cachedTiers = [...mappedTiers];
-      return mappedTiers;
+      cachedTiers = ensureFreeTier(mappedTiers);
+      return cachedTiers;
     }
+    cachedTiers = ensureFreeTier(cachedTiers);
     return cachedTiers;
   } catch (error) {
     console.error('Failed to fetch pricing tiers, falling back to default', error);
+    cachedTiers = ensureFreeTier(cachedTiers);
     return cachedTiers;
   }
 }

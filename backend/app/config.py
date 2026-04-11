@@ -4,6 +4,7 @@ Application settings loaded from environment variables.
 
 from pydantic_settings import BaseSettings
 from typing import List
+from pydantic import field_validator
 
 
 class Settings(BaseSettings):
@@ -31,6 +32,9 @@ class Settings(BaseSettings):
     MPESA_CALLBACK_URL: str = ""
     MPESA_CALLBACK_SECRET: str = ""
     MPESA_ENV: str = "sandbox"
+    LEGACY_MPESA_DATABASE_URL: str = ""
+    LEGACY_MPESA_BIZ_NO: str = "804633"
+    LEGACY_MPESA_SYNC_BATCH_SIZE: int = 200
 
     # M-Pesa B2C (Affiliate Payouts)
     MPESA_B2C_CONSUMER_KEY: str = ""
@@ -82,6 +86,19 @@ class Settings(BaseSettings):
     SMTP_USERNAME: str = "tambuatips@gmail.com"
     SMTP_PASSWORD: str = ""
     FROM_EMAIL: str = "tambuatips@gmail.com"
+
+    @field_validator("DEBUG", mode="before")
+    @classmethod
+    def normalize_debug(cls, value):
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if normalized in {"1", "true", "yes", "on", "debug"}:
+                return True
+            if normalized in {"0", "false", "no", "off", "release", "prod", "production"}:
+                return False
+        return value
 
     @property
     def api_football_key_list(self) -> List[str]:

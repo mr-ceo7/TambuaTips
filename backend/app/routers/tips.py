@@ -12,10 +12,15 @@ from app.dependencies import get_db, get_current_user, get_current_user_optional
 from app.models.user import User
 from app.models.tip import Tip
 from app.schemas.tip import TipCreate, TipUpdate, TipResponse, TipLockedResponse, TipStatsResponse
+from pydantic import BaseModel
 from fastapi import BackgroundTasks
-from app.services.sms_tip_delivery import queue_tip_sms_for_tip
+from app.services.sms_tip_delivery import queue_tip_sms_for_tip, flush_pending_sms_tip_bundles
 
 router = APIRouter(prefix="/api/tips", tags=["Tips"])
+
+
+class FlushTipSmsQueueRequest(BaseModel):
+    tip_ids: Optional[List[int]] = None
 
 # Tier access mapping
 TIER_RANK = {"free": 0, "basic": 1, "standard": 2, "premium": 3}
@@ -206,6 +211,18 @@ async def create_tip(body: TipCreate, background_tasks: BackgroundTasks, db: Asy
             print("Auto-broadcast failed:", e)
             
     return tip
+
+
+@router.post("/flush-sms-queue")
+async def flush_tip_sms_queue(
+    body: FlushTipSmsQueueRequest,
+    admin: User = Depends(require_admin),
+):
+    result = await flush_pending_sms_tip_bundles(tip_ids=body.tip_ids or None)
+    return {
+        "status": "success",
+        **result,
+    }
 
 
 @router.put("/{tip_id}", response_model=TipResponse)

@@ -17,7 +17,7 @@ import os
 logger = logging.getLogger(__name__)
 
 # Import all models so SQLAlchemy registers them
-from app.models import user, tip, jackpot, subscription, payment, ad, notification, campaign, affiliate, sms_tip  # noqa: F401
+from app.models import user, tip, jackpot, subscription, payment, ad, notification, campaign, affiliate, sms_tip, legacy_mpesa  # noqa: F401
 
 # Import routers
 from app.routers import auth, tips, jackpots, payments, subscriptions, sports, news, admin, notifications, campaigns, rewards, internal, seo

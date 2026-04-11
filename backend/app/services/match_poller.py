@@ -3,7 +3,13 @@ import logging
 import json
 from sqlalchemy import select
 from sqlalchemy.orm import joinedload
-from pywebpush import webpush, WebPushException
+try:
+    from pywebpush import webpush, WebPushException
+except ModuleNotFoundError:  # pragma: no cover - optional in test/dev environments
+    webpush = None
+
+    class WebPushException(Exception):
+        pass
 
 from app.database import AsyncSessionLocal
 from app.models.notification import MatchSubscription
@@ -14,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 def send_push_to_subscriptions(subscriptions: list, payload: dict):
     """Send standard web push to a list of subscription JSONs."""
-    if not subscriptions:
+    if not subscriptions or webpush is None:
         return
         
     payload_str = json.dumps(payload)

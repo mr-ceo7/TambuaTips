@@ -37,6 +37,7 @@ async def send_system_alert(title: str, message: str, level: str = "ERROR"):
         
     # 1. Send Email
     subject = f"🚨 TambuaTips System Alert [{level}]: {title}"
+    formatted_message = message.replace("\n", "<br>")
     body = f"""
     <div style="background-color: #7f1d1d; color: #fecaca; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
         <strong>SYSTEM ALERT</strong><br>
@@ -44,7 +45,7 @@ async def send_system_alert(title: str, message: str, level: str = "ERROR"):
         Priority: {level}
     </div>
     <div style="color: #ffffff; font-family: monospace; background: #000; padding: 15px; border-radius: 4px; border: 1px solid #333;">
-        {message.replace('\n', '<br>')}
+        {formatted_message}
     </div>
     """
     html_content = _generate_html_template(title, body, "View Console", "https://tambuatips.com/_deploy")

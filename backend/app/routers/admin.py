@@ -5,8 +5,6 @@ Admin routes — privileged operations + analytics dashboard.
 import csv
 import io
 import json
-import random
-import string
 from typing import Dict, List, Optional
 from datetime import datetime, timedelta, UTC
 import uuid
@@ -30,6 +28,7 @@ from app.schemas.affiliate import (
 from app.models.payment import Payment
 from app.models.tip import Tip
 from app.models.jackpot import Jackpot, JackpotPurchase
+from app.models.legacy_mpesa import LegacyMpesaTransaction
 from app.models.subscription import SubscriptionTier
 from app.models.activity import UserActivity, AnonymousVisitor
 from app.models.ad import AdPost
@@ -38,8 +37,16 @@ from app.schemas.auth import UserResponse, AdminUserResponse
 from app.schemas.payment import PaymentResponse
 from app.schemas.ad import AdPostCreate, AdPostUpdate, AdPostResponse
 from app.services.email_service import send_broadcast_email, send_affiliate_approved_email
+from app.services.legacy_mpesa_sync import (
+    fetch_latest_legacy_mpesa_records,
+    fetch_legacy_mpesa_records,
+    fetch_legacy_mpesa_records_before,
+    fetch_legacy_mpesa_records_between,
+    ensure_phone_user,
+    normalize_phone,
+    sync_legacy_mpesa_transactions,
+)
 from app.config import settings
-from app.security import hash_password
 
 import re
 import httpx
@@ -64,7 +71,7 @@ async def _notify_affiliate_approved(phone: str, name: str, db: AsyncSession):
             return
 
         sms_src = sms_settings.get("SMS_SRC", "ARVOCAP")
-        stripped_phone = re.sub(r'[\D]', '', phone)
+        stripped_phone = _normalize_phone_digits_for_sms(phone)
 
         sms_message = (
             f"Hi {name}! Great news - your TambuaTips Affiliate account has been approved! "
@@ -85,10 +92,16 @@ async def _notify_affiliate_approved(phone: str, name: str, db: AsyncSession):
 
 
 def _normalize_phone(phone: str) -> str:
-    normalized = re.sub(r'[\s\-\(\)]', '', phone.strip())
-    if not normalized.startswith('+'):
-        normalized = '+' + normalized
-    return normalized
+    return normalize_phone(phone)
+
+
+def _normalize_phone_digits_for_sms(phone: str) -> str:
+    digits = re.sub(r'[\D]', '', phone or '')
+    if digits.startswith('0') and len(digits) == 10:
+        return f"254{digits[1:]}"
+    if digits.startswith('7') and len(digits) == 9:
+        return f"254{digits}"
+    return digits
 
 
 def _ensure_referral_code(user: User):
@@ -103,6 +116,112 @@ def _ensure_referral_code(user: User):
 def _ensure_magic_login_token(user: User):
     if not user.magic_login_token:
         user.magic_login_token = uuid.uuid4().hex[:32]
+
+
+def _grant_subscription_access(user: User, tier: str, duration_days: int) -> None:
+    if tier == "free":
+        user.subscription_tier = "free"
+        user.subscription_expires_at = None
+        return
+
+    now = datetime.now(UTC).replace(tzinfo=None)
+    current_expiry = user.subscription_expires_at if user.subscription_expires_at and user.subscription_expires_at > now else now
+    user.subscription_tier = tier
+    user.subscription_expires_at = current_expiry + timedelta(days=duration_days)
+
+
+def _create_subscription_payment(
+    *,
+    user: User,
+    amount_paid: float,
+    tier: str,
+    duration_days: int,
+    admin_id: int,
+    source: str,
+    reference: str | None = None,
+    transaction_id: str | None = None,
+    extra_metadata: Optional[dict] = None,
+) -> Payment:
+    metadata = {
+        "source": source,
+        "duration_days": duration_days,
+        "admin_id": admin_id,
+    }
+    if extra_metadata:
+        metadata.update(extra_metadata)
+
+    return Payment(
+        user_id=user.id,
+        amount=amount_paid,
+        currency="KES",
+        method="mpesa",
+        status="completed",
+        reference=reference or f"{source.upper()}-{uuid.uuid4().hex[:10].upper()}",
+        transaction_id=transaction_id or f"{source.upper()}-{uuid.uuid4().hex[:10].upper()}",
+        item_type="subscription",
+        item_id=tier,
+        phone=user.phone,
+        email=user.email,
+        gateway_response=json.dumps(metadata),
+    )
+
+
+async def _assign_legacy_queue_item(
+    db: AsyncSession,
+    *,
+    queue_item: LegacyMpesaTransaction,
+    tier: str,
+    duration_days: int,
+    admin_id: int,
+) -> tuple[User, Payment]:
+    user = None
+    if queue_item.user_id:
+        user_res = await db.execute(select(User).where(User.id == queue_item.user_id))
+        user = user_res.scalar_one_or_none()
+
+    if not user:
+        user, _ = await ensure_phone_user(
+            db,
+            queue_item.phone,
+            first_name=queue_item.first_name,
+            other_name=queue_item.other_name,
+        )
+
+    _ensure_referral_code(user)
+    _ensure_magic_login_token(user)
+    user.sms_tips_enabled = True
+    user.is_active = True
+    _grant_subscription_access(user, tier, duration_days)
+    db.add(user)
+    await db.flush()
+
+    payment = _create_subscription_payment(
+        user=user,
+        amount_paid=queue_item.amount,
+        tier=tier,
+        duration_days=duration_days,
+        admin_id=admin_id,
+        source="legacy_mpesa_assignment",
+        reference=f"LEGACY-MPESA-{queue_item.source_record_id}",
+        transaction_id=f"LEGACY-MPESA-{queue_item.source_record_id}",
+        extra_metadata={
+            "legacy_transaction_id": queue_item.source_record_id,
+            "legacy_queue_id": queue_item.id,
+            "biz_no": queue_item.biz_no,
+        },
+    )
+    db.add(payment)
+    await db.flush()
+
+    queue_item.user_id = user.id
+    queue_item.payment_id = payment.id
+    queue_item.onboarding_status = "assigned"
+    queue_item.assigned_tier = tier
+    queue_item.assigned_duration_days = duration_days
+    queue_item.assigned_at = datetime.now(UTC).replace(tzinfo=None)
+    db.add(queue_item)
+
+    return user, payment
 
 
 
@@ -1165,6 +1284,68 @@ class AdminUserListResponse(BaseModel):
     total_pages: int
     counts: Dict[str, int]
 
+
+def _build_admin_user_filters(
+    *,
+    search: Optional[str],
+    tier: str,
+    online_cutoff: datetime,
+) -> list:
+    filters = []
+    clean_search = (search or "").strip()
+    if clean_search:
+        pattern = f"%{clean_search}%"
+        filters.append(
+            or_(
+                User.name.ilike(pattern),
+                User.email.ilike(pattern),
+                User.phone.ilike(pattern),
+                User.country.ilike(pattern),
+            )
+        )
+
+    if tier != "all":
+        if tier == "online":
+            filters.extend([
+                User.last_seen.is_not(None),
+                User.last_seen >= online_cutoff,
+            ])
+        else:
+            filters.append(User.subscription_tier == tier)
+
+    return filters
+
+
+async def _resolve_bulk_target_users(
+    *,
+    db: AsyncSession,
+    user_ids: List[int],
+    apply_to_filtered: bool,
+    search: Optional[str],
+    filter_tier: str,
+) -> List[User]:
+    if apply_to_filtered:
+        online_cutoff = datetime.now(UTC).replace(tzinfo=None) - timedelta(minutes=3)
+        filters = _build_admin_user_filters(
+            search=search,
+            tier=filter_tier,
+            online_cutoff=online_cutoff,
+        )
+        users_stmt = select(User).order_by(User.id.asc())
+        if filters:
+            users_stmt = users_stmt.where(and_(*filters))
+        return (await db.execute(users_stmt)).scalars().all()
+
+    normalized_user_ids = sorted({int(user_id) for user_id in user_ids if int(user_id) > 0})
+    if not normalized_user_ids:
+        raise HTTPException(status_code=400, detail="Provide user_ids or enable apply_to_filtered.")
+
+    return (
+        await db.execute(
+            select(User).where(User.id.in_(normalized_user_ids)).order_by(User.id.asc())
+        )
+    ).scalars().all()
+
 @router.get("/users", response_model=AdminUserListResponse)
 async def list_users(
     search: Optional[str] = Query(None),
@@ -1219,27 +1400,11 @@ async def list_users(
         .subquery()
     )
 
-    filters = []
-    clean_search = (search or "").strip()
-    if clean_search:
-        pattern = f"%{clean_search}%"
-        filters.append(
-            or_(
-                User.name.ilike(pattern),
-                User.email.ilike(pattern),
-                User.phone.ilike(pattern),
-                User.country.ilike(pattern),
-            )
-        )
-
-    if tier != "all":
-        if tier == "online":
-            filters.extend([
-                User.last_seen.is_not(None),
-                User.last_seen >= online_cutoff,
-            ])
-        else:
-            filters.append(User.subscription_tier == tier)
+    filters = _build_admin_user_filters(
+        search=search,
+        tier=tier,
+        online_cutoff=online_cutoff,
+    )
 
     sort_exprs = {
         "name": User.name,
@@ -1341,11 +1506,55 @@ class GrantSubscriptionRequest(BaseModel):
     duration_days: int  # number of days to grant
 
 
+class BulkGrantSubscriptionRequest(BaseModel):
+    tier: str
+    duration_days: int
+    user_ids: List[int] = []
+    apply_to_filtered: bool = False
+    search: Optional[str] = None
+    filter_tier: str = "all"
+
+
+class BulkUserUpdateRequest(BaseModel):
+    action: str
+    user_ids: List[int] = []
+    apply_to_filtered: bool = False
+    search: Optional[str] = None
+    filter_tier: str = "all"
+    tier: Optional[str] = None
+    duration_days: Optional[int] = None
+
+
 class AdminSmsOnboardRequest(BaseModel):
     phone: str
     tier: str
     duration_days: int
     amount_paid: float
+
+
+class LegacyMpesaListResponse(BaseModel):
+    items: List[dict]
+    total: int
+    page: int
+    per_page: int
+    total_pages: int
+
+
+class LegacyMpesaAssignRequest(BaseModel):
+    tier: str
+    duration_days: int
+
+
+class LegacyMpesaBulkAssignRequest(BaseModel):
+    tier: str
+    duration_days: int
+    queue_ids: List[int] = []
+    apply_to_all_pending: bool = False
+
+
+class LegacyMpesaDateRangeImportRequest(BaseModel):
+    date_from: str
+    date_to: str
 
 
 @router.put("/users/{user_id}/grant-subscription")
@@ -1381,6 +1590,124 @@ async def grant_subscription(
     }
 
 
+@router.put("/users/grant-subscription/bulk")
+async def bulk_grant_subscription(
+    body: BulkGrantSubscriptionRequest,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    tier_res = await db.execute(select(SubscriptionTier.tier_id).where(SubscriptionTier.tier_id == body.tier))
+    if not tier_res.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail=f"Invalid tier: {body.tier}")
+
+    if body.duration_days < 1 or body.duration_days > 365:
+        raise HTTPException(status_code=400, detail="Duration must be 1-365 days.")
+
+    users = await _resolve_bulk_target_users(
+        db=db,
+        user_ids=body.user_ids,
+        apply_to_filtered=body.apply_to_filtered,
+        search=body.search,
+        filter_tier=body.filter_tier,
+    )
+
+    if not users:
+        raise HTTPException(status_code=404, detail="No users found for bulk subscription grant.")
+
+    updated_user_ids: List[int] = []
+    for user in users:
+        _grant_subscription_access(user, body.tier, body.duration_days)
+        db.add(user)
+        updated_user_ids.append(user.id)
+
+    await db.commit()
+
+    return {
+        "status": "success",
+        "tier": body.tier,
+        "duration_days": body.duration_days,
+        "updated": len(updated_user_ids),
+        "processed": len(users),
+        "updated_user_ids": updated_user_ids,
+    }
+
+
+@router.put("/users/bulk-update")
+async def bulk_update_users(
+    body: BulkUserUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    action = body.action.strip().lower()
+    allowed_actions = {
+        "grant_subscription",
+        "revoke_subscription",
+        "ban",
+        "unban",
+        "enable_sms",
+        "disable_sms",
+    }
+    if action not in allowed_actions:
+        raise HTTPException(status_code=400, detail=f"Unsupported bulk action: {body.action}")
+
+    users = await _resolve_bulk_target_users(
+        db=db,
+        user_ids=body.user_ids,
+        apply_to_filtered=body.apply_to_filtered,
+        search=body.search,
+        filter_tier=body.filter_tier,
+    )
+    if not users:
+        raise HTTPException(status_code=404, detail="No users found for bulk update.")
+
+    if action == "grant_subscription":
+        if not body.tier:
+            raise HTTPException(status_code=400, detail="tier is required for grant_subscription.")
+        if body.duration_days is None or body.duration_days < 1 or body.duration_days > 365:
+            raise HTTPException(status_code=400, detail="duration_days must be 1-365 for grant_subscription.")
+        tier_res = await db.execute(select(SubscriptionTier.tier_id).where(SubscriptionTier.tier_id == body.tier))
+        if not tier_res.scalar_one_or_none():
+            raise HTTPException(status_code=400, detail=f"Invalid tier: {body.tier}")
+
+    updated_user_ids: List[int] = []
+    skipped_user_ids: List[int] = []
+
+    for user in users:
+        if action == "grant_subscription":
+            _grant_subscription_access(user, body.tier, body.duration_days)
+        elif action == "revoke_subscription":
+            user.subscription_tier = "free"
+            user.subscription_expires_at = None
+        elif action == "ban":
+            if user.id == admin.id:
+                skipped_user_ids.append(user.id)
+                continue
+            user.is_active = False
+        elif action == "unban":
+            user.is_active = True
+        elif action == "enable_sms":
+            user.sms_tips_enabled = True
+        elif action == "disable_sms":
+            user.sms_tips_enabled = False
+
+        db.add(user)
+        updated_user_ids.append(user.id)
+
+    await db.commit()
+
+    return {
+        "status": "success",
+        "action": action,
+        "tier": body.tier,
+        "duration_days": body.duration_days,
+        "updated": len(updated_user_ids),
+        "processed": len(users),
+        "skipped": len(skipped_user_ids),
+        "updated_user_ids": updated_user_ids,
+        "skipped_user_ids": skipped_user_ids,
+    }
+
+
 @router.post("/users/onboard-sms")
 async def onboard_sms_user(
     body: AdminSmsOnboardRequest,
@@ -1401,55 +1728,24 @@ async def onboard_sms_user(
     if len(phone) < 10 or len(phone) > 20:
         raise HTTPException(status_code=400, detail="Invalid phone number format.")
 
-    user_res = await db.execute(select(User).where(User.phone == phone))
-    user = user_res.scalar_one_or_none()
-    created = False
-
-    if not user:
-        created = True
-        placeholder_email = f"phone_{re.sub(r'[^0-9]', '', phone)}@tambuatips.local"
-        random_password = "".join(random.choices(string.ascii_letters + string.digits, k=32))
-        user = User(
-            name=f"User {phone[-4:]}",
-            email=placeholder_email,
-            password=hash_password(random_password),
-            phone=phone,
-            subscription_tier="free",
-            is_active=True,
-            email_verified_at=datetime.now(UTC).replace(tzinfo=None),
-        )
-        db.add(user)
-        await db.flush()
+    user, created = await ensure_phone_user(db, phone)
 
     _ensure_referral_code(user)
     _ensure_magic_login_token(user)
     user.sms_tips_enabled = True
     user.is_active = True
 
-    now = datetime.now(UTC).replace(tzinfo=None)
-    current_expiry = user.subscription_expires_at if user.subscription_expires_at and user.subscription_expires_at > now else now
-    user.subscription_tier = body.tier
-    user.subscription_expires_at = current_expiry + timedelta(days=body.duration_days)
+    _grant_subscription_access(user, body.tier, body.duration_days)
     db.add(user)
     await db.flush()
 
-    payment = Payment(
-        user_id=user.id,
-        amount=body.amount_paid,
-        currency="KES",
-        method="mpesa",
-        status="completed",
-        reference=f"ADMIN-SMS-{uuid.uuid4().hex[:10].upper()}",
-        transaction_id=f"ADMIN-SMS-{uuid.uuid4().hex[:10].upper()}",
-        item_type="subscription",
-        item_id=body.tier,
-        phone=user.phone,
-        email=user.email,
-        gateway_response=json.dumps({
-            "source": "admin_sms_onboard",
-            "duration_days": body.duration_days,
-            "admin_id": admin.id,
-        }),
+    payment = _create_subscription_payment(
+        user=user,
+        amount_paid=body.amount_paid,
+        tier=body.tier,
+        duration_days=body.duration_days,
+        admin_id=admin.id,
+        source="admin_sms_onboard",
     )
     db.add(payment)
     await db.commit()
@@ -1463,6 +1759,261 @@ async def onboard_sms_user(
         "expires_at": user.subscription_expires_at.isoformat() if user.subscription_expires_at else None,
         "sms_tips_enabled": user.sms_tips_enabled,
     }
+
+
+@router.post("/legacy-mpesa/sync")
+async def sync_legacy_mpesa_queue(
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    if not settings.LEGACY_MPESA_DATABASE_URL:
+        raise HTTPException(status_code=400, detail="LEGACY_MPESA_DATABASE_URL is not configured.")
+
+    latest_source_id = int((
+        await db.execute(select(func.max(LegacyMpesaTransaction.source_record_id)))
+    ).scalar() or 0)
+
+    if latest_source_id > 0:
+        records = await fetch_legacy_mpesa_records(after_source_record_id=latest_source_id)
+    else:
+        records = await fetch_latest_legacy_mpesa_records()
+
+    stats = await sync_legacy_mpesa_transactions(db, records)
+
+    return {
+        "status": "success",
+        "fetched": len(records),
+        **stats,
+    }
+
+
+@router.post("/legacy-mpesa/backfill")
+async def backfill_legacy_mpesa_history(
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    if not settings.LEGACY_MPESA_DATABASE_URL:
+        raise HTTPException(status_code=400, detail="LEGACY_MPESA_DATABASE_URL is not configured.")
+
+    earliest_source_id = int((
+        await db.execute(select(func.min(LegacyMpesaTransaction.source_record_id)))
+    ).scalar() or 0)
+
+    if earliest_source_id > 0:
+        records = await fetch_legacy_mpesa_records_before(before_source_record_id=earliest_source_id)
+    else:
+        records = await fetch_latest_legacy_mpesa_records()
+
+    stats = await sync_legacy_mpesa_transactions(db, records)
+
+    return {
+        "status": "success",
+        "mode": "backfill",
+        "fetched": len(records),
+        **stats,
+    }
+
+
+@router.post("/legacy-mpesa/import-range")
+async def import_legacy_mpesa_date_range(
+    body: LegacyMpesaDateRangeImportRequest,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    if not settings.LEGACY_MPESA_DATABASE_URL:
+        raise HTTPException(status_code=400, detail="LEGACY_MPESA_DATABASE_URL is not configured.")
+
+    try:
+        date_from = datetime.strptime(body.date_from, "%Y-%m-%d").replace(tzinfo=None)
+        date_to = datetime.strptime(body.date_to, "%Y-%m-%d").replace(tzinfo=None)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Dates must be in YYYY-MM-DD format.")
+
+    if date_to < date_from:
+        raise HTTPException(status_code=400, detail="date_to must be on or after date_from.")
+
+    records = await fetch_legacy_mpesa_records_between(date_from=date_from, date_to=date_to)
+    stats = await sync_legacy_mpesa_transactions(db, records)
+
+    return {
+        "status": "success",
+        "mode": "date_range",
+        "date_from": body.date_from,
+        "date_to": body.date_to,
+        "fetched": len(records),
+        **stats,
+    }
+
+
+@router.get("/legacy-mpesa/queue", response_model=LegacyMpesaListResponse)
+async def list_legacy_mpesa_queue(
+    status_filter: str = Query("pending_assignment"),
+    page: int = Query(1, ge=1),
+    per_page: int = Query(20, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    filters = []
+    if status_filter != "all":
+        filters.append(LegacyMpesaTransaction.onboarding_status == status_filter)
+
+    total_stmt = select(func.count(LegacyMpesaTransaction.id))
+    if filters:
+        total_stmt = total_stmt.where(and_(*filters))
+    total = int((await db.execute(total_stmt)).scalar() or 0)
+
+    queue_stmt = (
+        select(LegacyMpesaTransaction, User.name, User.subscription_tier)
+        .outerjoin(User, User.id == LegacyMpesaTransaction.user_id)
+        .order_by(LegacyMpesaTransaction.paid_at.desc(), LegacyMpesaTransaction.id.desc())
+        .offset((page - 1) * per_page)
+        .limit(per_page)
+    )
+    if filters:
+        queue_stmt = queue_stmt.where(and_(*filters))
+
+    rows = (await db.execute(queue_stmt)).all()
+    items = [
+        {
+            "id": item.id,
+            "source_record_id": item.source_record_id,
+            "biz_no": item.biz_no,
+            "phone": item.phone,
+            "first_name": item.first_name,
+            "other_name": item.other_name,
+            "amount": item.amount,
+            "paid_at": item.paid_at.isoformat() if item.paid_at else None,
+            "user_id": item.user_id,
+            "user_name": user_name,
+            "user_subscription_tier": subscription_tier,
+            "payment_id": item.payment_id,
+            "onboarding_status": item.onboarding_status,
+            "assigned_tier": item.assigned_tier,
+            "assigned_duration_days": item.assigned_duration_days,
+            "assigned_at": item.assigned_at.isoformat() if item.assigned_at else None,
+        }
+        for item, user_name, subscription_tier in rows
+    ]
+
+    return {
+        "items": items,
+        "total": total,
+        "page": page,
+        "per_page": per_page,
+        "total_pages": (total + per_page - 1) // per_page if per_page else 0,
+    }
+
+
+@router.post("/legacy-mpesa/{queue_id}/assign")
+async def assign_legacy_mpesa_transaction(
+    queue_id: int,
+    body: LegacyMpesaAssignRequest,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    if body.duration_days < 1 or body.duration_days > 365:
+        raise HTTPException(status_code=400, detail="Duration must be 1-365 days.")
+
+    tier_res = await db.execute(select(SubscriptionTier).where(SubscriptionTier.tier_id == body.tier))
+    tier = tier_res.scalar_one_or_none()
+    if not tier:
+        raise HTTPException(status_code=400, detail=f"Invalid tier: {body.tier}")
+
+    queue_res = await db.execute(select(LegacyMpesaTransaction).where(LegacyMpesaTransaction.id == queue_id))
+    queue_item = queue_res.scalar_one_or_none()
+    if not queue_item:
+        raise HTTPException(status_code=404, detail="Legacy transaction not found")
+    if queue_item.onboarding_status == "assigned" and queue_item.payment_id:
+        raise HTTPException(status_code=400, detail="Legacy transaction has already been assigned")
+
+    user, payment = await _assign_legacy_queue_item(
+        db,
+        queue_item=queue_item,
+        tier=body.tier,
+        duration_days=body.duration_days,
+        admin_id=admin.id,
+    )
+
+    await db.commit()
+    await db.refresh(user)
+
+    return {
+        "status": "success",
+        "queue_id": queue_item.id,
+        "user_id": user.id,
+        "payment_id": payment.id,
+        "tier": user.subscription_tier,
+        "expires_at": user.subscription_expires_at.isoformat() if user.subscription_expires_at else None,
+    }
+
+
+@router.post("/legacy-mpesa/assign-bulk")
+async def bulk_assign_legacy_mpesa_transactions(
+    body: LegacyMpesaBulkAssignRequest,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    if body.duration_days < 1 or body.duration_days > 365:
+        raise HTTPException(status_code=400, detail="Duration must be 1-365 days.")
+
+    tier_res = await db.execute(select(SubscriptionTier).where(SubscriptionTier.tier_id == body.tier))
+    tier = tier_res.scalar_one_or_none()
+    if not tier:
+        raise HTTPException(status_code=400, detail=f"Invalid tier: {body.tier}")
+
+    if body.apply_to_all_pending:
+        queue_items = (
+            await db.execute(
+                select(LegacyMpesaTransaction)
+                .where(LegacyMpesaTransaction.onboarding_status == "pending_assignment")
+                .order_by(LegacyMpesaTransaction.id.asc())
+            )
+        ).scalars().all()
+    else:
+        queue_ids = sorted({int(queue_id) for queue_id in body.queue_ids if int(queue_id) > 0})
+        if not queue_ids:
+            raise HTTPException(status_code=400, detail="Provide queue_ids or enable apply_to_all_pending.")
+        queue_items = (
+            await db.execute(
+                select(LegacyMpesaTransaction)
+                .where(LegacyMpesaTransaction.id.in_(queue_ids))
+                .order_by(LegacyMpesaTransaction.id.asc())
+            )
+        ).scalars().all()
+
+    if not queue_items:
+        raise HTTPException(status_code=404, detail="No legacy transactions found for bulk assignment.")
+
+    assigned = 0
+    skipped = 0
+    assigned_queue_ids: List[int] = []
+
+    for queue_item in queue_items:
+        if queue_item.onboarding_status == "assigned" and queue_item.payment_id:
+            skipped += 1
+            continue
+        await _assign_legacy_queue_item(
+            db,
+            queue_item=queue_item,
+            tier=body.tier,
+            duration_days=body.duration_days,
+            admin_id=admin.id,
+        )
+        assigned += 1
+        assigned_queue_ids.append(queue_item.id)
+
+    await db.commit()
+
+    return {
+        "status": "success",
+        "tier": body.tier,
+        "duration_days": body.duration_days,
+        "assigned": assigned,
+        "skipped": skipped,
+        "processed": len(queue_items),
+        "assigned_queue_ids": assigned_queue_ids,
+    }
+
 
 @router.put("/users/{user_id}/toggle-active")
 async def toggle_active(user_id: int, db: AsyncSession = Depends(get_db), admin: User = Depends(require_admin)):
@@ -1545,7 +2096,7 @@ def send_broadcast_sms_task(phones: list, message: str, sms_src: str):
             sms_url = "https://trackomgroup.com/sms_old/sendSmsApi/sendsms_v15.php"
             for phone in phones:
                 try:
-                    stripped_phone = re.sub(r'[\D]', '', phone)
+                    stripped_phone = _normalize_phone_digits_for_sms(phone)
                     if not stripped_phone: continue
                     params = {
                         "src": sms_src,

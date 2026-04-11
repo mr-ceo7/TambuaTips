@@ -76,8 +76,9 @@ async def test_double_purchasing_jackpot(client: AsyncClient, db_session: AsyncS
         "type": "mega",
         "dc_level": 7,
         "matches": [
-            {"homeTeam": "Arsenal", "awayTeam": "Chelsea", "pick": "1"}
+            {"homeTeam": "Arsenal", "awayTeam": "Chelsea"}
         ],
+        "variations": [["1"]],
         "price": 100
     }
     jp_res = await client.post("/api/jackpots", json=jp_data, headers={"Authorization": f"Bearer {admin_token}"})

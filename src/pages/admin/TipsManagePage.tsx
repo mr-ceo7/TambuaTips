@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Plus, Search, Trash2, Edit, Check, X, Star, Filter,
   Zap, ChevronDown, Loader, Copy
@@ -8,6 +8,7 @@ import {
   getAllTips, addTip, updateTip, deleteTip, getTipStats,
   type Tip, type TipCategory
 } from '../../services/tipsService';
+import apiClient from '../../services/apiClient';
 import { CATEGORY_LABELS } from '../../services/pricingService';
 import { adminService, type FixtureSearchResult } from '../../services/adminService';
 import { toast } from 'sonner';
@@ -35,6 +36,8 @@ export function TipsManagePage() {
   const [fixtureSearching, setFixtureSearching] = useState(false);
   const [searchDate, setSearchDate] = useState(new Date().toISOString().split('T')[0]);
   const [fixtureSearchError, setFixtureSearchError] = useState<string | null>(null);
+  const pendingSmsFlushTipIdsRef = useRef<number[]>([]);
+  const smsFlushRequestedRef = useRef(false);
 
   // Form state
   const [form, setForm] = useState({
@@ -56,6 +59,61 @@ export function TipsManagePage() {
   useEffect(() => {
     loadData();
   }, []);
+
+  const flushPendingTipSms = useCallback((keepalive: boolean) => {
+    const tipIds = Array.from(new Set(pendingSmsFlushTipIdsRef.current)).filter((id) => Number.isFinite(id));
+    if (tipIds.length === 0 || smsFlushRequestedRef.current) {
+      return;
+    }
+
+    smsFlushRequestedRef.current = true;
+    pendingSmsFlushTipIdsRef.current = [];
+
+    if (keepalive) {
+      const headers = new Headers();
+      headers.append('Content-Type', 'application/json');
+      const tokenResponse = localStorage.getItem('auth_tokens');
+      if (tokenResponse) {
+        try {
+          const { access_token } = JSON.parse(tokenResponse);
+          if (access_token) {
+            headers.append('Authorization', `Bearer ${access_token}`);
+          }
+        } catch {
+          // Ignore malformed local auth cache.
+        }
+      }
+
+      fetch(`${apiClient.defaults.baseURL}/tips/flush-sms-queue`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ tip_ids: tipIds }),
+        credentials: 'include',
+        keepalive: true,
+      }).catch(() => {});
+      return;
+    }
+
+    apiClient.post('/tips/flush-sms-queue', { tip_ids: tipIds }).catch(() => {
+      smsFlushRequestedRef.current = false;
+      pendingSmsFlushTipIdsRef.current = tipIds;
+    });
+  }, []);
+
+  useEffect(() => {
+    const handlePageLeave = () => {
+      flushPendingTipSms(true);
+    };
+
+    window.addEventListener('pagehide', handlePageLeave);
+    window.addEventListener('beforeunload', handlePageLeave);
+
+    return () => {
+      window.removeEventListener('pagehide', handlePageLeave);
+      window.removeEventListener('beforeunload', handlePageLeave);
+      flushPendingTipSms(false);
+    };
+  }, [flushPendingTipSms]);
 
   const loadData = async () => {
     const [tipsData, statsData] = await Promise.all([getAllTips(), getTipStats()]);
@@ -144,10 +202,20 @@ export function TipsManagePage() {
     setIsSubmitting(true);
     try {
       if (editingId) {
-        await updateTip(editingId, tipData);
+        const updatedTip = await updateTip(editingId, tipData);
+        if (!updatedTip) {
+          throw new Error('Failed to update tip');
+        }
         toast.success('Tip updated');
       } else {
-        await addTip({ ...tipData, result: 'pending' });
+        const createdTip = await addTip({ ...tipData, result: 'pending' });
+        if (!createdTip) {
+          throw new Error('Failed to publish tip');
+        }
+        pendingSmsFlushTipIdsRef.current = Array.from(
+          new Set([...pendingSmsFlushTipIdsRef.current, Number(createdTip.id)])
+        );
+        smsFlushRequestedRef.current = false;
         toast.success('Tip published');
       }
       await loadData();
@@ -461,6 +529,8 @@ export function TipsManagePage() {
                             <option value="both">Push + Email</option>
                             <option value="push">Push Only</option>
                             <option value="email">Email Only</option>
+                            <option value="sms">SMS Only</option>
+                            <option value="all">All Channels (Push + Email + SMS)</option>
                           </select>
                       </div>
                     )}

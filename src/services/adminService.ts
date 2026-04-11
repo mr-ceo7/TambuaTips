@@ -39,6 +39,27 @@ export interface AdminUsersFilters {
   per_page?: number;
 }
 
+export interface BulkGrantUsersResponse {
+  status: string;
+  tier: string;
+  duration_days: number;
+  updated: number;
+  processed: number;
+  updated_user_ids: number[];
+}
+
+export interface BulkUserUpdateResponse {
+  status: string;
+  action: string;
+  tier: string | null;
+  duration_days: number | null;
+  updated: number;
+  processed: number;
+  skipped: number;
+  updated_user_ids: number[];
+  skipped_user_ids: number[];
+}
+
 export interface DashboardStats {
   users: {
     total_registered: number;
@@ -228,6 +249,33 @@ export interface ReferralStatsResponse {
   settings: ReferralSettings;
 }
 
+export interface LegacyMpesaQueueItem {
+  id: number;
+  source_record_id: number;
+  biz_no: string | null;
+  phone: string;
+  first_name: string | null;
+  other_name: string | null;
+  amount: number;
+  paid_at: string | null;
+  user_id: number | null;
+  user_name: string | null;
+  user_subscription_tier: string | null;
+  payment_id: number | null;
+  onboarding_status: string;
+  assigned_tier: string | null;
+  assigned_duration_days: number | null;
+  assigned_at: string | null;
+}
+
+export interface LegacyMpesaQueueResponse {
+  items: LegacyMpesaQueueItem[];
+  total: number;
+  page: number;
+  per_page: number;
+  total_pages: number;
+}
+
 // ── Service ─────────────────────────────────────────────────
 
 export const adminService = {
@@ -272,12 +320,127 @@ export const adminService = {
     });
   },
 
+  bulkGrantSubscription: async (
+    tier: string,
+    durationDays: number,
+    userIds: number[] = [],
+    applyToFiltered: boolean = false,
+    filters: Pick<AdminUsersFilters, 'search' | 'tier'> = {},
+  ): Promise<BulkGrantUsersResponse> => {
+    const response = await apiClient.put<BulkGrantUsersResponse>('/admin/users/grant-subscription/bulk', {
+      tier,
+      duration_days: durationDays,
+      user_ids: userIds,
+      apply_to_filtered: applyToFiltered,
+      search: filters.search,
+      filter_tier: filters.tier || 'all',
+    });
+    return response.data;
+  },
+
+  bulkUpdateUsers: async ({
+    action,
+    userIds = [],
+    applyToFiltered = false,
+    filters = {},
+    tier,
+    durationDays,
+  }: {
+    action: string;
+    userIds?: number[];
+    applyToFiltered?: boolean;
+    filters?: Pick<AdminUsersFilters, 'search' | 'tier'>;
+    tier?: string;
+    durationDays?: number;
+  }): Promise<BulkUserUpdateResponse> => {
+    const response = await apiClient.put<BulkUserUpdateResponse>('/admin/users/bulk-update', {
+      action,
+      user_ids: userIds,
+      apply_to_filtered: applyToFiltered,
+      search: filters.search,
+      filter_tier: filters.tier || 'all',
+      tier,
+      duration_days: durationDays,
+    });
+    return response.data;
+  },
+
   onboardSmsUser: async (phone: string, tier: string, durationDays: number, amountPaid: number): Promise<SmsOnboardResponse> => {
     const response = await apiClient.post<SmsOnboardResponse>('/admin/users/onboard-sms', {
       phone,
       tier,
       duration_days: durationDays,
       amount_paid: amountPaid,
+    });
+    return response.data;
+  },
+
+  syncLegacyMpesa: async (): Promise<{ status: string; fetched: number; imported: number; created_users: number; linked_existing_users: number; skipped: number }> => {
+    const response = await apiClient.post('/admin/legacy-mpesa/sync');
+    return response.data;
+  },
+
+  backfillLegacyMpesa: async (): Promise<{ status: string; mode: string; fetched: number; imported: number; created_users: number; linked_existing_users: number; skipped: number }> => {
+    const response = await apiClient.post('/admin/legacy-mpesa/backfill');
+    return response.data;
+  },
+
+  importLegacyMpesaDateRange: async (dateFrom: string, dateTo: string): Promise<{
+    status: string;
+    mode: string;
+    date_from: string;
+    date_to: string;
+    fetched: number;
+    imported: number;
+    created_users: number;
+    linked_existing_users: number;
+    skipped: number;
+  }> => {
+    const response = await apiClient.post('/admin/legacy-mpesa/import-range', {
+      date_from: dateFrom,
+      date_to: dateTo,
+    });
+    return response.data;
+  },
+
+  getLegacyMpesaQueue: async (statusFilter: string = 'pending_assignment', page: number = 1, perPage: number = 20): Promise<LegacyMpesaQueueResponse> => {
+    const response = await apiClient.get<LegacyMpesaQueueResponse>('/admin/legacy-mpesa/queue', {
+      params: {
+        status_filter: statusFilter,
+        page,
+        per_page: perPage,
+      },
+    });
+    return response.data;
+  },
+
+  assignLegacyMpesa: async (queueId: number, tier: string, durationDays: number): Promise<{ status: string; queue_id: number; user_id: number; payment_id: number; tier: string; expires_at: string | null }> => {
+    const response = await apiClient.post(`/admin/legacy-mpesa/${queueId}/assign`, {
+      tier,
+      duration_days: durationDays,
+    });
+    return response.data;
+  },
+
+  bulkAssignLegacyMpesa: async (
+    tier: string,
+    durationDays: number,
+    queueIds: number[] = [],
+    applyToAllPending: boolean = false,
+  ): Promise<{
+    status: string;
+    tier: string;
+    duration_days: number;
+    assigned: number;
+    skipped: number;
+    processed: number;
+    assigned_queue_ids: number[];
+  }> => {
+    const response = await apiClient.post('/admin/legacy-mpesa/assign-bulk', {
+      tier,
+      duration_days: durationDays,
+      queue_ids: queueIds,
+      apply_to_all_pending: applyToAllPending,
     });
     return response.data;
   },

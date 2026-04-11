@@ -11,8 +11,6 @@ import random
 import os
 import string
 import uuid
-from google.oauth2 import id_token
-from google.auth.transport import requests as google_requests
 
 from app.database import AsyncSessionLocal
 from app.dependencies import get_db, get_current_user, get_current_user_optional, get_unverified_user
@@ -150,6 +148,9 @@ async def fetch_user_country(user_id: int, ip_address: str):
 @router.post("/google")
 async def google_auth(body: GoogleLoginRequest, request: Request, response: Response, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)):
     try:
+        from google.oauth2 import id_token
+        from google.auth.transport import requests as google_requests
+
         # Validate Google token
         client_id = os.getenv("GOOGLE_CLIENT_ID")
         idinfo = id_token.verify_oauth2_token(body.id_token, google_requests.Request(), client_id)
@@ -286,6 +287,15 @@ def _normalize_phone(phone: str) -> str:
         phone = '+' + phone
     return phone
 
+
+def _normalize_phone_digits_for_sms(phone: str) -> str:
+    digits = re.sub(r'[\D]', '', phone or '')
+    if digits.startswith('0') and len(digits) == 10:
+        return f"254{digits[1:]}"
+    if digits.startswith('7') and len(digits) == 9:
+        return f"254{digits}"
+    return digits
+
 async def _get_sms_settings_dict(db: AsyncSession) -> dict:
     """
     Fetch all SMS settings (src, enabled, template) from admin settings.
@@ -317,7 +327,7 @@ async def _send_otp_sms(phone: str, code: str, db: AsyncSession):
         sms_template = sms_settings.get("SMS_TEMPLATE", "[TambuaTips] Your verification code is {code}. This code expires in 5 minutes. Do NOT share this code with anyone. Visit {url} to access your account.")
         
         # Strip phone to just digits (remove + and spaces)
-        stripped_phone = re.sub(r'[\D]', '', phone)  # Keep only digits
+        stripped_phone = _normalize_phone_digits_for_sms(phone)
         
         # Build professional SMS message using template
         site_url = settings.FRONTEND_URL.replace("http://", "").replace("https://", "")

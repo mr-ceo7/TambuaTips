@@ -21,12 +21,16 @@ from app.models.user import User
 
 logger = logging.getLogger(__name__)
 
-BUNDLE_WINDOW_SECONDS = 60
 SMS_PROVIDER_URL = "https://trackomgroup.com/sms_old/sendSmsApi/sendsms_v15.php"
 
 
 def _normalize_phone_digits(phone: str) -> str:
-    return re.sub(r"[\D]", "", phone or "")
+    digits = re.sub(r"[\D]", "", phone or "")
+    if digits.startswith("0") and len(digits) == 10:
+        return f"254{digits[1:]}"
+    if digits.startswith("7") and len(digits) == 9:
+        return f"254{digits}"
+    return digits
 
 
 def _tier_categories_map(tiers: list[SubscriptionTier]) -> dict[str, list[str]]:
@@ -76,7 +80,6 @@ def _format_tip_bundle_message(user: User, tips: list[Tip]) -> str:
         lines.extend([
             f"{index}. {tip.home_team} vs {tip.away_team}",
             f"Tip: {tip.prediction}",
-            f"Odds: {tip.odds}",
             f"Category: {tip.category.upper()}",
         ])
     lines.append(f"Link: {_build_magic_login_link(user)}")
@@ -97,74 +100,113 @@ async def _send_sms(phone: str, message: str, sms_src: str) -> None:
         response.raise_for_status()
 
 
+async def _deliver_pending_sms_tip_bundle(
+    db,
+    *,
+    user_id: int,
+    only_tip_ids: list[int] | None = None,
+) -> bool:
+    user_result = await db.execute(select(User).where(User.id == user_id))
+    user = user_result.scalar_one_or_none()
+
+    queue_stmt = (
+        select(SmsTipQueue)
+        .where(
+            SmsTipQueue.user_id == user_id,
+            SmsTipQueue.status == "pending",
+        )
+        .order_by(SmsTipQueue.created_at.asc())
+    )
+    if only_tip_ids:
+        queue_stmt = queue_stmt.where(SmsTipQueue.tip_id.in_(only_tip_ids))
+    queue_items = (await db.execute(queue_stmt)).scalars().all()
+    if not queue_items:
+        return False
+
+    if not user:
+        for item in queue_items:
+            item.status = "failed"
+            item.error = "User not found"
+        await db.commit()
+        return False
+
+    sms_settings = await _get_sms_settings(db)
+    if not sms_settings["SMS_ENABLED"]:
+        for item in queue_items:
+            item.status = "failed"
+            item.error = "SMS delivery disabled"
+        await db.commit()
+        return False
+
+    tier_result = await db.execute(select(SubscriptionTier))
+    tier_categories = _tier_categories_map(tier_result.scalars().all())
+
+    tip_ids = [item.tip_id for item in queue_items]
+    tip_result = await db.execute(select(Tip).where(Tip.id.in_(tip_ids)))
+    tips_by_id = {tip.id: tip for tip in tip_result.scalars().all()}
+    eligible_tips = [
+        tips_by_id[item.tip_id]
+        for item in queue_items
+        if item.tip_id in tips_by_id and _user_has_tip_access(user, tips_by_id[item.tip_id], tier_categories)
+    ]
+
+    if not eligible_tips:
+        for item in queue_items:
+            item.status = "failed"
+            item.error = "No longer eligible for queued tips"
+        await db.commit()
+        return False
+
+    _ensure_magic_login_token(user)
+    message = _format_tip_bundle_message(user, eligible_tips)
+
+    try:
+        await _send_sms(user.phone or "", message, sms_settings["SMS_SRC"])
+        sent_at = datetime.now(UTC).replace(tzinfo=None)
+        for item in queue_items:
+            item.status = "sent"
+            item.sent_at = sent_at
+            item.error = None
+        await db.commit()
+        return True
+    except Exception as exc:  # pragma: no cover - network/provider path
+        logger.error("Failed to send bundled tip SMS to user %s: %s", user_id, exc)
+        for item in queue_items:
+            item.status = "failed"
+            item.error = str(exc)
+        await db.commit()
+        return False
+
+
 async def process_sms_tip_bundle_after_delay(user_id: int, scheduled_for: datetime) -> None:
     delay = (scheduled_for - datetime.now(UTC).replace(tzinfo=None)).total_seconds()
     if delay > 0:
         await asyncio.sleep(delay)
 
     async with AsyncSessionLocal() as db:
-        user_result = await db.execute(select(User).where(User.id == user_id))
-        user = user_result.scalar_one_or_none()
-        queue_result = await db.execute(
-            select(SmsTipQueue)
-            .where(
-                SmsTipQueue.user_id == user_id,
-                SmsTipQueue.status == "pending",
-                SmsTipQueue.dispatch_scheduled_for <= scheduled_for,
-            )
-            .order_by(SmsTipQueue.created_at.asc())
-        )
-        queue_items = queue_result.scalars().all()
-        if not queue_items:
-            return
+        await _deliver_pending_sms_tip_bundle(db, user_id=user_id)
 
-        if not user:
-            for item in queue_items:
-                item.status = "failed"
-                item.error = "User not found"
-            await db.commit()
-            return
 
-        sms_settings = await _get_sms_settings(db)
-        if not sms_settings["SMS_ENABLED"]:
-            for item in queue_items:
-                item.status = "failed"
-                item.error = "SMS delivery disabled"
-            await db.commit()
-            return
+async def flush_pending_sms_tip_bundles(*, tip_ids: list[int] | None = None) -> dict[str, int]:
+    async with AsyncSessionLocal() as db:
+        user_stmt = select(SmsTipQueue.user_id).where(SmsTipQueue.status == "pending")
+        if tip_ids:
+            user_stmt = user_stmt.where(SmsTipQueue.tip_id.in_(tip_ids))
+        user_ids = sorted(set((await db.execute(user_stmt)).scalars().all()))
 
-        tier_result = await db.execute(select(SubscriptionTier))
-        tier_categories = _tier_categories_map(tier_result.scalars().all())
+    if not user_ids:
+        return {"users_processed": 0, "users_sent": 0}
 
-        tip_ids = [item.tip_id for item in queue_items]
-        tip_result = await db.execute(select(Tip).where(Tip.id.in_(tip_ids)))
-        tips_by_id = {tip.id: tip for tip in tip_result.scalars().all()}
-        eligible_tips = [tips_by_id[item.tip_id] for item in queue_items if item.tip_id in tips_by_id and _user_has_tip_access(user, tips_by_id[item.tip_id], tier_categories)]
+    users_sent = 0
+    for user_id in user_ids:
+        async with AsyncSessionLocal() as db:
+            sent = await _deliver_pending_sms_tip_bundle(db, user_id=user_id)
+            users_sent += int(sent)
 
-        if not eligible_tips:
-            for item in queue_items:
-                item.status = "failed"
-                item.error = "No longer eligible for queued tips"
-            await db.commit()
-            return
-
-        _ensure_magic_login_token(user)
-        message = _format_tip_bundle_message(user, eligible_tips)
-
-        try:
-            await _send_sms(user.phone or "", message, sms_settings["SMS_SRC"])
-            sent_at = datetime.now(UTC).replace(tzinfo=None)
-            for item in queue_items:
-                item.status = "sent"
-                item.sent_at = sent_at
-                item.error = None
-            await db.commit()
-        except Exception as exc:  # pragma: no cover - network/provider path
-            logger.error("Failed to send bundled tip SMS to user %s: %s", user_id, exc)
-            for item in queue_items:
-                item.status = "failed"
-                item.error = str(exc)
-            await db.commit()
+    return {
+        "users_processed": len(user_ids),
+        "users_sent": users_sent,
+    }
 
 
 async def queue_tip_sms_for_tip(tip_id: int) -> None:
@@ -189,7 +231,6 @@ async def queue_tip_sms_for_tip(tip_id: int) -> None:
         users = user_result.scalars().all()
 
         now = datetime.now(UTC).replace(tzinfo=None)
-        scheduled_tasks: list[tuple[int, datetime]] = []
 
         for user in users:
             if not _user_has_tip_access(user, tip, tier_categories):
@@ -202,16 +243,13 @@ async def queue_tip_sms_for_tip(tip_id: int) -> None:
                 .limit(1)
             )
             pending_item = pending_result.scalar_one_or_none()
-            dispatch_at = pending_item.dispatch_scheduled_for if pending_item else now + timedelta(seconds=BUNDLE_WINDOW_SECONDS)
+            dispatch_at = pending_item.dispatch_scheduled_for if pending_item else now
 
             existing_result = await db.execute(
                 select(SmsTipQueue.id).where(SmsTipQueue.user_id == user.id, SmsTipQueue.tip_id == tip.id)
             )
             if existing_result.scalar_one_or_none():
                 continue
-
-            if pending_item is None or dispatch_at <= now:
-                scheduled_tasks.append((user.id, dispatch_at))
 
             db.add(
                 SmsTipQueue(
@@ -226,6 +264,3 @@ async def queue_tip_sms_for_tip(tip_id: int) -> None:
                 db.add(user)
 
         await db.commit()
-
-        for user_id, dispatch_at in scheduled_tasks:
-            asyncio.create_task(process_sms_tip_bundle_after_delay(user_id, dispatch_at))

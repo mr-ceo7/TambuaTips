@@ -153,7 +153,7 @@ async def test_bogus_referral_code_no_crash(client: AsyncClient, db_session: Asy
 async def test_rewards_config_returns_defaults(client: AsyncClient, db_session: AsyncSession):
     """GET /rewards/config returns the correct default values."""
     # Need to be logged in (the endpoint uses get_db, not auth)
-    res = await client.get("/rewards/config")
+    res = await client.get("/api/rewards/config")
     assert res.status_code == 200
     data = res.json()
     assert data["points_per_tip"] == 2
@@ -178,7 +178,7 @@ async def test_admin_config_propagates_to_rewards(client: AsyncClient, db_sessio
     assert res.status_code == 200
 
     # Verify it propagates
-    config_res = await client.get("/rewards/config")
+    config_res = await client.get("/api/rewards/config")
     assert config_res.json()["points_per_tip"] == 5
 
 
@@ -194,7 +194,7 @@ async def test_unlock_tip_success(client: AsyncClient, db_session: AsyncSession)
     tip_id = await _create_tip(db_session)
 
     res = await client.post(
-        "/rewards/redeem",
+        "/api/rewards/redeem",
         json={"action": "unlock_tip", "tip_id": tip_id},
         headers=_auth_headers(token),
     )
@@ -215,7 +215,7 @@ async def test_unlock_tip_insufficient_points(client: AsyncClient, db_session: A
     tip_id = await _create_tip(db_session)
 
     res = await client.post(
-        "/rewards/redeem",
+        "/api/rewards/redeem",
         json={"action": "unlock_tip", "tip_id": tip_id},
         headers=_auth_headers(token),
     )
@@ -232,7 +232,7 @@ async def test_unlock_tip_already_unlocked(client: AsyncClient, db_session: Asyn
 
     # First unlock
     res1 = await client.post(
-        "/rewards/redeem",
+        "/api/rewards/redeem",
         json={"action": "unlock_tip", "tip_id": tip_id},
         headers=_auth_headers(token),
     )
@@ -240,7 +240,7 @@ async def test_unlock_tip_already_unlocked(client: AsyncClient, db_session: Asyn
 
     # Second unlock — should fail
     res2 = await client.post(
-        "/rewards/redeem",
+        "/api/rewards/redeem",
         json={"action": "unlock_tip", "tip_id": tip_id},
         headers=_auth_headers(token),
     )
@@ -255,7 +255,7 @@ async def test_unlock_tip_nonexistent(client: AsyncClient, db_session: AsyncSess
     await _set_points(db_session, "ghost_tip@test.com", 10)
 
     res = await client.post(
-        "/rewards/redeem",
+        "/api/rewards/redeem",
         json={"action": "unlock_tip", "tip_id": 999999},
         headers=_auth_headers(token),
     )
@@ -270,7 +270,7 @@ async def test_unlock_tip_missing_tip_id(client: AsyncClient, db_session: AsyncS
     await _set_points(db_session, "no_tipid@test.com", 10)
 
     res = await client.post(
-        "/rewards/redeem",
+        "/api/rewards/redeem",
         json={"action": "unlock_tip"},
         headers=_auth_headers(token),
     )
@@ -289,7 +289,7 @@ async def test_get_discount_success(client: AsyncClient, db_session: AsyncSessio
     await _set_points(db_session, "discounter@test.com", 10)
 
     res = await client.post(
-        "/rewards/redeem",
+        "/api/rewards/redeem",
         json={"action": "get_discount"},
         headers=_auth_headers(token),
     )
@@ -310,7 +310,7 @@ async def test_get_discount_insufficient_points(client: AsyncClient, db_session:
     await _set_points(db_session, "broke_disc@test.com", 3)  # Need 5
 
     res = await client.post(
-        "/rewards/redeem",
+        "/api/rewards/redeem",
         json={"action": "get_discount"},
         headers=_auth_headers(token),
     )
@@ -326,7 +326,7 @@ async def test_get_discount_already_active(client: AsyncClient, db_session: Asyn
 
     # First activation
     res1 = await client.post(
-        "/rewards/redeem",
+        "/api/rewards/redeem",
         json={"action": "get_discount"},
         headers=_auth_headers(token),
     )
@@ -334,7 +334,7 @@ async def test_get_discount_already_active(client: AsyncClient, db_session: Asyn
 
     # Second activation — should fail
     res2 = await client.post(
-        "/rewards/redeem",
+        "/api/rewards/redeem",
         json={"action": "get_discount"},
         headers=_auth_headers(token),
     )
@@ -353,7 +353,7 @@ async def test_get_premium_success(client: AsyncClient, db_session: AsyncSession
     await _set_points(db_session, "premiumguy@test.com", 10)  # Exact cost
 
     res = await client.post(
-        "/rewards/redeem",
+        "/api/rewards/redeem",
         json={"action": "get_premium"},
         headers=_auth_headers(token),
     )
@@ -375,7 +375,7 @@ async def test_get_premium_insufficient_points(client: AsyncClient, db_session: 
     await _set_points(db_session, "broke_prem@test.com", 5)  # Need 10
 
     res = await client.post(
-        "/rewards/redeem",
+        "/api/rewards/redeem",
         json={"action": "get_premium"},
         headers=_auth_headers(token),
     )
@@ -391,7 +391,7 @@ async def test_get_premium_extends_existing(client: AsyncClient, db_session: Asy
 
     # First claim
     res1 = await client.post(
-        "/rewards/redeem",
+        "/api/rewards/redeem",
         json={"action": "get_premium"},
         headers=_auth_headers(token),
     )
@@ -405,7 +405,7 @@ async def test_get_premium_extends_existing(client: AsyncClient, db_session: Asy
     await _set_points(db_session, "extender@test.com", 10)
 
     res2 = await client.post(
-        "/rewards/redeem",
+        "/api/rewards/redeem",
         json={"action": "get_premium"},
         headers=_auth_headers(token),
     )
@@ -445,7 +445,7 @@ async def test_redeem_blocked_when_system_disabled(client: AsyncClient, db_sessi
         ("get_premium", {}),
     ]:
         res = await client.post(
-            "/rewards/redeem",
+            "/api/rewards/redeem",
             json={"action": action, **extra},
             headers=_auth_headers(user_token),
         )
@@ -491,7 +491,7 @@ async def test_invalid_redeem_action(client: AsyncClient, db_session: AsyncSessi
     await _set_points(db_session, "invalid_action@test.com", 10)
 
     res = await client.post(
-        "/rewards/redeem",
+        "/api/rewards/redeem",
         json={"action": "hack_the_system"},
         headers=_auth_headers(token),
     )
@@ -507,7 +507,7 @@ async def test_invalid_redeem_action(client: AsyncClient, db_session: AsyncSessi
 async def test_redeem_requires_auth(client: AsyncClient, db_session: AsyncSession):
     """POST /rewards/redeem without auth returns 401."""
     res = await client.post(
-        "/rewards/redeem",
+        "/api/rewards/redeem",
         json={"action": "get_premium"},
     )
     assert res.status_code == 401
@@ -527,37 +527,37 @@ async def test_point_balance_across_multiple_actions(client: AsyncClient, db_ses
     tip2 = await _create_tip(db_session)
 
     # Step 1: unlock tip1 (cost 2) → 18 remaining
-    r1 = await client.post("/rewards/redeem", json={"action": "unlock_tip", "tip_id": tip1}, headers=_auth_headers(token))
+    r1 = await client.post("/api/rewards/redeem", json={"action": "unlock_tip", "tip_id": tip1}, headers=_auth_headers(token))
     assert r1.status_code == 200
     assert r1.json()["points"] == 18
 
     # Step 2: unlock tip2 (cost 2) → 16 remaining
-    r2 = await client.post("/rewards/redeem", json={"action": "unlock_tip", "tip_id": tip2}, headers=_auth_headers(token))
+    r2 = await client.post("/api/rewards/redeem", json={"action": "unlock_tip", "tip_id": tip2}, headers=_auth_headers(token))
     assert r2.status_code == 200
     assert r2.json()["points"] == 16
 
     # Step 3: get discount (cost 5) → 11 remaining
-    r3 = await client.post("/rewards/redeem", json={"action": "get_discount"}, headers=_auth_headers(token))
+    r3 = await client.post("/api/rewards/redeem", json={"action": "get_discount"}, headers=_auth_headers(token))
     assert r3.status_code == 200
     assert r3.json()["points"] == 11
 
     # Step 4: get premium (cost 10) → 1 remaining
-    r4 = await client.post("/rewards/redeem", json={"action": "get_premium"}, headers=_auth_headers(token))
+    r4 = await client.post("/api/rewards/redeem", json={"action": "get_premium"}, headers=_auth_headers(token))
     assert r4.status_code == 200
     assert r4.json()["points"] == 1
 
     # Step 5: try another premium (cost 10) → should fail, only 1 point
-    r5 = await client.post("/rewards/redeem", json={"action": "get_premium"}, headers=_auth_headers(token))
+    r5 = await client.post("/api/rewards/redeem", json={"action": "get_premium"}, headers=_auth_headers(token))
     assert r5.status_code == 400
 
     # Final verification — check points via a fresh redeem attempt
     # We know points should be 1 (insufficient for anything)
-    r6 = await client.post("/rewards/redeem", json={"action": "unlock_tip", "tip_id": tip1}, headers=_auth_headers(token))
+    r6 = await client.post("/api/rewards/redeem", json={"action": "unlock_tip", "tip_id": tip1}, headers=_auth_headers(token))
     assert r6.status_code == 400  # Already unlocked
 
-    r7 = await client.post("/rewards/redeem", json={"action": "unlock_tip", "tip_id": tip2}, headers=_auth_headers(token))
+    r7 = await client.post("/api/rewards/redeem", json={"action": "unlock_tip", "tip_id": tip2}, headers=_auth_headers(token))
     assert r7.status_code == 400  # Already unlocked
 
     # Verify the second discount also fails (insufficient points now — only 1 left, need 5)
-    r8 = await client.post("/rewards/redeem", json={"action": "get_discount"}, headers=_auth_headers(token))
+    r8 = await client.post("/api/rewards/redeem", json={"action": "get_discount"}, headers=_auth_headers(token))
     assert r8.status_code == 400

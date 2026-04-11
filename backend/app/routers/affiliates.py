@@ -17,13 +17,6 @@ from app.schemas.auth import GoogleLoginRequest, PhoneLoginRequest, PhoneVerifyR
 from app.routers.auth import _send_otp_sms, _normalize_phone
 from sqlalchemy import select, func, and_, extract
 
-from google.oauth2 import id_token
-from google.auth.transport import requests as google_requests
-from app.schemas.auth import GoogleLoginRequest
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_, extract
-
 from app.database import AsyncSessionLocal
 from app.dependencies import get_db
 from app.security import hash_password, verify_password, create_access_token, create_refresh_token, decode_token
@@ -189,6 +182,9 @@ async def login_affiliate(body: AffiliateLogin, response: Response, db: AsyncSes
 async def google_auth_affiliate(body: GoogleLoginRequest, response: Response, db: AsyncSession = Depends(get_db)):
     """Login or register affiliate using Google One Tap."""
     try:
+        from google.oauth2 import id_token
+        from google.auth.transport import requests as google_requests
+
         client_id = os.getenv("GOOGLE_CLIENT_ID")
         idinfo = id_token.verify_oauth2_token(body.id_token, google_requests.Request(), client_id)
         

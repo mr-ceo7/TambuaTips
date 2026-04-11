@@ -1,6 +1,9 @@
 import logging
 from email.message import EmailMessage
-import aiosmtplib
+try:
+    import aiosmtplib
+except ModuleNotFoundError:  # pragma: no cover - optional in test/dev environments
+    aiosmtplib = None
 from app.config import settings
 from app.database import AsyncSessionLocal
 
@@ -71,6 +74,9 @@ def _generate_html_template(title: str, body: str, cta_text: str = None, cta_url
 
 async def _send_smtp_email(to_email: str, subject: str, html_content: str):
     """Core function to dispatch emails via aiosmtplib."""
+    if aiosmtplib is None:
+        logger.warning(f"aiosmtplib is not installed. Skipping email to {to_email}")
+        return
     
     # Grab settings from DB
     from app.routers.admin import get_email_settings

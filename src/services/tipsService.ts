@@ -30,6 +30,12 @@ export interface Tip {
   updatedAt: string;
 }
 
+export interface TipMutationInput extends Partial<Tip> {
+  notify?: boolean;
+  notify_target?: string;
+  notify_channel?: string;
+}
+
 export interface JackpotMatch {
   homeTeam: string;
   awayTeam: string;
@@ -185,7 +191,7 @@ export async function getTipStats(): Promise<{ total: number; won: number; lost:
 
 // ─── Tips CRUD ───────────────────────────────────────────────
 
-export async function addTip(tip: Partial<Tip>): Promise<Tip | null> {
+export async function addTip(tip: TipMutationInput): Promise<Tip | null> {
   try {
     const payload = {
       fixture_id: tip.fixtureId,
@@ -201,6 +207,9 @@ export async function addTip(tip: Partial<Tip>): Promise<Tip | null> {
       reasoning: tip.reasoning,
       category: tip.category,
       is_free: tip.isFree,
+      notify: tip.notify ?? false,
+      notify_target: tip.notify_target ?? 'all',
+      notify_channel: tip.notify_channel ?? 'both',
     };
     const res = await apiClient.post('/tips', payload);
     return mapTip(res.data);
