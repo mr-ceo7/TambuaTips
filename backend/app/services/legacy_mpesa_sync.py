@@ -70,6 +70,16 @@ async def ensure_phone_user(
 
     digits = re.sub(r"[\D]", "", normalized_phone)
     placeholder_email = f"phone_{digits}@tambuatips.local"
+
+    # Try finding by the ghost email if the phone was NULL in the database
+    email_result = await db.execute(select(User).where(User.email == placeholder_email))
+    user_by_email = email_result.scalar_one_or_none()
+    if user_by_email:
+        if not user_by_email.phone:
+            user_by_email.phone = normalized_phone
+            await db.flush()
+        return user_by_email, False
+
     random_password = "".join(random.choices(string.ascii_letters + string.digits, k=32))
     user = User(
         name=_build_placeholder_name(normalized_phone, first_name, other_name),
