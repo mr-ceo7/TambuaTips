@@ -673,6 +673,20 @@ export function TipsPage() {
                           </div>
                         </div>
                       </div>
+                      {/* Unlock CTA for categories with paid tips */}
+                      {catInfo.minTier !== 'free' && (!user || !hasAccess(cat as TipCategory)) && (
+                        <button
+                          onClick={() => {
+                            if (!user) setShowAuthModal(true);
+                            else setShowPricingModal(true, cat as TipCategory);
+                          }}
+                          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-gold-500/10 hover:bg-gold-500/20 border border-gold-500/20 text-gold-400 text-xs font-bold uppercase tracking-wider transition-all group"
+                        >
+                          <Crown className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                          Unlock More Expert {catInfo.label} Tips
+                          <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                        </button>
+                      )}
                     </div>
 
                     <div className="bg-zinc-950/50 border-t border-emerald-500/20 overflow-hidden">

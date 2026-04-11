@@ -79,7 +79,7 @@ async def list_tips(
     tier_dict = {t.tier_id: t for t in all_tiers}
 
     response = []
-    
+
     # Pre-calculate if the user is Premium/Admin to bypass the marketing filters
     is_premium_or_admin = user and TIER_RANK.get(user.subscription_tier, 0) == 3
     lost_counter = 0
@@ -98,11 +98,11 @@ async def list_tips(
         # Check if the user has specifically unlocked this tip via their referral points
         is_specifically_unlocked = user and tip.id in (user.unlocked_tip_ids or [])
 
-        # Full access: they bought it or specifically unlocked it
-        if has_normal_access or is_specifically_unlocked:
+        # Full access: decided tips visible to everyone, or user has subscription/unlock
+        if is_decided or has_normal_access or is_specifically_unlocked:
             response.append(TipResponse.model_validate(tip))
         else:
-            # Locked response — hide prediction/odds/reasoning but show result for decided tips
+            # Locked response — hide prediction/odds/reasoning for pending tips
             response.append(TipLockedResponse(
                 id=tip.id,
                 fixture_id=tip.fixture_id,
