@@ -29,6 +29,7 @@ class User(Base):
     is_admin = Column(Boolean, default=False, nullable=False, server_default="0")
     subscription_tier = Column(String(20), default="free", nullable=False, server_default="free")
     subscription_expires_at = Column(DateTime, nullable=True)
+    sms_tips_enabled = Column(Boolean, default=False, nullable=False, server_default="0")
     favorite_teams = Column(JSON, default=list)
     
     country = Column(String(2), nullable=True) # ISO country code

@@ -13,6 +13,7 @@ from app.models.user import User
 from app.models.tip import Tip
 from app.schemas.tip import TipCreate, TipUpdate, TipResponse, TipLockedResponse, TipStatsResponse
 from fastapi import BackgroundTasks
+from app.services.sms_tip_delivery import queue_tip_sms_for_tip
 
 router = APIRouter(prefix="/api/tips", tags=["Tips"])
 
@@ -182,6 +183,7 @@ async def create_tip(body: TipCreate, background_tasks: BackgroundTasks, db: Asy
     db.add(tip)
     await db.commit()
     await db.refresh(tip)
+    background_tasks.add_task(queue_tip_sms_for_tip, tip.id)
     
     if body.notify:
         from app.routers.admin import broadcast_push, BroadcastPushRequest

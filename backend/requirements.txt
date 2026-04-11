@@ -21,6 +21,7 @@ httpx==0.28.1
 
 # Email
 aiosmtplib==3.0.2
+email-validator==2.3.0
 
 # Web Push
 pywebpush==1.14.0

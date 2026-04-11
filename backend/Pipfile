@@ -23,6 +23,7 @@ pywebpush = "*"
 httpx = "*"
 google-auth = "*"
 aiosmtplib = "*"
+email-validator = "==2.3.0"
 pymysql = "*"
 
 [dev-packages]

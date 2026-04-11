@@ -14,21 +14,21 @@ These commands are formatted to be copied and pasted directly into your terminal
 This single command creates Joseph's account, assigns him the auto-generated email, sets his tier to premium, and gives him 28 days of access.
 
 ```bash
-mysql -u root -p"$DB_PASS" -e "USE tambuatips_v2_db; INSERT INTO users (name, email, password, subscription_tier, subscription_expires_at, created_at, updated_at) VALUES ('Jeremiah', 'phone_0112460119@tambuatips.local', 'manual_registration', 'tier_4plus', DATE_ADD(NOW(), INTERVAL 14 DAY), NOW(), NOW());"
+mysql -u root -p"$DB_PASS" -e "USE tambuatips_v2_db; INSERT INTO users (name, email, password, subscription_tier, subscription_expires_at, created_at, updated_at) VALUES ('Fredrick', 'phone_0713501194@tambuatips.local', 'manual_registration', 'tier_4plus', DATE_ADD(NOW(), INTERVAL 14 DAY), NOW(), NOW());"
 ```
 
 ## 2. Log the Payment
 
-Now that his account exists, this command will successfully log his KES 640 M-Pesa payment and attach it to his new
+Now that his account exists, this command will successfully log his KES 440 M-Pesa payment and attach it to his new
 
 ```bash
-mysql -u root -p"$DB_PASS" -e "USE tambuatips_v2_db; INSERT INTO payments (user_id, amount, currency, method, status, reference, transaction_id, item_type, item_id, created_at, updated_at) VALUES ((SELECT id FROM users WHERE email = 'phone_0112460119@tambuatips.local' LIMIT 1), 640, 'KES', 'mpesa', 'completed', 'MANUAL-PAY', 'TXN-$(date +%s)', 'subscription', 'tier_4plus', NOW(), NOW());"
+mysql -u root -p"$DB_PASS" -e "USE tambuatips_v2_db; INSERT INTO payments (user_id, amount, currency, method, status, reference, transaction_id, item_type, item_id, created_at, updated_at) VALUES ((SELECT id FROM users WHERE email = 'phone_0713501194@tambuatips.local' LIMIT 1), 440, 'KES', 'mpesa', 'completed', 'MANUAL-PAY', 'TXN-$(date +%s)', 'subscription', 'tier_4plus', NOW(), NOW());"
 ```
 
 ## 3. Remove log payment
 
 ```bash
-mysql -u root -p"$DB_PASS" -e "USE tambuatips_v2_db; DELETE FROM payments WHERE user_id = (SELECT id FROM users WHERE email = 'phone_0112460119@tambuatips.local' LIMIT 1) AND reference = 'MANUAL-PAY' AND amount = 640 AND item_type = 'subscription' AND item_id = 'tier_4plus' LIMIT 1;"
+mysql -u root -p"$DB_PASS" -e "USE tambuatips_v2_db; DELETE FROM payments WHERE user_id = (SELECT id FROM users WHERE email = 'phone_0727031989@tambuatips.local' LIMIT 1) AND reference = 'MANUAL-PAY' AND amount = 440 AND item_type = 'subscription' AND item_id = 'tier_4plus' LIMIT 1;"
 ```
 
 ## ── User & Subscription Management ─────────────────────────────

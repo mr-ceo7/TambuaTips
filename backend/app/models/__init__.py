@@ -7,6 +7,7 @@ from app.models.activity import UserActivity, AnonymousVisitor, AnonymousActivit
 from app.models.ad import AdPost
 from app.models.notification import MatchSubscription
 from app.models.setting import AdminSetting
+from app.models.sms_tip import SmsTipQueue
 from app.models.campaign import Campaign
 from app.models.affiliate import (
     Affiliate, AffiliateClick, AffiliateConversion,

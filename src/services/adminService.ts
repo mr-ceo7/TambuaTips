@@ -6,17 +6,37 @@ export interface AdminUser {
   id: number;
   name: string;
   email: string;
+  phone: string | null;
   is_admin: boolean;
   is_active: boolean;
   subscription_tier: string;
   is_subscription_active: boolean;
   subscription_expires_at: string | null;
+  sms_tips_enabled: boolean;
   country: string | null;
   created_at: string;
   last_seen: string | null;
   most_visited_page: string | null;
   total_time_spent: number;
   is_online: boolean;
+}
+
+export interface AdminUsersResponse {
+  users: AdminUser[];
+  total: number;
+  page: number;
+  per_page: number;
+  total_pages: number;
+  counts: Record<string, number>;
+}
+
+export interface AdminUsersFilters {
+  search?: string;
+  tier?: string;
+  sort_field?: string;
+  sort_dir?: 'asc' | 'desc';
+  page?: number;
+  per_page?: number;
 }
 
 export interface DashboardStats {
@@ -173,6 +193,15 @@ export interface SMSSettings {
   SMS_TEMPLATE: string;
 }
 
+export interface SmsOnboardResponse {
+  status: string;
+  created: boolean;
+  user_id: number;
+  tier: string;
+  expires_at: string | null;
+  sms_tips_enabled: boolean;
+}
+
 export interface EmailSettings {
   SMTP_EMAIL: string;
   SMTP_PASSWORD: string;
@@ -214,8 +243,16 @@ export const adminService = {
   },
 
   // Users
-  getUsers: async (): Promise<AdminUser[]> => {
-    const response = await apiClient.get<AdminUser[]>('/admin/users');
+  getUsers: async (filters: AdminUsersFilters = {}): Promise<AdminUsersResponse> => {
+    const params: Record<string, string | number> = {};
+    if (filters.search) params.search = filters.search;
+    if (filters.tier) params.tier = filters.tier;
+    if (filters.sort_field) params.sort_field = filters.sort_field;
+    if (filters.sort_dir) params.sort_dir = filters.sort_dir;
+    if (filters.page) params.page = filters.page;
+    if (filters.per_page) params.per_page = filters.per_page;
+
+    const response = await apiClient.get<AdminUsersResponse>('/admin/users', { params });
     return response.data;
   },
 
@@ -233,6 +270,16 @@ export const adminService = {
       tier,
       duration_days: durationDays,
     });
+  },
+
+  onboardSmsUser: async (phone: string, tier: string, durationDays: number, amountPaid: number): Promise<SmsOnboardResponse> => {
+    const response = await apiClient.post<SmsOnboardResponse>('/admin/users/onboard-sms', {
+      phone,
+      tier,
+      duration_days: durationDays,
+      amount_paid: amountPaid,
+    });
+    return response.data;
   },
 
   toggleUserActive: async (userId: number): Promise<{ is_active: boolean }> => {

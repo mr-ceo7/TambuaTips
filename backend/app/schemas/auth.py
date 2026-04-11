@@ -4,7 +4,7 @@ Pydantic schemas for authentication endpoints.
 
 from datetime import datetime
 from typing import Optional, Any, Dict
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
 # ── Requests ─────────────────────────────────────────────────
@@ -62,6 +62,7 @@ class UserResponse(BaseModel):
     subscription_tier: str
     subscription_expires_at: Optional[datetime] = None
     is_subscription_active: bool
+    sms_tips_enabled: bool = False
     favorite_teams: list[str] = Field(default_factory=list)
     country: Optional[str] = None
     created_at: Optional[datetime] = None
@@ -74,6 +75,14 @@ class UserResponse(BaseModel):
     phone: Optional[str] = None
 
     model_config = {"from_attributes": True}
+
+    @field_validator("favorite_teams", mode="before")
+    @classmethod
+    def normalize_favorite_teams(cls, value: Any) -> list[str]:
+        # Older rows may still have NULL in MySQL; normalize that to an empty list.
+        if value is None:
+            return []
+        return value
 
 class AdminUserResponse(UserResponse):
     last_seen: Optional[datetime] = None

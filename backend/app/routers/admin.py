@@ -5,14 +5,17 @@ Admin routes — privileged operations + analytics dashboard.
 import csv
 import io
 import json
-from typing import List, Optional
+import random
+import string
+from typing import Dict, List, Optional
 from datetime import datetime, timedelta, UTC
+import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_, delete, update, or_
+from sqlalchemy import select, func, and_, delete, update, or_, case
 
 from app.dependencies import get_db, require_admin
 from app.models.user import User
@@ -36,6 +39,7 @@ from app.schemas.payment import PaymentResponse
 from app.schemas.ad import AdPostCreate, AdPostUpdate, AdPostResponse
 from app.services.email_service import send_broadcast_email, send_affiliate_approved_email
 from app.config import settings
+from app.security import hash_password
 
 import re
 import httpx
@@ -78,6 +82,27 @@ async def _notify_affiliate_approved(phone: str, name: str, db: AsyncSession):
                 _logging.warning(f"SMS provider returned {response.status_code} for {stripped_phone}")
     except Exception as e:
         _logging.error(f"Failed to send approval SMS to {phone}: {e}")
+
+
+def _normalize_phone(phone: str) -> str:
+    normalized = re.sub(r'[\s\-\(\)]', '', phone.strip())
+    if not normalized.startswith('+'):
+        normalized = '+' + normalized
+    return normalized
+
+
+def _ensure_referral_code(user: User):
+    if user.referral_code:
+        return
+    safe_name = "".join([c for c in user.name if c.isalpha()])[:3].upper()
+    if len(safe_name) < 3:
+        safe_name = "VIP"
+    user.referral_code = f"{safe_name}{uuid.uuid4().hex[:5].upper()}"
+
+
+def _ensure_magic_login_token(user: User):
+    if not user.magic_login_token:
+        user.magic_login_token = uuid.uuid4().hex[:32]
 
 
 
@@ -1132,38 +1157,173 @@ async def enrich_fixtures(
 #  EXISTING ENDPOINTS (preserved)
 # ═══════════════════════════════════════════════════════════════
 
-@router.get("/users", response_model=List[AdminUserResponse])
-async def list_users(db: AsyncSession = Depends(get_db), admin: User = Depends(require_admin)):
-    result = await db.execute(select(User).order_by(User.created_at.desc()))
-    users = result.scalars().all()
-    
-    response = []
+class AdminUserListResponse(BaseModel):
+    users: List[AdminUserResponse]
+    total: int
+    page: int
+    per_page: int
+    total_pages: int
+    counts: Dict[str, int]
+
+@router.get("/users", response_model=AdminUserListResponse)
+async def list_users(
+    search: Optional[str] = Query(None),
+    tier: str = Query("all"),
+    sort_field: str = Query("last_seen"),
+    sort_dir: str = Query("desc"),
+    page: int = Query(1, ge=1),
+    per_page: int = Query(50, ge=1, le=200),
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
     now = datetime.now(UTC).replace(tzinfo=None)
-    
-    for u in users:
-        is_online = u.last_seen and (now - u.last_seen) < timedelta(minutes=3)
-        
-        activity_res = await db.execute(
-            select(
-                UserActivity.path,
-                func.sum(UserActivity.time_spent_seconds).label("total")
-            )
-            .where(UserActivity.user_id == u.id)
-            .group_by(UserActivity.path)
-            .order_by(func.sum(UserActivity.time_spent_seconds).desc())
+    online_cutoff = now - timedelta(minutes=3)
+
+    path_totals_subq = (
+        select(
+            UserActivity.user_id.label("user_id"),
+            UserActivity.path.label("path"),
+            func.sum(UserActivity.time_spent_seconds).label("path_total"),
         )
-        activities = activity_res.all()
-        
-        most_visited_page = activities[0].path if activities else None
-        total_time_spent = int(sum(act.total for act in activities) if activities else 0)
-        
-        resp_obj = AdminUserResponse.model_validate(u)
+        .group_by(UserActivity.user_id, UserActivity.path)
+        .subquery()
+    )
+
+    ranked_paths_subq = (
+        select(
+            path_totals_subq.c.user_id,
+            path_totals_subq.c.path,
+            func.row_number().over(
+                partition_by=path_totals_subq.c.user_id,
+                order_by=(path_totals_subq.c.path_total.desc(), path_totals_subq.c.path.asc()),
+            ).label("rn"),
+        )
+        .subquery()
+    )
+
+    top_path_subq = (
+        select(
+            ranked_paths_subq.c.user_id.label("user_id"),
+            ranked_paths_subq.c.path.label("most_visited_page"),
+        )
+        .where(ranked_paths_subq.c.rn == 1)
+        .subquery()
+    )
+
+    activity_totals_subq = (
+        select(
+            UserActivity.user_id.label("user_id"),
+            func.sum(UserActivity.time_spent_seconds).label("total_time_spent"),
+        )
+        .group_by(UserActivity.user_id)
+        .subquery()
+    )
+
+    filters = []
+    clean_search = (search or "").strip()
+    if clean_search:
+        pattern = f"%{clean_search}%"
+        filters.append(
+            or_(
+                User.name.ilike(pattern),
+                User.email.ilike(pattern),
+                User.phone.ilike(pattern),
+                User.country.ilike(pattern),
+            )
+        )
+
+    if tier != "all":
+        if tier == "online":
+            filters.extend([
+                User.last_seen.is_not(None),
+                User.last_seen >= online_cutoff,
+            ])
+        else:
+            filters.append(User.subscription_tier == tier)
+
+    sort_exprs = {
+        "name": User.name,
+        "email": User.email,
+        "subscription_tier": User.subscription_tier,
+        "last_seen": User.last_seen,
+        "total_time_spent": func.coalesce(activity_totals_subq.c.total_time_spent, 0),
+        "created_at": User.created_at,
+    }
+    sort_column = sort_exprs.get(sort_field, User.last_seen)
+    sort_direction = sort_dir.lower()
+    if sort_direction not in {"asc", "desc"}:
+        sort_direction = "desc"
+
+    is_online_expr = case(
+        (
+            and_(User.last_seen.is_not(None), User.last_seen >= online_cutoff),
+            1,
+        ),
+        else_=0,
+    )
+
+    total_stmt = select(func.count(User.id))
+    if filters:
+        total_stmt = total_stmt.where(and_(*filters))
+    total = int((await db.execute(total_stmt)).scalar() or 0)
+
+    users_stmt = (
+        select(
+            User,
+            func.coalesce(activity_totals_subq.c.total_time_spent, 0).label("total_time_spent"),
+            top_path_subq.c.most_visited_page,
+        )
+        .outerjoin(activity_totals_subq, activity_totals_subq.c.user_id == User.id)
+        .outerjoin(top_path_subq, top_path_subq.c.user_id == User.id)
+    )
+
+    if filters:
+        users_stmt = users_stmt.where(and_(*filters))
+
+    if sort_direction == "asc":
+        users_stmt = users_stmt.order_by(is_online_expr.desc(), sort_column.asc(), User.id.asc())
+    else:
+        users_stmt = users_stmt.order_by(is_online_expr.desc(), sort_column.desc(), User.id.desc())
+
+    users_stmt = users_stmt.offset((page - 1) * per_page).limit(per_page)
+    rows = (await db.execute(users_stmt)).all()
+
+    response_users = []
+    for user, total_time_spent, most_visited_page in rows:
+        resp_obj = AdminUserResponse.model_validate(user)
         resp_obj.most_visited_page = most_visited_page
-        resp_obj.total_time_spent = total_time_spent
-        resp_obj.is_online = bool(is_online)
-        response.append(resp_obj)
-        
-    return response
+        resp_obj.total_time_spent = int(total_time_spent or 0)
+        resp_obj.is_online = bool(user.last_seen and user.last_seen >= online_cutoff)
+        response_users.append(resp_obj)
+
+    total_all_users = int((await db.execute(select(func.count(User.id)))).scalar() or 0)
+    online_count = int((
+        await db.execute(
+            select(func.count(User.id)).where(
+                User.last_seen.is_not(None),
+                User.last_seen >= online_cutoff,
+            )
+        )
+    ).scalar() or 0)
+    tier_rows = (
+        await db.execute(
+            select(User.subscription_tier, func.count(User.id))
+            .group_by(User.subscription_tier)
+        )
+    ).all()
+
+    counts: Dict[str, int] = {"all": total_all_users, "online": online_count}
+    for subscription_tier, count in tier_rows:
+        counts[subscription_tier] = int(count)
+
+    return {
+        "users": response_users,
+        "total": total,
+        "page": page,
+        "per_page": per_page,
+        "total_pages": (total + per_page - 1) // per_page if per_page else 0,
+        "counts": counts,
+    }
 
 @router.put("/users/{user_id}/revoke")
 async def revoke_subscription(user_id: int, db: AsyncSession = Depends(get_db), admin: User = Depends(require_admin)):
@@ -1179,6 +1339,13 @@ async def revoke_subscription(user_id: int, db: AsyncSession = Depends(get_db), 
 class GrantSubscriptionRequest(BaseModel):
     tier: str  # basic, standard, premium
     duration_days: int  # number of days to grant
+
+
+class AdminSmsOnboardRequest(BaseModel):
+    phone: str
+    tier: str
+    duration_days: int
+    amount_paid: float
 
 
 @router.put("/users/{user_id}/grant-subscription")
@@ -1211,6 +1378,90 @@ async def grant_subscription(
         "status": "success",
         "tier": u.subscription_tier,
         "expires_at": u.subscription_expires_at.isoformat(),
+    }
+
+
+@router.post("/users/onboard-sms")
+async def onboard_sms_user(
+    body: AdminSmsOnboardRequest,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    if body.duration_days < 1 or body.duration_days > 365:
+        raise HTTPException(status_code=400, detail="Duration must be 1-365 days.")
+    if body.amount_paid <= 0:
+        raise HTTPException(status_code=400, detail="Amount paid must be greater than zero.")
+
+    tier_res = await db.execute(select(SubscriptionTier).where(SubscriptionTier.tier_id == body.tier))
+    tier = tier_res.scalar_one_or_none()
+    if not tier:
+        raise HTTPException(status_code=400, detail=f"Invalid tier: {body.tier}")
+
+    phone = _normalize_phone(body.phone)
+    if len(phone) < 10 or len(phone) > 20:
+        raise HTTPException(status_code=400, detail="Invalid phone number format.")
+
+    user_res = await db.execute(select(User).where(User.phone == phone))
+    user = user_res.scalar_one_or_none()
+    created = False
+
+    if not user:
+        created = True
+        placeholder_email = f"phone_{re.sub(r'[^0-9]', '', phone)}@tambuatips.local"
+        random_password = "".join(random.choices(string.ascii_letters + string.digits, k=32))
+        user = User(
+            name=f"User {phone[-4:]}",
+            email=placeholder_email,
+            password=hash_password(random_password),
+            phone=phone,
+            subscription_tier="free",
+            is_active=True,
+            email_verified_at=datetime.now(UTC).replace(tzinfo=None),
+        )
+        db.add(user)
+        await db.flush()
+
+    _ensure_referral_code(user)
+    _ensure_magic_login_token(user)
+    user.sms_tips_enabled = True
+    user.is_active = True
+
+    now = datetime.now(UTC).replace(tzinfo=None)
+    current_expiry = user.subscription_expires_at if user.subscription_expires_at and user.subscription_expires_at > now else now
+    user.subscription_tier = body.tier
+    user.subscription_expires_at = current_expiry + timedelta(days=body.duration_days)
+    db.add(user)
+    await db.flush()
+
+    payment = Payment(
+        user_id=user.id,
+        amount=body.amount_paid,
+        currency="KES",
+        method="mpesa",
+        status="completed",
+        reference=f"ADMIN-SMS-{uuid.uuid4().hex[:10].upper()}",
+        transaction_id=f"ADMIN-SMS-{uuid.uuid4().hex[:10].upper()}",
+        item_type="subscription",
+        item_id=body.tier,
+        phone=user.phone,
+        email=user.email,
+        gateway_response=json.dumps({
+            "source": "admin_sms_onboard",
+            "duration_days": body.duration_days,
+            "admin_id": admin.id,
+        }),
+    )
+    db.add(payment)
+    await db.commit()
+    await db.refresh(user)
+
+    return {
+        "status": "success",
+        "created": created,
+        "user_id": user.id,
+        "tier": user.subscription_tier,
+        "expires_at": user.subscription_expires_at.isoformat() if user.subscription_expires_at else None,
+        "sms_tips_enabled": user.sms_tips_enabled,
     }
 
 @router.put("/users/{user_id}/toggle-active")
@@ -1873,4 +2124,3 @@ async def affiliate_overview_stats(db: AsyncSession = Depends(get_db), admin: Us
         "unpaid_commission": float(total_commission) - float(total_paid),
         "total_revenue_from_affiliates": float(total_revenue_from_affiliates),
     }
-
