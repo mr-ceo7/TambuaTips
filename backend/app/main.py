@@ -191,9 +191,10 @@ def _col_default_ddl(col) -> str:
 
 async def run_migrations():
     """
-    Automatically detect and add missing columns to existing tables.
+    Automatically detect and add missing columns to existing tables,
+    and modify columns whose types have changed (e.g. VARCHAR→TEXT).
     - create_all handles new tables.
-    - This handles new columns on existing tables.
+    - This handles new columns and type changes on existing tables.
     Fully idempotent and safe to run on every startup.
     """
     async with engine.begin() as conn:
@@ -211,30 +212,55 @@ async def run_migrations():
             if table_name not in existing_tables:
                 continue  # New table — create_all already handled it
 
-            # Get columns that exist in the database for this table
+            # Get columns with their types from the database
             result = await conn.execute(text(
-                "SELECT column_name FROM information_schema.columns "
+                "SELECT column_name, column_type, is_nullable "
+                "FROM information_schema.columns "
                 "WHERE table_schema = DATABASE() AND table_name = :table"
             ), {"table": table_name})
-            db_columns = {row[0] for row in result.fetchall()}
+            db_columns = {}
+            for row in result.fetchall():
+                db_columns[row[0]] = {"type": row[1].upper(), "nullable": row[2]}
 
             # Compare with model columns
             for col in table.columns:
-                if col.name in db_columns:
-                    continue  # Already exists
-
-                # Build the ALTER TABLE statement
                 col_type = _sa_type_to_ddl(col)
                 nullable = "NULL" if col.nullable else "NOT NULL"
                 default = _col_default_ddl(col)
 
-                alter_sql = f"ALTER TABLE `{table_name}` ADD COLUMN `{col.name}` {col_type} {nullable}{default}"
+                if col.name not in db_columns:
+                    # ── New column: ADD ──
+                    alter_sql = f"ALTER TABLE `{table_name}` ADD COLUMN `{col.name}` {col_type} {nullable}{default}"
+                    try:
+                        await conn.execute(text(alter_sql))
+                        logger.info(f"Auto-migration: added `{table_name}`.`{col.name}` ({col_type} {nullable}{default})")
+                    except Exception as e:
+                        logger.warning(f"Auto-migration skip add `{table_name}`.`{col.name}`: {e}")
+                else:
+                    # ── Existing column: check for type mismatch ──
+                    db_type = db_columns[col.name]["type"]
+                    model_type_upper = col_type.upper()
 
-                try:
-                    await conn.execute(text(alter_sql))
-                    logger.info(f"Auto-migration: added `{table_name}`.`{col.name}` ({col_type} {nullable}{default})")
-                except Exception as e:
-                    logger.warning(f"Auto-migration skip `{table_name}`.`{col.name}`: {e}")
+                    # Detect meaningful type changes (e.g. VARCHAR(255) → TEXT)
+                    needs_modify = False
+                    if model_type_upper == "TEXT" and db_type.startswith("VARCHAR"):
+                        needs_modify = True
+                    elif model_type_upper.startswith("VARCHAR") and db_type.startswith("VARCHAR"):
+                        # Check if length increased
+                        import re
+                        db_match = re.search(r'VARCHAR\((\d+)\)', db_type)
+                        model_match = re.search(r'VARCHAR\((\d+)\)', model_type_upper)
+                        if db_match and model_match:
+                            if int(model_match.group(1)) > int(db_match.group(1)):
+                                needs_modify = True
+
+                    if needs_modify:
+                        modify_sql = f"ALTER TABLE `{table_name}` MODIFY COLUMN `{col.name}` {col_type} {nullable}{default}"
+                        try:
+                            await conn.execute(text(modify_sql))
+                            logger.info(f"Auto-migration: modified `{table_name}`.`{col.name}` {db_type} → {col_type}")
+                        except Exception as e:
+                            logger.warning(f"Auto-migration skip modify `{table_name}`.`{col.name}`: {e}")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

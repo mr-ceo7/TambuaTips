@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, DateTime, BigInteger
+from sqlalchemy import Column, Integer, String, DateTime, BigInteger, Text
 from app.database import Base
 
 class AdminSetting(Base):
@@ -7,7 +7,8 @@ class AdminSetting(Base):
     
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     key = Column(String(50), unique=True, nullable=False, index=True)
-    value = Column(String(255), nullable=False)
-    description = Column(String(255), nullable=True)
+    value = Column(Text, nullable=False)
+    description = Column(Text, nullable=True)
     
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
