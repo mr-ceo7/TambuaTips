@@ -90,7 +90,7 @@ function ReferralCatcher() {
 function AffiliateCatcher() {
   React.useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const aff = params.get('aff');
+    const aff = params.get('aff') || params.get('ref');
     if (aff) {
       // Validate and cache the affiliate code
       affiliateTrackingService.validateCode(aff).then(res => {
@@ -105,6 +105,7 @@ function AffiliateCatcher() {
       // Clean URL
       const url = new URL(window.location.href);
       url.searchParams.delete('aff');
+      url.searchParams.delete('ref');
       window.history.replaceState({}, '', url.toString());
     } else {
       // Check if cached code has expired

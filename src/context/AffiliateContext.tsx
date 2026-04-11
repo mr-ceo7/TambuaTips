@@ -30,7 +30,7 @@ interface AffiliateContextType {
   error: string | null;
   login: (email: string, password: string) => Promise<void>;
   googleLogin: (idToken: string) => Promise<void>;
-  requestPhoneOtp: (phone: string) => Promise<void>;
+  requestPhoneOtp: (phone: string, name?: string) => Promise<void>;
   phoneLogin: (phone: string, otp: string) => Promise<void>;
   register: (name: string, email: string, password: string, phone: string) => Promise<string>;
   logout: () => Promise<void>;
@@ -100,9 +100,9 @@ export function AffiliateProvider({ children }: { children: React.ReactNode }) {
     }
   }, [refreshProfile]);
 
-  const requestPhoneOtp = useCallback(async (phone: string) => {
+  const requestPhoneOtp = useCallback(async (phone: string, name?: string) => {
     try {
-      await affiliateService.requestPhoneOtp(phone);
+      await affiliateService.requestPhoneOtp(phone, name);
       setError(null);
     } catch (err: any) {
       throw new Error(err.response?.data?.detail || 'Failed to send OTP');

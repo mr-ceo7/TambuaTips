@@ -46,8 +46,8 @@ export const affiliateService = {
     return response.data;
   },
 
-  async requestPhoneOtp(phone: string): Promise<any> {
-    const response = await affiliateClient.post('/phone/request-otp', { phone });
+  async requestPhoneOtp(phone: string, name?: string): Promise<any> {
+    const response = await affiliateClient.post('/phone/request-otp', { phone, name });
     return response.data;
   },
 

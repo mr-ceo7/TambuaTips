@@ -85,7 +85,7 @@ export function AffiliateConversionsPage() {
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
-                  {['Type', 'User', 'Sale Amount', 'Your Commission', 'Date'].map(h => (
+                  {['Type', 'User', 'Commission', 'Date'].map(h => (
                     <th key={h} style={{
                       textAlign: 'left', padding: '0.75rem 1rem', color: '#71717a',
                       fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase',
@@ -107,9 +107,6 @@ export function AffiliateConversionsPage() {
                       </span>
                     </td>
                     <td style={{ padding: '0.75rem 1rem', color: '#d1d5db', fontSize: '0.85rem' }}>{c.user_name || 'Unknown'}</td>
-                    <td style={{ padding: '0.75rem 1rem', color: '#d1d5db', fontSize: '0.85rem' }}>
-                      {c.amount > 0 ? `KES ${c.amount.toLocaleString()}` : '-'}
-                    </td>
                     <td style={{ padding: '0.75rem 1rem', color: '#10b981', fontSize: '0.85rem', fontWeight: 600 }}>
                       {c.commission_amount > 0 ? `KES ${c.commission_amount.toLocaleString()}` : '-'}
                     </td>

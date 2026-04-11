@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 import { useAffiliate } from '../../context/AffiliateContext';
-import { Shield, CheckCircle, AlertCircle, Phone, ArrowRight, Loader2 } from 'lucide-react';
+import { CheckCircle, AlertCircle, Phone, ArrowRight, Loader2 } from 'lucide-react';
 import { GoogleLogin, CredentialResponse } from '@react-oauth/google';
 
 export function AffiliateLoginPage() {
@@ -15,6 +15,7 @@ export function AffiliateLoginPage() {
   const [success, setSuccess] = useState('');
   const [usePhone, setUsePhone] = useState(false);
   const [phone, setPhone] = useState('');
+  const [name, setName] = useState('');
   const [otp, setOtp] = useState('');
   const [step, setStep] = useState<'phone' | 'otp'>('phone');
 
@@ -42,7 +43,7 @@ export function AffiliateLoginPage() {
     setError('');
     setLoading(true);
     try {
-      await requestPhoneOtp(phone);
+      await requestPhoneOtp(phone, name || undefined);
       setSuccess("Verification code sent via SMS!");
       setStep('otp');
     } catch (err: any) {
@@ -73,48 +74,41 @@ export function AffiliateLoginPage() {
   return (
     <div style={{
       minHeight: '100vh',
-      background: 'linear-gradient(135deg, #0a0a0f 0%, #111827 50%, #0d1117 100%)',
+      background: '#0a0a0f',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
       padding: '1rem',
       fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+      position: 'relative',
+      overflow: 'hidden',
     }}>
-      {/* Background decoration */}
+      {/* Brand background image */}
       <div style={{
-        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, pointerEvents: 'none', overflow: 'hidden',
-      }}>
-        <div style={{
-          position: 'absolute', top: '-20%', right: '-10%', width: '600px', height: '600px',
-          background: 'radial-gradient(circle, rgba(16,185,129,0.08) 0%, transparent 70%)',
-          borderRadius: '50%',
-        }} />
-        <div style={{
-          position: 'absolute', bottom: '-20%', left: '-10%', width: '500px', height: '500px',
-          background: 'radial-gradient(circle, rgba(59,130,246,0.06) 0%, transparent 70%)',
-          borderRadius: '50%',
-        }} />
-      </div>
+        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+        backgroundImage: 'url(/brand-ad.jpeg)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+      }} />
+      {/* Dark overlay for readability */}
+      <div style={{
+        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+        background: 'rgba(0, 0, 0, 0.7)',
+        backdropFilter: 'blur(4px)',
+      }} />
 
       <div style={{
         width: '100%', maxWidth: '440px', position: 'relative', zIndex: 1,
       }}>
-        {/* Logo */}
-        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <div style={{
-            width: '64px', height: '64px', borderRadius: '20px',
-            background: 'linear-gradient(135deg, #10b981, #059669)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            margin: '0 auto 1rem', boxShadow: '0 8px 32px rgba(16,185,129,0.3)',
-          }}>
-            <Shield style={{ width: '32px', height: '32px', color: 'white' }} />
-          </div>
-          <h1 style={{ fontSize: '1.75rem', fontWeight: 700, color: 'white', margin: 0 }}>
+        {/* Header */}
+        <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+          <p style={{ color: '#10b981', fontSize: '0.75rem', fontWeight: 600, letterSpacing: '0.2em', textTransform: 'uppercase', margin: '0 0 0.25rem' }}>
             TambuaTips
-          </h1>
-          <p style={{ color: '#10b981', fontSize: '0.75rem', fontWeight: 600, letterSpacing: '0.15em', textTransform: 'uppercase', marginTop: '0.25rem' }}>
-            Affiliate Program
           </p>
+          <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'white', margin: 0 }}>
+            Affiliate Program
+          </h1>
         </div>
 
         {/* Card */}
@@ -189,6 +183,22 @@ export function AffiliateLoginPage() {
                 <form onSubmit={handleSendOtp} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                   <div>
                     <label style={{ display: 'block', color: '#d1d5db', fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.5rem' }}>
+                      Your Name
+                    </label>
+                    <input
+                      type="text"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="John Doe"
+                      style={{
+                        width: '100%', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.1)',
+                        color: 'white', padding: '0.75rem 1rem', borderRadius: '12px',
+                        fontSize: '0.95rem', outline: 'none', transition: 'all 0.2s',
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', color: '#d1d5db', fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.5rem' }}>
                       Phone Number
                     </label>
                     <div style={{ position: 'relative' }}>
@@ -197,7 +207,7 @@ export function AffiliateLoginPage() {
                         type="tel"
                         value={phone}
                         onChange={(e) => setPhone(e.target.value)}
-                        placeholder="0712345678"
+                        placeholder="254712345678"
                         style={{
                           width: '100%', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.1)',
                           color: 'white', padding: '0.75rem 1rem 0.75rem 2.8rem', borderRadius: '12px',

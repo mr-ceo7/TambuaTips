@@ -16,6 +16,7 @@ class GoogleLoginRequest(BaseModel):
 
 class PhoneLoginRequest(BaseModel):
     phone: str
+    name: Optional[str] = None
     referred_by_code: Optional[str] = None
 
 class PhoneVerifyRequest(BaseModel):

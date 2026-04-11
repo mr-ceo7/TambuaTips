@@ -9,7 +9,7 @@ import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import {
   LayoutDashboard, TrendingUp, DollarSign, Users, LogOut,
-  ChevronLeft, ChevronRight, Menu, X, Link2, Clock, Lock
+  ChevronLeft, ChevronRight, Menu, X, Clock, Lock
 } from 'lucide-react';
 import { useAffiliate } from '../../context/AffiliateContext';
 
@@ -72,14 +72,14 @@ export function AffiliateLayout() {
           height: '64px', display: 'flex', alignItems: 'center', padding: '0 1rem',
           borderBottom: '1px solid rgba(63,63,70,0.4)', gap: '0.75rem', flexShrink: 0,
         }}>
-          <div style={{
-            width: '36px', height: '36px', borderRadius: '12px',
-            background: 'linear-gradient(135deg, #10b981, #059669)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-            boxShadow: '0 4px 12px rgba(16,185,129,0.2)',
-          }}>
-            <Link2 style={{ width: '20px', height: '20px', color: 'white' }} />
-          </div>
+          <img
+            src="/tambua-logo.png"
+            alt="TambuaTips"
+            style={{
+              width: '36px', height: '36px', borderRadius: '12px', flexShrink: 0,
+              boxShadow: '0 4px 12px rgba(16,185,129,0.2)',
+            }}
+          />
           {!collapsed && (
             <div style={{ overflow: 'hidden' }}>
               <p style={{ fontSize: '0.875rem', fontWeight: 700, color: 'white', margin: 0 }}>TambuaTips</p>

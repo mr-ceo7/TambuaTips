@@ -170,3 +170,23 @@ async def send_broadcast_email(email: str, title: str, message: str, url: str = 
     link = url if url and url.startswith("http") else f"https://tambuatips.com{url or '/'}"
     html_content = _generate_html_template(title, body, "View Details", link)
     await _send_smtp_email(email, subject, html_content)
+
+
+async def send_affiliate_approved_email(email: str, name: str):
+    """Notifies an affiliate that their account has been approved."""
+    subject = "🎉 Your TambuaTips Affiliate Account is Approved!"
+    body = f"""
+    <p>Hi {name},</p>
+    <p>Great news! Your TambuaTips Affiliate account has been <strong style="color: #10b981;">approved</strong>.</p>
+    <p>You can now start earning commissions by sharing your unique referral link. Every user who signs up and subscribes through your link earns you money.</p>
+    <p>Log in to your Affiliate Dashboard to:</p>
+    <ul style="margin: 15px 0; padding-left: 20px;">
+        <li>Get your unique referral link</li>
+        <li>Track clicks, signups, and conversions</li>
+        <li>Monitor your commission earnings</li>
+        <li>Request payouts</li>
+    </ul>
+    <p>Welcome to the team — let's grow together! 🚀</p>
+    """
+    html_content = _generate_html_template("Account Approved!", body, "Go To Affiliate Dashboard", "https://affiliate.tambuatips.com/dashboard")
+    await _send_smtp_email(email, subject, html_content)

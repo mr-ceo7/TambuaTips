@@ -280,7 +280,7 @@ async def request_affiliate_phone_otp(body: PhoneLoginRequest, background_tasks:
         rand_pass = "".join(random.choices(string.ascii_letters + string.digits, k=32))
         
         affiliate = Affiliate(
-            name="Phone Affiliate",
+            name=(body.name or "").strip() or "Affiliate",
             email=f"{phone.replace('+', '')}@phone.local",
             password_hash=hash_password(rand_pass),
             phone=phone,

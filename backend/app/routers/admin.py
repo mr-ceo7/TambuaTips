@@ -34,10 +34,51 @@ from app.models.setting import AdminSetting
 from app.schemas.auth import UserResponse, AdminUserResponse
 from app.schemas.payment import PaymentResponse
 from app.schemas.ad import AdPostCreate, AdPostUpdate, AdPostResponse
-from app.services.email_service import send_broadcast_email
+from app.services.email_service import send_broadcast_email, send_affiliate_approved_email
 from app.config import settings
 
+import re
+import httpx
+import logging as _logging
+
 router = APIRouter(prefix="/api/admin", tags=["Admin"])
+
+
+async def _get_sms_settings(db: AsyncSession) -> dict:
+    """Fetch SMS settings from admin settings table."""
+    result = await db.execute(select(AdminSetting).where(AdminSetting.key.like("SMS_%")))
+    rows = result.scalars().all()
+    return {r.key: r.value for r in rows}
+
+
+async def _notify_affiliate_approved(phone: str, name: str, db: AsyncSession):
+    """Send SMS to an affiliate when their account is approved."""
+    try:
+        sms_settings = await _get_sms_settings(db)
+        sms_enabled = sms_settings.get("SMS_ENABLED", "true").lower() == "true"
+        if not sms_enabled:
+            return
+
+        sms_src = sms_settings.get("SMS_SRC", "ARVOCAP")
+        stripped_phone = re.sub(r'[\D]', '', phone)
+
+        sms_message = (
+            f"Hi {name}! Great news - your TambuaTips Affiliate account has been approved! "
+            f"You can now start earning commissions. Log in at affiliate.tambuatips.com to get your referral link."
+        )
+
+        sms_url = "https://trackomgroup.com/sms_old/sendSmsApi/sendsms_v15.php"
+        params = {"src": sms_src, "phone_number": stripped_phone, "sms_message": sms_message}
+
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.post(sms_url, params=params)
+            if response.status_code == 200:
+                _logging.info(f"Approval SMS sent to {stripped_phone}")
+            else:
+                _logging.warning(f"SMS provider returned {response.status_code} for {stripped_phone}")
+    except Exception as e:
+        _logging.error(f"Failed to send approval SMS to {phone}: {e}")
+
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -1503,6 +1544,7 @@ async def get_affiliate_detail(affiliate_id: int, db: AsyncSession = Depends(get
 async def update_affiliate_status(
     affiliate_id: int,
     body: AffiliateStatusUpdate,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
@@ -1512,9 +1554,18 @@ async def update_affiliate_status(
     if not aff:
         raise HTTPException(status_code=404, detail="Affiliate not found")
 
+    old_status = aff.status
     aff.status = body.status
     db.add(aff)
     await db.commit()
+
+    # Notify affiliate via SMS when approved
+    if body.status == "approved" and old_status != "approved":
+        if aff.phone and not aff.phone.endswith('@phone.local'):
+            background_tasks.add_task(_notify_affiliate_approved, aff.phone, aff.name, db)
+        if aff.email and not aff.email.endswith('@phone.local'):
+            background_tasks.add_task(send_affiliate_approved_email, aff.email, aff.name)
+
     return {"status": "success", "message": f"Affiliate status updated to '{body.status}'"}
 
 
