@@ -53,6 +53,7 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
   const [tiers, setTiers] = useState<TierConfig[]>([]);
   const [paymentView, setPaymentView] = useState<'selection' | 'waiting' | 'success'>('selection');
   const [currentPaymentId, setCurrentPaymentId] = useState<number | null>(null);
+  const [showAllTiers, setShowAllTiers] = useState(false);
 
   useEffect(() => {
     if (!isOpen) {
@@ -60,6 +61,7 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
       setCurrentPaymentId(null);
       setSelectedMethod(null);
       setSelectedTier(null);
+      setShowAllTiers(false);
       return;
     }
 
@@ -259,10 +261,27 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
 
                     <div className="mb-3">
                       <div className="flex items-center justify-between mb-2">
-                        <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Choose Plan</h3>
+                        <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">{targetCategory || targetTierId ? 'Selected Plan' : 'Choose Plan'}</h3>
+                        {(targetCategory || targetTierId) && (
+                          <button onClick={() => setShowAllTiers(prev => !prev)} className="text-[10px] text-emerald-400 hover:text-emerald-300 font-bold uppercase tracking-wider">
+                            {showAllTiers ? 'Show Best' : 'View All Plans'}
+                          </button>
+                        )}
                       </div>
                       <div className="space-y-2">
-                      {tiers.filter(t => t.id === 'basic' || t.id === 'standard' || t.id === 'premium').map(tier => {
+                      {tiers.filter(t => {
+                        if (t.id === 'free') return false; // never show the free tier as a purchasable option
+                        // If opened generically (no target), show only the 3 bundle plans
+                        if (!targetCategory && !targetTierId) return t.id === 'basic' || t.id === 'standard' || t.id === 'premium';
+                        // If user toggled "View All Plans", show all paid tiers
+                        if (showAllTiers) return true;
+                        // Show the selected tier, or fall back to matching by target
+                        if (selectedTier) return selectedTier.id === t.id;
+                        // selectedTier not yet set — match directly
+                        if (targetTierId) return t.id === targetTierId;
+                        if (targetCategory) return t.categories.includes(targetCategory);
+                        return true;
+                      }).map(tier => {
                         const Icon = TIER_ICONS[tier.id] || Zap;
                         const dprice = duration === 2 ? tier.price2wk : tier.price4wk;
                         const originalPrice = duration === 2 ? tier.originalPrice2wk : tier.originalPrice4wk;
