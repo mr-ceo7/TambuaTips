@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     MPESA_CALLBACK_SECRET: str = ""
     MPESA_ENV: str = "sandbox"
     LEGACY_MPESA_DATABASE_URL: str = ""
-    LEGACY_MPESA_BIZ_NO: str = "804633"
+    LEGACY_MPESA_BIZ_NO: str = "7334523"
     LEGACY_MPESA_SYNC_BATCH_SIZE: int = 200
 
     # M-Pesa B2C (Affiliate Payouts)

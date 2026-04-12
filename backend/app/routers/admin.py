@@ -1557,6 +1557,16 @@ class LegacyMpesaDateRangeImportRequest(BaseModel):
     date_to: str
 
 
+class LegacyMpesaClearQueueResponse(BaseModel):
+    status: str
+    cleared: int
+
+
+class LegacyMpesaDeleteQueueItemResponse(BaseModel):
+    status: str
+    deleted_id: int
+
+
 @router.put("/users/{user_id}/grant-subscription")
 async def grant_subscription(
     user_id: int,
@@ -1901,6 +1911,60 @@ async def list_legacy_mpesa_queue(
         "page": page,
         "per_page": per_page,
         "total_pages": (total + per_page - 1) // per_page if per_page else 0,
+    }
+
+
+@router.delete("/legacy-mpesa/queue", response_model=LegacyMpesaClearQueueResponse)
+async def clear_legacy_mpesa_queue(
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    pending_ids = (
+        await db.execute(
+            select(LegacyMpesaTransaction.id)
+            .where(LegacyMpesaTransaction.onboarding_status == "pending_assignment")
+        )
+    ).scalars().all()
+
+    if not pending_ids:
+        return {
+            "status": "success",
+            "cleared": 0,
+        }
+
+    await db.execute(
+        delete(LegacyMpesaTransaction).where(LegacyMpesaTransaction.id.in_(pending_ids))
+    )
+    await db.commit()
+
+    return {
+        "status": "success",
+        "cleared": len(pending_ids),
+    }
+
+
+@router.delete("/legacy-mpesa/{queue_id}", response_model=LegacyMpesaDeleteQueueItemResponse)
+async def delete_legacy_mpesa_queue_item(
+    queue_id: int,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    queue_item = (
+        await db.execute(
+            select(LegacyMpesaTransaction).where(LegacyMpesaTransaction.id == queue_id)
+        )
+    ).scalar_one_or_none()
+    if not queue_item:
+        raise HTTPException(status_code=404, detail="Legacy transaction not found")
+    if queue_item.onboarding_status != "pending_assignment":
+        raise HTTPException(status_code=400, detail="Only pending legacy transactions can be deleted")
+
+    await db.delete(queue_item)
+    await db.commit()
+
+    return {
+        "status": "success",
+        "deleted_id": queue_id,
     }
 
 

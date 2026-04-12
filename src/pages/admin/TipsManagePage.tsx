@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Plus, Search, Trash2, Edit, Check, X, Star, Filter,
-  Zap, ChevronDown, Loader, Copy
+  Zap, ChevronDown, Loader, Copy, MessageSquare
 } from 'lucide-react';
 import { TeamWithLogo, LeagueLogo } from '../../components/TeamLogo';
 import {
@@ -36,8 +36,7 @@ export function TipsManagePage() {
   const [fixtureSearching, setFixtureSearching] = useState(false);
   const [searchDate, setSearchDate] = useState(new Date().toISOString().split('T')[0]);
   const [fixtureSearchError, setFixtureSearchError] = useState<string | null>(null);
-  const pendingSmsFlushTipIdsRef = useRef<number[]>([]);
-  const smsFlushRequestedRef = useRef(false);
+  const [publishingLegacyUsers, setPublishingLegacyUsers] = useState(false);
 
   // Form state
   const [form, setForm] = useState({
@@ -59,61 +58,6 @@ export function TipsManagePage() {
   useEffect(() => {
     loadData();
   }, []);
-
-  const flushPendingTipSms = useCallback((keepalive: boolean) => {
-    const tipIds = Array.from(new Set(pendingSmsFlushTipIdsRef.current)).filter((id) => Number.isFinite(id));
-    if (tipIds.length === 0 || smsFlushRequestedRef.current) {
-      return;
-    }
-
-    smsFlushRequestedRef.current = true;
-    pendingSmsFlushTipIdsRef.current = [];
-
-    if (keepalive) {
-      const headers = new Headers();
-      headers.append('Content-Type', 'application/json');
-      const tokenResponse = localStorage.getItem('auth_tokens');
-      if (tokenResponse) {
-        try {
-          const { access_token } = JSON.parse(tokenResponse);
-          if (access_token) {
-            headers.append('Authorization', `Bearer ${access_token}`);
-          }
-        } catch {
-          // Ignore malformed local auth cache.
-        }
-      }
-
-      fetch(`${apiClient.defaults.baseURL}/tips/flush-sms-queue`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ tip_ids: tipIds }),
-        credentials: 'include',
-        keepalive: true,
-      }).catch(() => {});
-      return;
-    }
-
-    apiClient.post('/tips/flush-sms-queue', { tip_ids: tipIds }).catch(() => {
-      smsFlushRequestedRef.current = false;
-      pendingSmsFlushTipIdsRef.current = tipIds;
-    });
-  }, []);
-
-  useEffect(() => {
-    const handlePageLeave = () => {
-      flushPendingTipSms(true);
-    };
-
-    window.addEventListener('pagehide', handlePageLeave);
-    window.addEventListener('beforeunload', handlePageLeave);
-
-    return () => {
-      window.removeEventListener('pagehide', handlePageLeave);
-      window.removeEventListener('beforeunload', handlePageLeave);
-      flushPendingTipSms(false);
-    };
-  }, [flushPendingTipSms]);
 
   const loadData = async () => {
     const [tipsData, statsData] = await Promise.all([getAllTips(), getTipStats()]);
@@ -212,11 +156,7 @@ export function TipsManagePage() {
         if (!createdTip) {
           throw new Error('Failed to publish tip');
         }
-        pendingSmsFlushTipIdsRef.current = Array.from(
-          new Set([...pendingSmsFlushTipIdsRef.current, Number(createdTip.id)])
-        );
-        smsFlushRequestedRef.current = false;
-        toast.success('Tip published');
+        toast.success('Tip published. Use "Publish To Legacy Users" to send SMS tips.');
       }
       await loadData();
       resetForm();
@@ -278,6 +218,19 @@ export function TipsManagePage() {
     toast.success(`Marked as ${result}`);
   };
 
+  const handlePublishToLegacyUsers = async () => {
+    setPublishingLegacyUsers(true);
+    try {
+      const response = await apiClient.post('/tips/flush-sms-queue', {});
+      const result = response.data;
+      toast.success(`Legacy publish complete: ${result.users_sent} users sent`);
+    } catch {
+      toast.error('Failed to publish to legacy users');
+    } finally {
+      setPublishingLegacyUsers(false);
+    }
+  };
+
   // Bulk result marking
   const handleBulkResult = async (result: 'won' | 'lost' | 'void') => {
     if (selectedTips.size === 0) return;
@@ -311,12 +264,23 @@ export function TipsManagePage() {
           <h1 className="text-xl sm:text-2xl font-bold text-white font-display">Tips Management</h1>
           <p className="text-sm text-zinc-500 mt-1">{stats.total} total • {stats.winRate}% win rate</p>
         </div>
-        <button
-          onClick={() => { resetForm(); setShowForm(true); }}
-          className="flex items-center gap-2 px-4 py-2.5 bg-emerald-500 text-zinc-950 font-bold rounded-xl hover:bg-emerald-400 transition-all text-sm shrink-0"
-        >
-          <Plus className="w-4 h-4" /> Add Tip
-        </button>
+        <div className="flex flex-col sm:flex-row gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={handlePublishToLegacyUsers}
+            disabled={publishingLegacyUsers}
+            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-zinc-900 border border-zinc-800 text-white font-bold rounded-xl hover:bg-zinc-800 transition-all text-sm disabled:opacity-50"
+          >
+            {publishingLegacyUsers ? <Loader className="w-4 h-4 animate-spin" /> : <MessageSquare className="w-4 h-4" />}
+            {publishingLegacyUsers ? 'Publishing...' : 'Publish To Legacy Users'}
+          </button>
+          <button
+            onClick={() => { resetForm(); setShowForm(true); }}
+            className="flex items-center gap-2 px-4 py-2.5 bg-emerald-500 text-zinc-950 font-bold rounded-xl hover:bg-emerald-400 transition-all text-sm shrink-0"
+          >
+            <Plus className="w-4 h-4" /> Add Tip
+          </button>
+        </div>
       </div>
 
       {/* ─── Stats Row ───────────────────────────────────── */}

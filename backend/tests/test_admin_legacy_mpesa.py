@@ -22,11 +22,13 @@ from app.routers.admin import (
     bulk_assign_legacy_mpesa_transactions,
     bulk_grant_subscription,
     bulk_update_users,
+    clear_legacy_mpesa_queue,
+    delete_legacy_mpesa_queue_item,
     import_legacy_mpesa_date_range,
     list_users,
     sync_legacy_mpesa_queue,
 )
-from app.routers.tips import FlushTipSmsQueueRequest, flush_tip_sms_queue
+from app.routers.tips import FlushTipSmsQueueRequest, delete_tip, flush_tip_sms_queue
 from app.security import hash_password
 from app.services.legacy_mpesa_sync import LegacyMpesaRecord
 from app.services.sms_tip_delivery import _format_tip_bundle_message
@@ -394,7 +396,7 @@ async def test_sync_legacy_mpesa_creates_queue_items_and_placeholder_users(db_se
             other_name="Client",
             amount=550.0,
             paid_at=datetime.now(UTC).replace(tzinfo=None),
-            biz_no="804633",
+            biz_no="7334523",
         ),
         LegacyMpesaRecord(
             source_record_id=102,
@@ -403,7 +405,7 @@ async def test_sync_legacy_mpesa_creates_queue_items_and_placeholder_users(db_se
             other_name="Client",
             amount=1250.0,
             paid_at=datetime.now(UTC).replace(tzinfo=None),
-            biz_no="804633",
+            biz_no="7334523",
         ),
     ]
 
@@ -444,7 +446,7 @@ async def test_backfill_legacy_mpesa_imports_older_history(db_session):
 
     existing_queue = LegacyMpesaTransaction(
         source_record_id=500,
-        biz_no="804633",
+        biz_no="7334523",
         phone="+254700000500",
         first_name="Existing",
         other_name="Queue",
@@ -463,7 +465,7 @@ async def test_backfill_legacy_mpesa_imports_older_history(db_session):
             other_name="One",
             amount=440.0,
             paid_at=datetime.now(UTC).replace(tzinfo=None) - timedelta(days=1),
-            biz_no="804633",
+            biz_no="7334523",
         ),
         LegacyMpesaRecord(
             source_record_id=499,
@@ -472,7 +474,7 @@ async def test_backfill_legacy_mpesa_imports_older_history(db_session):
             other_name="Two",
             amount=550.0,
             paid_at=datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=12),
-            biz_no="804633",
+            biz_no="7334523",
         ),
     ]
 
@@ -503,7 +505,7 @@ async def test_date_range_import_legacy_mpesa_history(db_session):
 
     existing_queue = LegacyMpesaTransaction(
         source_record_id=700,
-        biz_no="804633",
+        biz_no="7334523",
         phone="+254700000700",
         first_name="Existing",
         other_name="Range",
@@ -522,7 +524,7 @@ async def test_date_range_import_legacy_mpesa_history(db_session):
             other_name="One",
             amount=440.0,
             paid_at=datetime(2026, 4, 1, 8, 0, 0),
-            biz_no="804633",
+            biz_no="7334523",
         ),
         LegacyMpesaRecord(
             source_record_id=702,
@@ -531,7 +533,7 @@ async def test_date_range_import_legacy_mpesa_history(db_session):
             other_name="Two",
             amount=550.0,
             paid_at=datetime(2026, 4, 11, 12, 0, 0),
-            biz_no="804633",
+            biz_no="7334523",
         ),
         LegacyMpesaRecord(
             source_record_id=700,
@@ -540,7 +542,7 @@ async def test_date_range_import_legacy_mpesa_history(db_session):
             other_name="Range",
             amount=700.0,
             paid_at=datetime(2026, 4, 10, 9, 0, 0),
-            biz_no="804633",
+            biz_no="7334523",
         ),
     ]
 
@@ -566,6 +568,120 @@ async def test_date_range_import_legacy_mpesa_history(db_session):
 
 
 @pytest.mark.asyncio
+async def test_clear_legacy_mpesa_queue_removes_only_pending_rows(db_session):
+    admin = await _create_user(
+        db_session,
+        email="admin-clear-legacy@example.com",
+        name="Admin Clear Legacy",
+        is_admin=True,
+        tier="premium",
+    )
+
+    pending_one = LegacyMpesaTransaction(
+        source_record_id=801,
+        biz_no="7334523",
+        phone="+254700000801",
+        first_name="Pending",
+        other_name="One",
+        amount=200.0,
+        paid_at=datetime.now(UTC).replace(tzinfo=None),
+        onboarding_status="pending_assignment",
+    )
+    assigned_row = LegacyMpesaTransaction(
+        source_record_id=802,
+        biz_no="7334523",
+        phone="+254700000802",
+        first_name="Assigned",
+        other_name="Row",
+        amount=300.0,
+        paid_at=datetime.now(UTC).replace(tzinfo=None),
+        onboarding_status="assigned",
+        payment_id=123,
+    )
+    pending_two = LegacyMpesaTransaction(
+        source_record_id=803,
+        biz_no="7334523",
+        phone="+254700000803",
+        first_name="Pending",
+        other_name="Two",
+        amount=400.0,
+        paid_at=datetime.now(UTC).replace(tzinfo=None),
+        onboarding_status="pending_assignment",
+    )
+    db_session.add_all([pending_one, assigned_row, pending_two])
+    await db_session.commit()
+
+    payload = await clear_legacy_mpesa_queue(db=db_session, admin=admin)
+
+    assert payload == {
+        "status": "success",
+        "cleared": 2,
+    }
+
+    remaining_rows = (
+        await db_session.execute(
+            select(LegacyMpesaTransaction).order_by(LegacyMpesaTransaction.source_record_id.asc())
+        )
+    ).scalars().all()
+    assert len(remaining_rows) == 1
+    assert remaining_rows[0].source_record_id == 802
+    assert remaining_rows[0].onboarding_status == "assigned"
+
+
+@pytest.mark.asyncio
+async def test_delete_legacy_mpesa_queue_item_removes_single_pending_row_only(db_session):
+    admin = await _create_user(
+        db_session,
+        email="admin-delete-legacy@example.com",
+        name="Admin Delete Legacy",
+        is_admin=True,
+        tier="premium",
+    )
+
+    pending_row = LegacyMpesaTransaction(
+        source_record_id=901,
+        biz_no="7334523",
+        phone="+254700000901",
+        first_name="Pending",
+        other_name="Delete",
+        amount=350.0,
+        paid_at=datetime.now(UTC).replace(tzinfo=None),
+        onboarding_status="pending_assignment",
+    )
+    assigned_row = LegacyMpesaTransaction(
+        source_record_id=902,
+        biz_no="7334523",
+        phone="+254700000902",
+        first_name="Assigned",
+        other_name="Keep",
+        amount=450.0,
+        paid_at=datetime.now(UTC).replace(tzinfo=None),
+        onboarding_status="assigned",
+        payment_id=222,
+    )
+    db_session.add_all([pending_row, assigned_row])
+    await db_session.commit()
+    await db_session.refresh(pending_row)
+    await db_session.refresh(assigned_row)
+
+    payload = await delete_legacy_mpesa_queue_item(queue_id=pending_row.id, db=db_session, admin=admin)
+
+    assert payload == {
+        "status": "success",
+        "deleted_id": pending_row.id,
+    }
+
+    remaining_rows = (
+        await db_session.execute(
+            select(LegacyMpesaTransaction).order_by(LegacyMpesaTransaction.source_record_id.asc())
+        )
+    ).scalars().all()
+    assert len(remaining_rows) == 1
+    assert remaining_rows[0].source_record_id == 902
+    assert remaining_rows[0].onboarding_status == "assigned"
+
+
+@pytest.mark.asyncio
 async def test_assign_legacy_mpesa_transaction_grants_subscription_and_creates_payment(db_session):
     admin = await _create_user(
         db_session,
@@ -577,7 +693,7 @@ async def test_assign_legacy_mpesa_transaction_grants_subscription_and_creates_p
 
     queue_item = LegacyMpesaTransaction(
         source_record_id=555,
-        biz_no="804633",
+        biz_no="7334523",
         phone="254733000111",
         first_name="Legacy",
         other_name="User",
@@ -662,7 +778,7 @@ async def test_bulk_assign_legacy_mpesa_transactions_assigns_selected_rows_and_s
 
     queue_one = LegacyMpesaTransaction(
         source_record_id=601,
-        biz_no="804633",
+        biz_no="7334523",
         phone="254733300001",
         first_name="Queue",
         other_name="One",
@@ -672,7 +788,7 @@ async def test_bulk_assign_legacy_mpesa_transactions_assigns_selected_rows_and_s
     )
     queue_two = LegacyMpesaTransaction(
         source_record_id=602,
-        biz_no="804633",
+        biz_no="7334523",
         phone="+254733300002",
         first_name="Queue",
         other_name="Two",
@@ -683,7 +799,7 @@ async def test_bulk_assign_legacy_mpesa_transactions_assigns_selected_rows_and_s
     )
     queue_three = LegacyMpesaTransaction(
         source_record_id=603,
-        biz_no="804633",
+        biz_no="7334523",
         phone="+254733300003",
         first_name="Queue",
         other_name="Three",
@@ -761,7 +877,7 @@ async def test_bulk_assign_legacy_mpesa_transactions_can_apply_to_all_pending(db
 
     pending_one = LegacyMpesaTransaction(
         source_record_id=701,
-        biz_no="804633",
+        biz_no="7334523",
         phone="254744400001",
         first_name="Pending",
         other_name="One",
@@ -771,7 +887,7 @@ async def test_bulk_assign_legacy_mpesa_transactions_can_apply_to_all_pending(db
     )
     pending_two = LegacyMpesaTransaction(
         source_record_id=702,
-        biz_no="804633",
+        biz_no="7334523",
         phone="254744400002",
         first_name="Pending",
         other_name="Two",
@@ -781,7 +897,7 @@ async def test_bulk_assign_legacy_mpesa_transactions_can_apply_to_all_pending(db
     )
     already_done = LegacyMpesaTransaction(
         source_record_id=703,
-        biz_no="804633",
+        biz_no="7334523",
         phone="254744400003",
         first_name="Done",
         other_name="User",
@@ -837,7 +953,7 @@ async def test_admin_can_assign_legacy_queue_item_and_publish_tip_for_sms_queue(
 
     queue_item = LegacyMpesaTransaction(
         source_record_id=777,
-        biz_no="804633",
+        biz_no="7334523",
         phone="254722000777",
         first_name="Queued",
         other_name="User",
@@ -983,12 +1099,69 @@ async def test_flush_tip_sms_queue_sends_pending_bundles_immediately(client: Asy
     assert payload["users_processed"] == 1
     assert payload["users_sent"] == 1
 
-    await db_session.refresh(queue_row)
     refreshed_queue = (
         await db_session.execute(select(SmsTipQueue).where(SmsTipQueue.id == queue_row.id))
-    ).scalar_one()
-    assert refreshed_queue.status == "sent"
-    assert refreshed_queue.sent_at is not None
+    ).scalar_one_or_none()
+    assert refreshed_queue is None
+
+
+@pytest.mark.asyncio
+async def test_delete_tip_clears_sms_tip_queue_rows_before_delete(db_session):
+    admin = await _create_user(
+        db_session,
+        email="admin-delete-tip@example.com",
+        name="Admin Delete Tip",
+        is_admin=True,
+        tier="premium",
+    )
+    sms_user = await _create_user(
+        db_session,
+        email="delete-tip-user@example.com",
+        name="Delete Tip User",
+        phone="+254700009999",
+        tier="standard",
+    )
+
+    tip = Tip(
+        fixture_id=901002,
+        home_team="Delete FC",
+        away_team="Cleanup United",
+        league="Delete League",
+        match_date=datetime.now(UTC).replace(tzinfo=None) + timedelta(hours=1),
+        prediction="1X",
+        odds="1.60",
+        bookmaker="Betway",
+        confidence=3,
+        reasoning="Delete queue cleanup test.",
+        category="2+",
+        is_premium=1,
+        result="pending",
+    )
+    db_session.add(tip)
+    await db_session.commit()
+    await db_session.refresh(tip)
+
+    db_session.add(
+        SmsTipQueue(
+            user_id=sms_user.id,
+            tip_id=tip.id,
+            status="pending",
+            dispatch_scheduled_for=datetime.now(UTC).replace(tzinfo=None),
+        )
+    )
+    await db_session.commit()
+
+    await delete_tip(tip_id=tip.id, db=db_session, admin=admin)
+
+    deleted_tip = (
+        await db_session.execute(select(Tip).where(Tip.id == tip.id))
+    ).scalar_one_or_none()
+    remaining_queue_rows = (
+        await db_session.execute(select(SmsTipQueue).where(SmsTipQueue.tip_id == tip.id))
+    ).scalars().all()
+
+    assert deleted_tip is None
+    assert remaining_queue_rows == []
 
 
 def test_sms_tip_bundle_message_does_not_include_odds():

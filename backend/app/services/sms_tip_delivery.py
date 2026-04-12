@@ -162,11 +162,8 @@ async def _deliver_pending_sms_tip_bundle(
 
     try:
         await _send_sms(user.phone or "", message, sms_settings["SMS_SRC"])
-        sent_at = datetime.now(UTC).replace(tzinfo=None)
         for item in queue_items:
-            item.status = "sent"
-            item.sent_at = sent_at
-            item.error = None
+            await db.delete(item)
         await db.commit()
         return True
     except Exception as exc:  # pragma: no cover - network/provider path

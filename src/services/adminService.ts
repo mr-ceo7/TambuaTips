@@ -414,6 +414,16 @@ export const adminService = {
     return response.data;
   },
 
+  clearLegacyMpesaQueue: async (): Promise<{ status: string; cleared: number }> => {
+    const response = await apiClient.delete('/admin/legacy-mpesa/queue');
+    return response.data;
+  },
+
+  deleteLegacyMpesaQueueItem: async (queueId: number): Promise<{ status: string; deleted_id: number }> => {
+    const response = await apiClient.delete(`/admin/legacy-mpesa/${queueId}`);
+    return response.data;
+  },
+
   assignLegacyMpesa: async (queueId: number, tier: string, durationDays: number): Promise<{ status: string; queue_id: number; user_id: number; payment_id: number; tier: string; expires_at: string | null }> => {
     const response = await apiClient.post(`/admin/legacy-mpesa/${queueId}/assign`, {
       tier,

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import {
   Search, ChevronDown, ChevronUp, Users as UsersIcon, Shield, Ban,
   Crown, Clock, Globe, MoreVertical, Eye, ArrowUpDown, UserX, UserCheck,
-  Download, Gift, X, XCircle, MessageSquare, RefreshCw
+  Download, Gift, X, XCircle, MessageSquare, RefreshCw, Trash2
 } from 'lucide-react';
 import { adminService, type AdminUser, type LegacyMpesaQueueItem, type UserActivityDetail } from '../../services/adminService';
 import { getPricingTiers, type TierConfig } from '../../services/pricingService';
@@ -54,9 +54,11 @@ export function UsersPage() {
   const [legacySyncing, setLegacySyncing] = useState(false);
   const [legacyBackfilling, setLegacyBackfilling] = useState(false);
   const [legacyDateImporting, setLegacyDateImporting] = useState(false);
+  const [legacyClearingQueue, setLegacyClearingQueue] = useState(false);
   const [legacyDateFrom, setLegacyDateFrom] = useState(monthStartDate);
   const [legacyDateTo, setLegacyDateTo] = useState(todayDate);
   const [legacyAssigningId, setLegacyAssigningId] = useState<number | null>(null);
+  const [legacyDeletingId, setLegacyDeletingId] = useState<number | null>(null);
   const [legacyBulkAssigning, setLegacyBulkAssigning] = useState(false);
   const [selectedLegacyQueueIds, setSelectedLegacyQueueIds] = useState<number[]>([]);
   const [legacyAssignTier, setLegacyAssignTier] = useState<Record<number, string>>({});
@@ -436,6 +438,24 @@ export function UsersPage() {
     }
   };
 
+  const handleClearLegacyQueue = async () => {
+    if (!confirm('Clear all pending legacy queue items? Assigned rows will be kept.')) return;
+
+    setLegacyClearingQueue(true);
+    try {
+      const result = await adminService.clearLegacyMpesaQueue();
+      toast.success(`Cleared ${result.cleared} pending legacy queue item${result.cleared === 1 ? '' : 's'}`);
+      setSelectedLegacyQueueIds([]);
+      setLegacyQueuePage(1);
+      loadLegacyQueue(1);
+    } catch (error: any) {
+      const message = error?.response?.data?.detail || 'Failed to clear legacy queue';
+      toast.error(message);
+    } finally {
+      setLegacyClearingQueue(false);
+    }
+  };
+
   const handleAssignLegacyQueueItem = async (item: LegacyMpesaQueueItem) => {
     const tier = legacyAssignTier[item.id] || paidTiers[0]?.id;
     const durationDays = legacyAssignDays[item.id] || 30;
@@ -460,6 +480,23 @@ export function UsersPage() {
       toast.error(message);
     } finally {
       setLegacyAssigningId(null);
+    }
+  };
+
+  const handleDeleteLegacyQueueItem = async (item: LegacyMpesaQueueItem) => {
+    if (!confirm(`Delete pending legacy queue item ${item.source_record_id}?`)) return;
+
+    setLegacyDeletingId(item.id);
+    try {
+      await adminService.deleteLegacyMpesaQueueItem(item.id);
+      toast.success('Legacy queue item deleted');
+      setSelectedLegacyQueueIds((prev) => prev.filter((id) => id !== item.id));
+      loadLegacyQueue(legacyQueuePage);
+    } catch (error: any) {
+      const message = error?.response?.data?.detail || 'Failed to delete legacy queue item';
+      toast.error(message);
+    } finally {
+      setLegacyDeletingId(null);
     }
   };
 
@@ -636,7 +673,7 @@ export function UsersPage() {
             <button
               type="button"
               onClick={handleSyncLegacyQueue}
-              disabled={legacySyncing || legacyBackfilling || legacyDateImporting}
+              disabled={legacySyncing || legacyBackfilling || legacyDateImporting || legacyClearingQueue}
               className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-sm text-white disabled:opacity-50"
             >
               <RefreshCw className={`w-4 h-4 ${legacySyncing ? 'animate-spin' : ''}`} />
@@ -645,11 +682,19 @@ export function UsersPage() {
             <button
               type="button"
               onClick={handleBackfillLegacyQueue}
-              disabled={legacyBackfilling || legacySyncing || legacyDateImporting}
+              disabled={legacyBackfilling || legacySyncing || legacyDateImporting || legacyClearingQueue}
               className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-sm text-white disabled:opacity-50"
             >
               <RefreshCw className={`w-4 h-4 ${legacyBackfilling ? 'animate-spin' : ''}`} />
               {legacyBackfilling ? 'Backfilling...' : 'Backfill Older History'}
+            </button>
+            <button
+              type="button"
+              onClick={handleClearLegacyQueue}
+              disabled={legacyClearingQueue || legacySyncing || legacyBackfilling || legacyDateImporting}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-red-500/10 border border-red-500/20 rounded-xl text-sm text-red-300 disabled:opacity-50"
+            >
+              {legacyClearingQueue ? 'Clearing...' : 'Clear Pending Queue'}
             </button>
           </div>
         </div>
@@ -677,7 +722,7 @@ export function UsersPage() {
             <button
               type="button"
               onClick={handleImportLegacyDateRange}
-              disabled={legacyDateImporting || legacyBackfilling || legacySyncing}
+              disabled={legacyDateImporting || legacyBackfilling || legacySyncing || legacyClearingQueue}
               className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-500 text-zinc-950 rounded-xl text-sm font-bold disabled:opacity-50"
             >
               <RefreshCw className={`w-4 h-4 ${legacyDateImporting ? 'animate-spin' : ''}`} />
@@ -814,7 +859,7 @@ export function UsersPage() {
                     </p>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 lg:w-[430px]">
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 lg:w-[560px]">
                     <select
                       value={legacyAssignTier[item.id] || subscriptionTiers[0]?.id || ''}
                       onChange={(e) => setLegacyAssignTier((prev) => ({ ...prev, [item.id]: e.target.value }))}
@@ -835,12 +880,23 @@ export function UsersPage() {
                     />
                     <button
                       type="button"
-                      disabled={item.onboarding_status === 'assigned' || legacyAssigningId === item.id || legacyBulkAssigning}
+                      disabled={item.onboarding_status === 'assigned' || legacyAssigningId === item.id || legacyBulkAssigning || legacyDeletingId === item.id}
                       onClick={() => handleAssignLegacyQueueItem(item)}
                       className="px-3 py-2 rounded-xl bg-emerald-500 text-zinc-950 text-sm font-bold disabled:opacity-50"
                     >
                       {legacyAssigningId === item.id ? 'Assigning...' : item.onboarding_status === 'assigned' ? 'Assigned' : 'Assign'}
                     </button>
+                    {item.onboarding_status !== 'assigned' && (
+                      <button
+                        type="button"
+                        disabled={legacyDeletingId === item.id || legacyAssigningId === item.id || legacyBulkAssigning}
+                        onClick={() => handleDeleteLegacyQueueItem(item)}
+                        className="px-3 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-300 text-sm font-bold disabled:opacity-50 inline-flex items-center justify-center gap-2"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        {legacyDeletingId === item.id ? 'Deleting...' : 'Delete'}
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>

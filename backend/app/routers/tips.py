@@ -5,12 +5,13 @@ Tips routes: CRUD for betting tips.
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, delete
 from datetime import datetime, date
 
 from app.dependencies import get_db, get_current_user, get_current_user_optional, require_admin
 from app.models.user import User
 from app.models.tip import Tip
+from app.models.sms_tip import SmsTipQueue
 from app.schemas.tip import TipCreate, TipUpdate, TipResponse, TipLockedResponse, TipStatsResponse
 from pydantic import BaseModel
 from fastapi import BackgroundTasks
@@ -250,5 +251,6 @@ async def delete_tip(tip_id: int, db: AsyncSession = Depends(get_db), admin: Use
     tip = result.scalar_one_or_none()
     if not tip:
         raise HTTPException(status_code=404, detail="Tip not found")
+    await db.execute(delete(SmsTipQueue).where(SmsTipQueue.tip_id == tip_id))
     await db.delete(tip)
     await db.commit()
