@@ -6,6 +6,7 @@ from httpx import AsyncClient
 from sqlalchemy import select
 
 from app.models.activity import UserActivity
+from app.models.jackpot import Jackpot, JackpotPurchase
 from app.models.legacy_mpesa import LegacyMpesaTransaction
 from app.models.payment import Payment
 from app.models.sms_tip import SmsTipQueue
@@ -26,6 +27,7 @@ from app.routers.admin import (
     delete_legacy_mpesa_queue_item,
     import_legacy_mpesa_date_range,
     list_users,
+    onboard_sms_user,
     sync_legacy_mpesa_queue,
 )
 from app.routers.tips import FlushTipSmsQueueRequest, delete_tip, flush_tip_sms_queue
@@ -76,6 +78,27 @@ async def _create_user(
     await db_session.commit()
     await db_session.refresh(user)
     return user
+
+
+async def _create_pending_jackpot(
+    db_session,
+    *,
+    jackpot_type: str,
+    dc_level: int,
+    price: float = 500.0,
+) -> Jackpot:
+    jackpot = Jackpot(
+        type=jackpot_type,
+        dc_level=dc_level,
+        matches=[{"homeTeam": "A", "awayTeam": "B"}],
+        variations=[["1"]],
+        price=price,
+        result="pending",
+    )
+    db_session.add(jackpot)
+    await db_session.commit()
+    await db_session.refresh(jackpot)
+    return jackpot
 
 
 @pytest.mark.asyncio
@@ -372,6 +395,53 @@ async def test_bulk_update_users_can_ban_filtered_users_and_skip_admin_self(db_s
 
 
 @pytest.mark.asyncio
+async def test_bulk_update_users_can_grant_pending_jackpot_access(db_session):
+    admin = await _create_user(
+        db_session,
+        email="admin-bulk-jackpot@example.com",
+        name="Admin Bulk Jackpot",
+        is_admin=True,
+        tier="premium",
+    )
+    first_user = await _create_user(
+        db_session,
+        email="jackpot-one@example.com",
+        name="Jackpot One",
+        phone="+254700004101",
+    )
+    second_user = await _create_user(
+        db_session,
+        email="jackpot-two@example.com",
+        name="Jackpot Two",
+        phone="+254700004102",
+    )
+    jackpot = await _create_pending_jackpot(db_session, jackpot_type="midweek", dc_level=3)
+
+    payload = await bulk_update_users(
+        body=BulkUserUpdateRequest(
+            action="grant_jackpot",
+            user_ids=[first_user.id, second_user.id],
+            jackpot_type="midweek",
+            jackpot_dc_level=3,
+        ),
+        db=db_session,
+        admin=admin,
+    )
+
+    assert payload["status"] == "success"
+    assert payload["action"] == "grant_jackpot"
+    assert payload["updated"] == 2
+    assert payload["jackpot_id"] == jackpot.id
+
+    purchases = (
+        await db_session.execute(
+            select(JackpotPurchase).where(JackpotPurchase.jackpot_id == jackpot.id).order_by(JackpotPurchase.user_id.asc())
+        )
+    ).scalars().all()
+    assert [purchase.user_id for purchase in purchases] == [first_user.id, second_user.id]
+
+
+@pytest.mark.asyncio
 async def test_sync_legacy_mpesa_creates_queue_items_and_placeholder_users(db_session):
     admin = await _create_user(
         db_session,
@@ -568,6 +638,55 @@ async def test_date_range_import_legacy_mpesa_history(db_session):
 
 
 @pytest.mark.asyncio
+async def test_onboard_sms_user_can_grant_pending_jackpot_access(db_session):
+    admin = await _create_user(
+        db_session,
+        email="admin-onboard-jackpot@example.com",
+        name="Admin Onboard Jackpot",
+        is_admin=True,
+        tier="premium",
+    )
+    jackpot = await _create_pending_jackpot(db_session, jackpot_type="mega", dc_level=4, price=900.0)
+
+    payload = await onboard_sms_user(
+        body=type("Body", (), {
+            "phone": "0711000200",
+            "assignment_mode": "jackpot",
+            "tier": None,
+            "duration_days": None,
+            "jackpot_type": "mega",
+            "jackpot_dc_level": 4,
+            "amount_paid": 900.0,
+        })(),
+        db=db_session,
+        admin=admin,
+    )
+
+    assert payload["status"] == "success"
+    assert payload["assignment_mode"] == "jackpot"
+    assert payload["jackpot_id"] == jackpot.id
+
+    created_user = (
+        await db_session.execute(select(User).where(User.id == payload["user_id"]))
+    ).scalar_one()
+    purchase = (
+        await db_session.execute(
+            select(JackpotPurchase).where(
+                JackpotPurchase.user_id == created_user.id,
+                JackpotPurchase.jackpot_id == jackpot.id,
+            )
+        )
+    ).scalar_one()
+    payment = (
+        await db_session.execute(select(Payment).where(Payment.id == purchase.payment_id))
+    ).scalar_one()
+
+    assert payment.item_type == "jackpot"
+    assert payment.item_id == str(jackpot.id)
+    assert created_user.sms_tips_enabled is True
+
+
+@pytest.mark.asyncio
 async def test_clear_legacy_mpesa_queue_removes_only_pending_rows(db_session):
     admin = await _create_user(
         db_session,
@@ -734,6 +853,68 @@ async def test_assign_legacy_mpesa_transaction_grants_subscription_and_creates_p
     assert payment.amount == 860.0
     assert payment.reference == "LEGACY-MPESA-555"
     assert payment.item_id == "basic"
+
+
+@pytest.mark.asyncio
+async def test_assign_legacy_mpesa_transaction_can_grant_jackpot_access(db_session):
+    admin = await _create_user(
+        db_session,
+        email="admin-assign-jackpot@example.com",
+        name="Admin Assign Jackpot",
+        is_admin=True,
+        tier="premium",
+    )
+    jackpot = await _create_pending_jackpot(db_session, jackpot_type="midweek", dc_level=5, price=700.0)
+
+    queue_item = LegacyMpesaTransaction(
+        source_record_id=556,
+        biz_no="7334523",
+        phone="254733000222",
+        first_name="Legacy",
+        other_name="Jackpot",
+        amount=700.0,
+        paid_at=datetime.now(UTC).replace(tzinfo=None),
+        onboarding_status="pending_assignment",
+    )
+    db_session.add(queue_item)
+    await db_session.commit()
+    await db_session.refresh(queue_item)
+
+    data = await assign_legacy_mpesa_transaction(
+        queue_id=queue_item.id,
+        body=LegacyMpesaAssignRequest(
+            assignment_mode="jackpot",
+            jackpot_type="midweek",
+            jackpot_dc_level=5,
+        ),
+        db=db_session,
+        admin=admin,
+    )
+    assert data["assignment_mode"] == "jackpot"
+    assert data["jackpot_id"] == jackpot.id
+
+    refreshed_queue = (
+        await db_session.execute(
+            select(LegacyMpesaTransaction).where(LegacyMpesaTransaction.id == queue_item.id)
+        )
+    ).scalar_one()
+    purchase = (
+        await db_session.execute(
+            select(JackpotPurchase).where(
+                JackpotPurchase.user_id == refreshed_queue.user_id,
+                JackpotPurchase.jackpot_id == jackpot.id,
+            )
+        )
+    ).scalar_one()
+    payment = (
+        await db_session.execute(select(Payment).where(Payment.id == refreshed_queue.payment_id))
+    ).scalar_one()
+
+    assert refreshed_queue.onboarding_status == "assigned"
+    assert refreshed_queue.assigned_tier == "midweek_5dc"
+    assert payment.item_type == "jackpot"
+    assert payment.item_id == str(jackpot.id)
+    assert purchase.payment_id == payment.id
 
 
 @pytest.mark.asyncio

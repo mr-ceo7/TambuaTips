@@ -41,11 +41,15 @@ export interface AdminUsersFilters {
 
 export interface BulkGrantUsersResponse {
   status: string;
+  assignment_mode?: string;
   tier: string;
-  duration_days: number;
+  duration_days: number | null;
   updated: number;
   processed: number;
   updated_user_ids: number[];
+  jackpot_id?: number | null;
+  jackpot_type?: string | null;
+  jackpot_dc_level?: number | null;
 }
 
 export interface BulkUserUpdateResponse {
@@ -58,6 +62,9 @@ export interface BulkUserUpdateResponse {
   skipped: number;
   updated_user_ids: number[];
   skipped_user_ids: number[];
+  jackpot_id?: number | null;
+  jackpot_type?: string | null;
+  jackpot_dc_level?: number | null;
 }
 
 export interface DashboardStats {
@@ -218,9 +225,13 @@ export interface SmsOnboardResponse {
   status: string;
   created: boolean;
   user_id: number;
+  assignment_mode?: string;
   tier: string;
   expires_at: string | null;
   sms_tips_enabled: boolean;
+  jackpot_id?: number | null;
+  jackpot_type?: string | null;
+  jackpot_dc_level?: number | null;
 }
 
 export interface EmailSettings {
@@ -313,23 +324,43 @@ export const adminService = {
     await apiClient.put(`/admin/users/${userId}/revoke`);
   },
 
-  grantSubscription: async (userId: number, tier: string, durationDays: number): Promise<void> => {
+  grantSubscription: async (
+    userId: number,
+    payload: {
+      assignmentMode?: 'subscription' | 'jackpot';
+      tier?: string;
+      durationDays?: number;
+      jackpotType?: 'midweek' | 'mega';
+      jackpotDcLevel?: number;
+    },
+  ): Promise<void> => {
     await apiClient.put(`/admin/users/${userId}/grant-subscription`, {
-      tier,
-      duration_days: durationDays,
+      assignment_mode: payload.assignmentMode || 'subscription',
+      tier: payload.tier,
+      duration_days: payload.durationDays,
+      jackpot_type: payload.jackpotType,
+      jackpot_dc_level: payload.jackpotDcLevel,
     });
   },
 
   bulkGrantSubscription: async (
-    tier: string,
-    durationDays: number,
+    payload: {
+      assignmentMode?: 'subscription' | 'jackpot';
+      tier?: string;
+      durationDays?: number;
+      jackpotType?: 'midweek' | 'mega';
+      jackpotDcLevel?: number;
+    },
     userIds: number[] = [],
     applyToFiltered: boolean = false,
     filters: Pick<AdminUsersFilters, 'search' | 'tier'> = {},
   ): Promise<BulkGrantUsersResponse> => {
     const response = await apiClient.put<BulkGrantUsersResponse>('/admin/users/grant-subscription/bulk', {
-      tier,
-      duration_days: durationDays,
+      assignment_mode: payload.assignmentMode || 'subscription',
+      tier: payload.tier,
+      duration_days: payload.durationDays,
+      jackpot_type: payload.jackpotType,
+      jackpot_dc_level: payload.jackpotDcLevel,
       user_ids: userIds,
       apply_to_filtered: applyToFiltered,
       search: filters.search,
@@ -345,6 +376,8 @@ export const adminService = {
     filters = {},
     tier,
     durationDays,
+    jackpotType,
+    jackpotDcLevel,
   }: {
     action: string;
     userIds?: number[];
@@ -352,6 +385,8 @@ export const adminService = {
     filters?: Pick<AdminUsersFilters, 'search' | 'tier'>;
     tier?: string;
     durationDays?: number;
+    jackpotType?: 'midweek' | 'mega';
+    jackpotDcLevel?: number;
   }): Promise<BulkUserUpdateResponse> => {
     const response = await apiClient.put<BulkUserUpdateResponse>('/admin/users/bulk-update', {
       action,
@@ -361,15 +396,36 @@ export const adminService = {
       filter_tier: filters.tier || 'all',
       tier,
       duration_days: durationDays,
+      jackpot_type: jackpotType,
+      jackpot_dc_level: jackpotDcLevel,
     });
     return response.data;
   },
 
-  onboardSmsUser: async (phone: string, tier: string, durationDays: number, amountPaid: number): Promise<SmsOnboardResponse> => {
+  onboardSmsUser: async ({
+    phone,
+    assignmentMode = 'subscription',
+    tier,
+    durationDays,
+    jackpotType,
+    jackpotDcLevel,
+    amountPaid,
+  }: {
+    phone: string;
+    assignmentMode?: 'subscription' | 'jackpot';
+    tier?: string;
+    durationDays?: number;
+    jackpotType?: 'midweek' | 'mega';
+    jackpotDcLevel?: number;
+    amountPaid: number;
+  }): Promise<SmsOnboardResponse> => {
     const response = await apiClient.post<SmsOnboardResponse>('/admin/users/onboard-sms', {
       phone,
+      assignment_mode: assignmentMode,
       tier,
       duration_days: durationDays,
+      jackpot_type: jackpotType,
+      jackpot_dc_level: jackpotDcLevel,
       amount_paid: amountPaid,
     });
     return response.data;
@@ -424,31 +480,51 @@ export const adminService = {
     return response.data;
   },
 
-  assignLegacyMpesa: async (queueId: number, tier: string, durationDays: number): Promise<{ status: string; queue_id: number; user_id: number; payment_id: number; tier: string; expires_at: string | null }> => {
+  assignLegacyMpesa: async (
+    queueId: number,
+    payload: {
+      assignmentMode?: 'subscription' | 'jackpot';
+      tier?: string;
+      durationDays?: number;
+      jackpotType?: 'midweek' | 'mega';
+      jackpotDcLevel?: number;
+    },
+  ): Promise<{ status: string; queue_id: number; user_id: number; payment_id: number; tier: string; expires_at: string | null }> => {
     const response = await apiClient.post(`/admin/legacy-mpesa/${queueId}/assign`, {
-      tier,
-      duration_days: durationDays,
+      assignment_mode: payload.assignmentMode || 'subscription',
+      tier: payload.tier,
+      duration_days: payload.durationDays,
+      jackpot_type: payload.jackpotType,
+      jackpot_dc_level: payload.jackpotDcLevel,
     });
     return response.data;
   },
 
   bulkAssignLegacyMpesa: async (
-    tier: string,
-    durationDays: number,
+    payload: {
+      assignmentMode?: 'subscription' | 'jackpot';
+      tier?: string;
+      durationDays?: number;
+      jackpotType?: 'midweek' | 'mega';
+      jackpotDcLevel?: number;
+    },
     queueIds: number[] = [],
     applyToAllPending: boolean = false,
   ): Promise<{
     status: string;
     tier: string;
-    duration_days: number;
+    duration_days: number | null;
     assigned: number;
     skipped: number;
     processed: number;
     assigned_queue_ids: number[];
   }> => {
     const response = await apiClient.post('/admin/legacy-mpesa/assign-bulk', {
-      tier,
-      duration_days: durationDays,
+      assignment_mode: payload.assignmentMode || 'subscription',
+      tier: payload.tier,
+      duration_days: payload.durationDays,
+      jackpot_type: payload.jackpotType,
+      jackpot_dc_level: payload.jackpotDcLevel,
       queue_ids: queueIds,
       apply_to_all_pending: applyToAllPending,
     });

@@ -10,6 +10,10 @@ import { toast } from 'sonner';
 
 type SortField = 'name' | 'email' | 'subscription_tier' | 'last_seen' | 'total_time_spent' | 'created_at';
 type SortDir = 'asc' | 'desc';
+type AssignmentMode = 'subscription' | 'jackpot';
+type JackpotGrantType = 'midweek' | 'mega';
+
+const JACKPOT_DC_OPTIONS = [3, 4, 5, 6, 7, 10];
 
 const getFlagEmoji = (countryCode: string) => {
   if (!countryCode || countryCode.length !== 2) return '';
@@ -30,10 +34,12 @@ export function UsersPage() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedUserIds, setSelectedUserIds] = useState<number[]>([]);
   const [bulkAction, setBulkAction] = useState<
-    'grant_subscription' | 'revoke_subscription' | 'ban' | 'unban' | 'enable_sms' | 'disable_sms'
+    'grant_subscription' | 'grant_jackpot' | 'revoke_subscription' | 'ban' | 'unban' | 'enable_sms' | 'disable_sms'
   >('grant_subscription');
   const [bulkGrantTier, setBulkGrantTier] = useState<string>('');
   const [bulkGrantDays, setBulkGrantDays] = useState<number>(30);
+  const [bulkJackpotType, setBulkJackpotType] = useState<JackpotGrantType>('midweek');
+  const [bulkJackpotDcLevel, setBulkJackpotDcLevel] = useState<number>(3);
   const [bulkGranting, setBulkGranting] = useState(false);
   const [sortField, setSortField] = useState<SortField>('last_seen');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
@@ -61,10 +67,16 @@ export function UsersPage() {
   const [legacyDeletingId, setLegacyDeletingId] = useState<number | null>(null);
   const [legacyBulkAssigning, setLegacyBulkAssigning] = useState(false);
   const [selectedLegacyQueueIds, setSelectedLegacyQueueIds] = useState<number[]>([]);
+  const [legacyAssignMode, setLegacyAssignMode] = useState<Record<number, AssignmentMode>>({});
   const [legacyAssignTier, setLegacyAssignTier] = useState<Record<number, string>>({});
   const [legacyAssignDays, setLegacyAssignDays] = useState<Record<number, number>>({});
+  const [legacyAssignJackpotType, setLegacyAssignJackpotType] = useState<Record<number, JackpotGrantType>>({});
+  const [legacyAssignJackpotDcLevel, setLegacyAssignJackpotDcLevel] = useState<Record<number, number>>({});
+  const [legacyBulkMode, setLegacyBulkMode] = useState<AssignmentMode>('subscription');
   const [legacyBulkTier, setLegacyBulkTier] = useState<string>('');
   const [legacyBulkDays, setLegacyBulkDays] = useState<number>(30);
+  const [legacyBulkJackpotType, setLegacyBulkJackpotType] = useState<JackpotGrantType>('midweek');
+  const [legacyBulkJackpotDcLevel, setLegacyBulkJackpotDcLevel] = useState<number>(3);
 
   const [grantModalOpen, setGrantModalOpen] = useState<number | null>(null);
   const [grantTier, setGrantTier] = useState<string>('premium');
@@ -72,8 +84,11 @@ export function UsersPage() {
   const [granting, setGranting] = useState(false);
   const [availableTiers, setAvailableTiers] = useState<TierConfig[]>([]);
   const [onboardPhone, setOnboardPhone] = useState('');
+  const [onboardAssignmentMode, setOnboardAssignmentMode] = useState<AssignmentMode>('subscription');
   const [onboardTier, setOnboardTier] = useState<string>('basic');
   const [onboardDays, setOnboardDays] = useState<number>(30);
+  const [onboardJackpotType, setOnboardJackpotType] = useState<JackpotGrantType>('midweek');
+  const [onboardJackpotDcLevel, setOnboardJackpotDcLevel] = useState<number>(3);
   const [onboardAmount, setOnboardAmount] = useState<number>(0);
   const [onboarding, setOnboarding] = useState(false);
   const perPage = 50;
@@ -164,6 +179,33 @@ export function UsersPage() {
           }
           return next;
         });
+        setLegacyAssignMode((prev) => {
+          const next = { ...prev };
+          for (const item of data.items) {
+            if (!next[item.id]) {
+              next[item.id] = 'subscription';
+            }
+          }
+          return next;
+        });
+        setLegacyAssignJackpotType((prev) => {
+          const next = { ...prev };
+          for (const item of data.items) {
+            if (!next[item.id]) {
+              next[item.id] = 'midweek';
+            }
+          }
+          return next;
+        });
+        setLegacyAssignJackpotDcLevel((prev) => {
+          const next = { ...prev };
+          for (const item of data.items) {
+            if (!next[item.id]) {
+              next[item.id] = 3;
+            }
+          }
+          return next;
+        });
       })
       .catch((error: any) => {
         const message = error?.response?.data?.detail || 'Failed to load legacy M-Pesa queue';
@@ -241,7 +283,11 @@ export function UsersPage() {
     if (!grantModalOpen) return;
     setGranting(true);
     try {
-      await adminService.grantSubscription(grantModalOpen, grantTier, grantDays);
+      await adminService.grantSubscription(grantModalOpen, {
+        assignmentMode: 'subscription',
+        tier: grantTier,
+        durationDays: grantDays,
+      });
       toast.success('Subscription granted successfully');
       setGrantModalOpen(null);
       loadUsers();
@@ -290,6 +336,12 @@ export function UsersPage() {
         return;
       }
     }
+    if (bulkAction === 'grant_jackpot') {
+      if (!bulkJackpotType || !bulkJackpotDcLevel) {
+        toast.error('Select jackpot type and DC level');
+        return;
+      }
+    }
 
     setBulkGranting(true);
     try {
@@ -303,6 +355,8 @@ export function UsersPage() {
         },
         tier: bulkAction === 'grant_subscription' ? bulkGrantTier : undefined,
         durationDays: bulkAction === 'grant_subscription' ? bulkGrantDays : undefined,
+        jackpotType: bulkAction === 'grant_jackpot' ? bulkJackpotType : undefined,
+        jackpotDcLevel: bulkAction === 'grant_jackpot' ? bulkJackpotDcLevel : undefined,
       });
       toast.success(`Bulk update complete: ${result.updated} users updated${result.skipped ? `, ${result.skipped} skipped` : ''}`);
       setSelectedUserIds((prev) =>
@@ -348,13 +402,15 @@ export function UsersPage() {
       toast.error('Enter the subscriber phone number');
       return;
     }
-    if (!onboardTier) {
-      toast.error('Select a subscription package');
-      return;
-    }
-    if (!Number.isFinite(onboardDays) || onboardDays < 1) {
-      toast.error('Duration must be at least 1 day');
-      return;
+    if (onboardAssignmentMode === 'subscription') {
+      if (!onboardTier) {
+        toast.error('Select a subscription package');
+        return;
+      }
+      if (!Number.isFinite(onboardDays) || onboardDays < 1) {
+        toast.error('Duration must be at least 1 day');
+        return;
+      }
     }
     if (!Number.isFinite(onboardAmount) || onboardAmount <= 0) {
       toast.error('Amount paid must be greater than zero');
@@ -363,7 +419,15 @@ export function UsersPage() {
 
     setOnboarding(true);
     try {
-      const result = await adminService.onboardSmsUser(onboardPhone, onboardTier, onboardDays, onboardAmount);
+      const result = await adminService.onboardSmsUser({
+        phone: onboardPhone,
+        assignmentMode: onboardAssignmentMode,
+        tier: onboardAssignmentMode === 'subscription' ? onboardTier : undefined,
+        durationDays: onboardAssignmentMode === 'subscription' ? onboardDays : undefined,
+        jackpotType: onboardAssignmentMode === 'jackpot' ? onboardJackpotType : undefined,
+        jackpotDcLevel: onboardAssignmentMode === 'jackpot' ? onboardJackpotDcLevel : undefined,
+        amountPaid: onboardAmount,
+      });
       toast.success(result.created ? 'SMS subscriber onboarded' : 'Subscriber updated and renewed');
       setOnboardPhone('');
       setOnboardDays(30);
@@ -457,20 +521,31 @@ export function UsersPage() {
   };
 
   const handleAssignLegacyQueueItem = async (item: LegacyMpesaQueueItem) => {
+    const assignmentMode = legacyAssignMode[item.id] || 'subscription';
     const tier = legacyAssignTier[item.id] || paidTiers[0]?.id;
     const durationDays = legacyAssignDays[item.id] || 30;
-    if (!tier) {
-      toast.error('Select a package first');
-      return;
-    }
-    if (!Number.isFinite(durationDays) || durationDays < 1) {
-      toast.error('Duration must be at least 1 day');
-      return;
+    const jackpotType = legacyAssignJackpotType[item.id] || 'midweek';
+    const jackpotDcLevel = legacyAssignJackpotDcLevel[item.id] || 3;
+    if (assignmentMode === 'subscription') {
+      if (!tier) {
+        toast.error('Select a package first');
+        return;
+      }
+      if (!Number.isFinite(durationDays) || durationDays < 1) {
+        toast.error('Duration must be at least 1 day');
+        return;
+      }
     }
 
     setLegacyAssigningId(item.id);
     try {
-      await adminService.assignLegacyMpesa(item.id, tier, durationDays);
+      await adminService.assignLegacyMpesa(item.id, {
+        assignmentMode,
+        tier: assignmentMode === 'subscription' ? tier : undefined,
+        durationDays: assignmentMode === 'subscription' ? durationDays : undefined,
+        jackpotType: assignmentMode === 'jackpot' ? jackpotType : undefined,
+        jackpotDcLevel: assignmentMode === 'jackpot' ? jackpotDcLevel : undefined,
+      });
       toast.success('Legacy payment assigned successfully');
       loadLegacyQueue(legacyQueuePage);
       loadUsers(1);
@@ -526,13 +601,15 @@ export function UsersPage() {
   };
 
   const handleBulkAssignLegacyQueue = async (applyToAllPending: boolean) => {
-    if (!legacyBulkTier) {
-      toast.error('Select a global package');
-      return;
-    }
-    if (!Number.isFinite(legacyBulkDays) || legacyBulkDays < 1) {
-      toast.error('Global duration must be at least 1 day');
-      return;
+    if (legacyBulkMode === 'subscription') {
+      if (!legacyBulkTier) {
+        toast.error('Select a global package');
+        return;
+      }
+      if (!Number.isFinite(legacyBulkDays) || legacyBulkDays < 1) {
+        toast.error('Global duration must be at least 1 day');
+        return;
+      }
     }
     if (!applyToAllPending && selectedLegacyQueueIds.length === 0) {
       toast.error('Select at least one pending user');
@@ -542,8 +619,13 @@ export function UsersPage() {
     setLegacyBulkAssigning(true);
     try {
       const result = await adminService.bulkAssignLegacyMpesa(
-        legacyBulkTier,
-        legacyBulkDays,
+        {
+          assignmentMode: legacyBulkMode,
+          tier: legacyBulkMode === 'subscription' ? legacyBulkTier : undefined,
+          durationDays: legacyBulkMode === 'subscription' ? legacyBulkDays : undefined,
+          jackpotType: legacyBulkMode === 'jackpot' ? legacyBulkJackpotType : undefined,
+          jackpotDcLevel: legacyBulkMode === 'jackpot' ? legacyBulkJackpotDcLevel : undefined,
+        },
         selectedLegacyQueueIds,
         applyToAllPending,
       );
@@ -597,7 +679,7 @@ export function UsersPage() {
           </div>
         </div>
 
-        <form onSubmit={handleOnboardSubmit} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
+        <form onSubmit={handleOnboardSubmit} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-3">
           <div className="xl:col-span-2">
             <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5">Phone Number</label>
             <input
@@ -610,30 +692,72 @@ export function UsersPage() {
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5">Package</label>
+            <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5">Grant Type</label>
             <select
-              value={onboardTier}
-              onChange={e => setOnboardTier(e.target.value)}
+              value={onboardAssignmentMode}
+              onChange={e => setOnboardAssignmentMode(e.target.value as AssignmentMode)}
               className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500"
             >
-              {subscriptionTiers.map(tier => (
-                <option key={tier.id} value={tier.id}>
-                  {tier.name}
-                </option>
-              ))}
+              <option value="subscription">Subscription</option>
+              <option value="jackpot">Jackpot</option>
             </select>
           </div>
+          {onboardAssignmentMode === 'subscription' ? (
+            <>
+              <div>
+                <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5">Package</label>
+                <select
+                  value={onboardTier}
+                  onChange={e => setOnboardTier(e.target.value)}
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500"
+                >
+                  {subscriptionTiers.map(tier => (
+                    <option key={tier.id} value={tier.id}>
+                      {tier.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-          <div>
-            <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5">Duration (Days)</label>
-            <input
-              type="number"
-              min="1"
-              value={onboardDays}
-              onChange={e => setOnboardDays(Number(e.target.value))}
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500"
-            />
-          </div>
+              <div>
+                <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5">Duration (Days)</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={onboardDays}
+                  onChange={e => setOnboardDays(Number(e.target.value))}
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+            </>
+          ) : (
+            <>
+              <div>
+                <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5">Jackpot Type</label>
+                <select
+                  value={onboardJackpotType}
+                  onChange={e => setOnboardJackpotType(e.target.value as JackpotGrantType)}
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500"
+                >
+                  <option value="midweek">Midweek</option>
+                  <option value="mega">Mega</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5">Jackpot DC</label>
+                <select
+                  value={onboardJackpotDcLevel}
+                  onChange={e => setOnboardJackpotDcLevel(Number(e.target.value))}
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500"
+                >
+                  {JACKPOT_DC_OPTIONS.map((dc) => (
+                    <option key={dc} value={dc}>{dc}DC</option>
+                  ))}
+                </select>
+              </div>
+            </>
+          )}
 
           <div>
             <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5">Amount Paid</label>
@@ -744,23 +868,55 @@ export function UsersPage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-[1fr_140px_auto_auto] gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_140px_auto_auto] gap-3">
             <select
-              value={legacyBulkTier}
-              onChange={(e) => setLegacyBulkTier(e.target.value)}
+              value={legacyBulkMode}
+              onChange={(e) => setLegacyBulkMode(e.target.value as AssignmentMode)}
               className="bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-white"
             >
-              {subscriptionTiers.map((tier) => (
-                <option key={tier.id} value={tier.id}>{tier.name}</option>
-              ))}
+              <option value="subscription">Subscription</option>
+              <option value="jackpot">Jackpot</option>
             </select>
-            <input
-              type="number"
-              min="1"
-              value={legacyBulkDays}
-              onChange={(e) => setLegacyBulkDays(Number(e.target.value))}
-              className="bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-white"
-            />
+            {legacyBulkMode === 'subscription' ? (
+              <>
+                <select
+                  value={legacyBulkTier}
+                  onChange={(e) => setLegacyBulkTier(e.target.value)}
+                  className="bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-white"
+                >
+                  {subscriptionTiers.map((tier) => (
+                    <option key={tier.id} value={tier.id}>{tier.name}</option>
+                  ))}
+                </select>
+                <input
+                  type="number"
+                  min="1"
+                  value={legacyBulkDays}
+                  onChange={(e) => setLegacyBulkDays(Number(e.target.value))}
+                  className="bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-white"
+                />
+              </>
+            ) : (
+              <>
+                <select
+                  value={legacyBulkJackpotType}
+                  onChange={(e) => setLegacyBulkJackpotType(e.target.value as JackpotGrantType)}
+                  className="bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-white"
+                >
+                  <option value="midweek">Midweek</option>
+                  <option value="mega">Mega</option>
+                </select>
+                <select
+                  value={legacyBulkJackpotDcLevel}
+                  onChange={(e) => setLegacyBulkJackpotDcLevel(Number(e.target.value))}
+                  className="bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-white"
+                >
+                  {JACKPOT_DC_OPTIONS.map((dc) => (
+                    <option key={dc} value={dc}>{dc}DC</option>
+                  ))}
+                </select>
+              </>
+            )}
             <button
               type="button"
               onClick={handleSelectAllVisibleLegacyQueue}
@@ -859,25 +1015,60 @@ export function UsersPage() {
                     </p>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 lg:w-[560px]">
+                  <div className="grid grid-cols-1 sm:grid-cols-5 gap-2 lg:w-[720px]">
                     <select
-                      value={legacyAssignTier[item.id] || subscriptionTiers[0]?.id || ''}
-                      onChange={(e) => setLegacyAssignTier((prev) => ({ ...prev, [item.id]: e.target.value }))}
+                      value={legacyAssignMode[item.id] || 'subscription'}
+                      onChange={(e) => setLegacyAssignMode((prev) => ({ ...prev, [item.id]: e.target.value as AssignmentMode }))}
                       disabled={item.onboarding_status === 'assigned'}
                       className="bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-white"
                     >
-                      {subscriptionTiers.map((tier) => (
-                        <option key={tier.id} value={tier.id}>{tier.name}</option>
-                      ))}
+                      <option value="subscription">Subscription</option>
+                      <option value="jackpot">Jackpot</option>
                     </select>
-                    <input
-                      type="number"
-                      min="1"
-                      value={legacyAssignDays[item.id] || 30}
-                      onChange={(e) => setLegacyAssignDays((prev) => ({ ...prev, [item.id]: Number(e.target.value) }))}
-                      disabled={item.onboarding_status === 'assigned'}
-                      className="bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-white"
-                    />
+                    {(legacyAssignMode[item.id] || 'subscription') === 'subscription' ? (
+                      <>
+                        <select
+                          value={legacyAssignTier[item.id] || subscriptionTiers[0]?.id || ''}
+                          onChange={(e) => setLegacyAssignTier((prev) => ({ ...prev, [item.id]: e.target.value }))}
+                          disabled={item.onboarding_status === 'assigned'}
+                          className="bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-white"
+                        >
+                          {subscriptionTiers.map((tier) => (
+                            <option key={tier.id} value={tier.id}>{tier.name}</option>
+                          ))}
+                        </select>
+                        <input
+                          type="number"
+                          min="1"
+                          value={legacyAssignDays[item.id] || 30}
+                          onChange={(e) => setLegacyAssignDays((prev) => ({ ...prev, [item.id]: Number(e.target.value) }))}
+                          disabled={item.onboarding_status === 'assigned'}
+                          className="bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-white"
+                        />
+                      </>
+                    ) : (
+                      <>
+                        <select
+                          value={legacyAssignJackpotType[item.id] || 'midweek'}
+                          onChange={(e) => setLegacyAssignJackpotType((prev) => ({ ...prev, [item.id]: e.target.value as JackpotGrantType }))}
+                          disabled={item.onboarding_status === 'assigned'}
+                          className="bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-white"
+                        >
+                          <option value="midweek">Midweek</option>
+                          <option value="mega">Mega</option>
+                        </select>
+                        <select
+                          value={legacyAssignJackpotDcLevel[item.id] || 3}
+                          onChange={(e) => setLegacyAssignJackpotDcLevel((prev) => ({ ...prev, [item.id]: Number(e.target.value) }))}
+                          disabled={item.onboarding_status === 'assigned'}
+                          className="bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-white"
+                        >
+                          {JACKPOT_DC_OPTIONS.map((dc) => (
+                            <option key={dc} value={dc}>{dc}DC</option>
+                          ))}
+                        </select>
+                      </>
+                    )}
                     <button
                       type="button"
                       disabled={item.onboarding_status === 'assigned' || legacyAssigningId === item.id || legacyBulkAssigning || legacyDeletingId === item.id}
@@ -1001,6 +1192,7 @@ export function UsersPage() {
             className="bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-white"
           >
             <option value="grant_subscription">Grant Subscription</option>
+            <option value="grant_jackpot">Grant Jackpot</option>
             <option value="revoke_subscription">Revoke Subscription</option>
             <option value="ban">Ban Users</option>
             <option value="unban">Unban Users</option>
@@ -1016,6 +1208,15 @@ export function UsersPage() {
               {subscriptionTiers.map((tier) => (
                 <option key={tier.id} value={tier.id}>{tier.name}</option>
               ))}
+            </select>
+          ) : bulkAction === 'grant_jackpot' ? (
+            <select
+              value={bulkJackpotType}
+              onChange={(e) => setBulkJackpotType(e.target.value as JackpotGrantType)}
+              className="bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-white"
+            >
+              <option value="midweek">Midweek</option>
+              <option value="mega">Mega</option>
             </select>
           ) : (
             <div className="px-3 py-2.5 rounded-xl border border-zinc-800 bg-zinc-950 text-sm text-zinc-500">
@@ -1034,6 +1235,16 @@ export function UsersPage() {
               onChange={(e) => setBulkGrantDays(Number(e.target.value))}
               className="bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-white"
             />
+          ) : bulkAction === 'grant_jackpot' ? (
+            <select
+              value={bulkJackpotDcLevel}
+              onChange={(e) => setBulkJackpotDcLevel(Number(e.target.value))}
+              className="bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-white"
+            >
+              {JACKPOT_DC_OPTIONS.map((dc) => (
+                <option key={dc} value={dc}>{dc}DC</option>
+              ))}
+            </select>
           ) : (
             <div className="px-3 py-2.5 rounded-xl border border-zinc-800 bg-zinc-950 text-sm text-zinc-500">
               No duration needed

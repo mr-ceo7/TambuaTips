@@ -130,6 +130,70 @@ def _grant_subscription_access(user: User, tier: str, duration_days: int) -> Non
     user.subscription_expires_at = current_expiry + timedelta(days=duration_days)
 
 
+async def _resolve_pending_jackpot(
+    db: AsyncSession,
+    *,
+    jackpot_type: str,
+    jackpot_dc_level: int,
+) -> Jackpot:
+    normalized_type = jackpot_type.strip().lower()
+    matches = (
+        await db.execute(
+            select(Jackpot)
+            .where(
+                Jackpot.result == "pending",
+                Jackpot.type == normalized_type,
+                Jackpot.dc_level == jackpot_dc_level,
+            )
+            .order_by(Jackpot.created_at.desc(), Jackpot.id.desc())
+        )
+    ).scalars().all()
+
+    if not matches:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No pending {normalized_type} jackpot found for {jackpot_dc_level}DC.",
+        )
+    if len(matches) > 1:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Multiple pending {normalized_type} jackpots found for {jackpot_dc_level}DC. Resolve duplicates before assigning.",
+        )
+    return matches[0]
+
+
+async def _grant_jackpot_access(
+    db: AsyncSession,
+    *,
+    user: User,
+    jackpot: Jackpot,
+    payment_id: int | None = None,
+) -> tuple[JackpotPurchase, bool]:
+    existing_purchase = (
+        await db.execute(
+            select(JackpotPurchase).where(
+                JackpotPurchase.user_id == user.id,
+                JackpotPurchase.jackpot_id == jackpot.id,
+            )
+        )
+    ).scalar_one_or_none()
+    if existing_purchase:
+        if payment_id and not existing_purchase.payment_id:
+            existing_purchase.payment_id = payment_id
+            db.add(existing_purchase)
+            await db.flush()
+        return existing_purchase, False
+
+    purchase = JackpotPurchase(
+        user_id=user.id,
+        jackpot_id=jackpot.id,
+        payment_id=payment_id,
+    )
+    db.add(purchase)
+    await db.flush()
+    return purchase, True
+
+
 def _create_subscription_payment(
     *,
     user: User,
@@ -166,12 +230,56 @@ def _create_subscription_payment(
     )
 
 
+def _create_jackpot_payment(
+    *,
+    user: User,
+    amount_paid: float,
+    jackpot: Jackpot,
+    admin_id: int,
+    source: str,
+    reference: str | None = None,
+    transaction_id: str | None = None,
+    extra_metadata: Optional[dict] = None,
+) -> Payment:
+    metadata = {
+        "source": source,
+        "admin_id": admin_id,
+        "jackpot_id": jackpot.id,
+        "jackpot_type": jackpot.type,
+        "jackpot_dc_level": jackpot.dc_level,
+    }
+    if extra_metadata:
+        metadata.update(extra_metadata)
+
+    return Payment(
+        user_id=user.id,
+        amount=amount_paid,
+        currency="KES",
+        method="mpesa",
+        status="completed",
+        reference=reference or f"{source.upper()}-{uuid.uuid4().hex[:10].upper()}",
+        transaction_id=transaction_id or f"{source.upper()}-{uuid.uuid4().hex[:10].upper()}",
+        item_type="jackpot",
+        item_id=str(jackpot.id),
+        phone=user.phone,
+        email=user.email,
+        gateway_response=json.dumps(metadata),
+    )
+
+
+def _build_jackpot_assignment_label(jackpot: Jackpot) -> str:
+    return f"{jackpot.type}_{jackpot.dc_level}dc"
+
+
 async def _assign_legacy_queue_item(
     db: AsyncSession,
     *,
     queue_item: LegacyMpesaTransaction,
-    tier: str,
-    duration_days: int,
+    assignment_mode: str,
+    tier: str | None,
+    duration_days: int | None,
+    jackpot_type: str | None,
+    jackpot_dc_level: int | None,
     admin_id: int,
 ) -> tuple[User, Payment]:
     user = None
@@ -191,33 +299,73 @@ async def _assign_legacy_queue_item(
     _ensure_magic_login_token(user)
     user.sms_tips_enabled = True
     user.is_active = True
-    _grant_subscription_access(user, tier, duration_days)
     db.add(user)
     await db.flush()
 
-    payment = _create_subscription_payment(
-        user=user,
-        amount_paid=queue_item.amount,
-        tier=tier,
-        duration_days=duration_days,
-        admin_id=admin_id,
-        source="legacy_mpesa_assignment",
-        reference=f"LEGACY-MPESA-{queue_item.source_record_id}",
-        transaction_id=f"LEGACY-MPESA-{queue_item.source_record_id}",
-        extra_metadata={
-            "legacy_transaction_id": queue_item.source_record_id,
-            "legacy_queue_id": queue_item.id,
-            "biz_no": queue_item.biz_no,
-        },
-    )
+    if assignment_mode == "subscription":
+        assert tier is not None
+        assert duration_days is not None
+        _grant_subscription_access(user, tier, duration_days)
+        payment = _create_subscription_payment(
+            user=user,
+            amount_paid=queue_item.amount,
+            tier=tier,
+            duration_days=duration_days,
+            admin_id=admin_id,
+            source="legacy_mpesa_assignment",
+            reference=f"LEGACY-MPESA-{queue_item.source_record_id}",
+            transaction_id=f"LEGACY-MPESA-{queue_item.source_record_id}",
+            extra_metadata={
+                "legacy_transaction_id": queue_item.source_record_id,
+                "legacy_queue_id": queue_item.id,
+                "biz_no": queue_item.biz_no,
+            },
+        )
+        assigned_label = tier
+        assigned_duration_days = duration_days
+    else:
+        assert jackpot_type is not None
+        assert jackpot_dc_level is not None
+        jackpot = await _resolve_pending_jackpot(
+            db,
+            jackpot_type=jackpot_type,
+            jackpot_dc_level=jackpot_dc_level,
+        )
+        payment = _create_jackpot_payment(
+            user=user,
+            amount_paid=queue_item.amount,
+            jackpot=jackpot,
+            admin_id=admin_id,
+            source="legacy_mpesa_assignment",
+            reference=f"LEGACY-MPESA-{queue_item.source_record_id}",
+            transaction_id=f"LEGACY-MPESA-{queue_item.source_record_id}",
+            extra_metadata={
+                "legacy_transaction_id": queue_item.source_record_id,
+                "legacy_queue_id": queue_item.id,
+                "biz_no": queue_item.biz_no,
+            },
+        )
+        db.add(payment)
+        await db.flush()
+        purchase, created = await _grant_jackpot_access(
+            db,
+            user=user,
+            jackpot=jackpot,
+            payment_id=payment.id,
+        )
+        if not created:
+            raise HTTPException(status_code=400, detail="User already has access to the selected jackpot.")
+        assigned_label = _build_jackpot_assignment_label(jackpot)
+        assigned_duration_days = None
+
     db.add(payment)
     await db.flush()
 
     queue_item.user_id = user.id
     queue_item.payment_id = payment.id
     queue_item.onboarding_status = "assigned"
-    queue_item.assigned_tier = tier
-    queue_item.assigned_duration_days = duration_days
+    queue_item.assigned_tier = assigned_label
+    queue_item.assigned_duration_days = assigned_duration_days
     queue_item.assigned_at = datetime.now(UTC).replace(tzinfo=None)
     db.add(queue_item)
 
@@ -1502,13 +1650,19 @@ async def revoke_subscription(user_id: int, db: AsyncSession = Depends(get_db), 
 
 
 class GrantSubscriptionRequest(BaseModel):
-    tier: str  # basic, standard, premium
-    duration_days: int  # number of days to grant
+    assignment_mode: str = "subscription"
+    tier: Optional[str] = None
+    duration_days: Optional[int] = None
+    jackpot_type: Optional[str] = None
+    jackpot_dc_level: Optional[int] = None
 
 
 class BulkGrantSubscriptionRequest(BaseModel):
-    tier: str
-    duration_days: int
+    assignment_mode: str = "subscription"
+    tier: Optional[str] = None
+    duration_days: Optional[int] = None
+    jackpot_type: Optional[str] = None
+    jackpot_dc_level: Optional[int] = None
     user_ids: List[int] = []
     apply_to_filtered: bool = False
     search: Optional[str] = None
@@ -1523,12 +1677,17 @@ class BulkUserUpdateRequest(BaseModel):
     filter_tier: str = "all"
     tier: Optional[str] = None
     duration_days: Optional[int] = None
+    jackpot_type: Optional[str] = None
+    jackpot_dc_level: Optional[int] = None
 
 
 class AdminSmsOnboardRequest(BaseModel):
     phone: str
-    tier: str
-    duration_days: int
+    assignment_mode: str = "subscription"
+    tier: Optional[str] = None
+    duration_days: Optional[int] = None
+    jackpot_type: Optional[str] = None
+    jackpot_dc_level: Optional[int] = None
     amount_paid: float
 
 
@@ -1541,13 +1700,19 @@ class LegacyMpesaListResponse(BaseModel):
 
 
 class LegacyMpesaAssignRequest(BaseModel):
-    tier: str
-    duration_days: int
+    assignment_mode: str = "subscription"
+    tier: Optional[str] = None
+    duration_days: Optional[int] = None
+    jackpot_type: Optional[str] = None
+    jackpot_dc_level: Optional[int] = None
 
 
 class LegacyMpesaBulkAssignRequest(BaseModel):
-    tier: str
-    duration_days: int
+    assignment_mode: str = "subscription"
+    tier: Optional[str] = None
+    duration_days: Optional[int] = None
+    jackpot_type: Optional[str] = None
+    jackpot_dc_level: Optional[int] = None
     queue_ids: List[int] = []
     apply_to_all_pending: bool = False
 
@@ -1567,6 +1732,40 @@ class LegacyMpesaDeleteQueueItemResponse(BaseModel):
     deleted_id: int
 
 
+async def _validate_assignment_payload(
+    db: AsyncSession,
+    *,
+    assignment_mode: str,
+    tier: str | None,
+    duration_days: int | None,
+    jackpot_type: str | None,
+    jackpot_dc_level: int | None,
+) -> Jackpot | None:
+    normalized_mode = assignment_mode.strip().lower()
+    if normalized_mode not in {"subscription", "jackpot"}:
+        raise HTTPException(status_code=400, detail="assignment_mode must be subscription or jackpot.")
+
+    if normalized_mode == "subscription":
+        if not tier:
+            raise HTTPException(status_code=400, detail="tier is required for subscription assignment.")
+        if duration_days is None or duration_days < 1 or duration_days > 365:
+            raise HTTPException(status_code=400, detail="duration_days must be 1-365 for subscription assignment.")
+        tier_res = await db.execute(select(SubscriptionTier.tier_id).where(SubscriptionTier.tier_id == tier))
+        if not tier_res.scalar_one_or_none():
+            raise HTTPException(status_code=400, detail=f"Invalid tier: {tier}")
+        return None
+
+    if jackpot_type not in {"midweek", "mega"}:
+        raise HTTPException(status_code=400, detail="jackpot_type must be midweek or mega for jackpot assignment.")
+    if jackpot_dc_level not in {3, 4, 5, 6, 7, 10}:
+        raise HTTPException(status_code=400, detail="jackpot_dc_level must be one of 3, 4, 5, 6, 7, 10.")
+    return await _resolve_pending_jackpot(
+        db,
+        jackpot_type=jackpot_type,
+        jackpot_dc_level=jackpot_dc_level,
+    )
+
+
 @router.put("/users/{user_id}/grant-subscription")
 async def grant_subscription(
     user_id: int,
@@ -1575,28 +1774,39 @@ async def grant_subscription(
     admin: User = Depends(require_admin),
 ):
     """Grant a subscription tier + duration to a user."""
-    tier_res = await db.execute(select(SubscriptionTier.tier_id).where(SubscriptionTier.tier_id == body.tier))
-    if not tier_res.scalar_one_or_none():
-        raise HTTPException(status_code=400, detail=f"Invalid tier: {body.tier}")
-
-    if body.duration_days < 1 or body.duration_days > 365:
-        raise HTTPException(status_code=400, detail="Duration must be 1-365 days.")
+    jackpot = await _validate_assignment_payload(
+        db,
+        assignment_mode=body.assignment_mode,
+        tier=body.tier,
+        duration_days=body.duration_days,
+        jackpot_type=body.jackpot_type,
+        jackpot_dc_level=body.jackpot_dc_level,
+    )
 
     result = await db.execute(select(User).where(User.id == user_id))
     u = result.scalar_one_or_none()
     if not u:
         raise HTTPException(status_code=404, detail="User not found")
 
-    u.subscription_tier = body.tier
-    # If they already have time remaining, extend from current expiry; otherwise from now
-    now = datetime.now(UTC).replace(tzinfo=None)
-    current_expiry = u.subscription_expires_at if u.subscription_expires_at and u.subscription_expires_at > now else now
-    u.subscription_expires_at = current_expiry + timedelta(days=body.duration_days)
+    if body.assignment_mode == "subscription":
+        assert body.tier is not None
+        assert body.duration_days is not None
+        _grant_subscription_access(u, body.tier, body.duration_days)
+    else:
+        assert jackpot is not None
+        _, created = await _grant_jackpot_access(db, user=u, jackpot=jackpot)
+        if not created:
+            raise HTTPException(status_code=400, detail="User already has access to the selected jackpot.")
+
     await db.commit()
     return {
         "status": "success",
+        "assignment_mode": body.assignment_mode,
         "tier": u.subscription_tier,
-        "expires_at": u.subscription_expires_at.isoformat(),
+        "expires_at": u.subscription_expires_at.isoformat() if u.subscription_expires_at else None,
+        "jackpot_id": jackpot.id if jackpot else None,
+        "jackpot_type": jackpot.type if jackpot else None,
+        "jackpot_dc_level": jackpot.dc_level if jackpot else None,
     }
 
 
@@ -1606,12 +1816,14 @@ async def bulk_grant_subscription(
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    tier_res = await db.execute(select(SubscriptionTier.tier_id).where(SubscriptionTier.tier_id == body.tier))
-    if not tier_res.scalar_one_or_none():
-        raise HTTPException(status_code=400, detail=f"Invalid tier: {body.tier}")
-
-    if body.duration_days < 1 or body.duration_days > 365:
-        raise HTTPException(status_code=400, detail="Duration must be 1-365 days.")
+    jackpot = await _validate_assignment_payload(
+        db,
+        assignment_mode=body.assignment_mode,
+        tier=body.tier,
+        duration_days=body.duration_days,
+        jackpot_type=body.jackpot_type,
+        jackpot_dc_level=body.jackpot_dc_level,
+    )
 
     users = await _resolve_bulk_target_users(
         db=db,
@@ -1626,19 +1838,31 @@ async def bulk_grant_subscription(
 
     updated_user_ids: List[int] = []
     for user in users:
-        _grant_subscription_access(user, body.tier, body.duration_days)
-        db.add(user)
-        updated_user_ids.append(user.id)
+        if body.assignment_mode == "subscription":
+            assert body.tier is not None
+            assert body.duration_days is not None
+            _grant_subscription_access(user, body.tier, body.duration_days)
+            db.add(user)
+            updated_user_ids.append(user.id)
+        else:
+            assert jackpot is not None
+            _, created = await _grant_jackpot_access(db, user=user, jackpot=jackpot)
+            if created:
+                updated_user_ids.append(user.id)
 
     await db.commit()
 
     return {
         "status": "success",
+        "assignment_mode": body.assignment_mode,
         "tier": body.tier,
         "duration_days": body.duration_days,
         "updated": len(updated_user_ids),
         "processed": len(users),
         "updated_user_ids": updated_user_ids,
+        "jackpot_id": jackpot.id if jackpot else None,
+        "jackpot_type": jackpot.type if jackpot else None,
+        "jackpot_dc_level": jackpot.dc_level if jackpot else None,
     }
 
 
@@ -1651,6 +1875,7 @@ async def bulk_update_users(
     action = body.action.strip().lower()
     allowed_actions = {
         "grant_subscription",
+        "grant_jackpot",
         "revoke_subscription",
         "ban",
         "unban",
@@ -1670,6 +1895,7 @@ async def bulk_update_users(
     if not users:
         raise HTTPException(status_code=404, detail="No users found for bulk update.")
 
+    jackpot = None
     if action == "grant_subscription":
         if not body.tier:
             raise HTTPException(status_code=400, detail="tier is required for grant_subscription.")
@@ -1678,6 +1904,15 @@ async def bulk_update_users(
         tier_res = await db.execute(select(SubscriptionTier.tier_id).where(SubscriptionTier.tier_id == body.tier))
         if not tier_res.scalar_one_or_none():
             raise HTTPException(status_code=400, detail=f"Invalid tier: {body.tier}")
+    elif action == "grant_jackpot":
+        jackpot = await _validate_assignment_payload(
+            db,
+            assignment_mode="jackpot",
+            tier=None,
+            duration_days=None,
+            jackpot_type=body.jackpot_type,
+            jackpot_dc_level=body.jackpot_dc_level,
+        )
 
     updated_user_ids: List[int] = []
     skipped_user_ids: List[int] = []
@@ -1685,6 +1920,12 @@ async def bulk_update_users(
     for user in users:
         if action == "grant_subscription":
             _grant_subscription_access(user, body.tier, body.duration_days)
+        elif action == "grant_jackpot":
+            assert jackpot is not None
+            _, created = await _grant_jackpot_access(db, user=user, jackpot=jackpot)
+            if not created:
+                skipped_user_ids.append(user.id)
+                continue
         elif action == "revoke_subscription":
             user.subscription_tier = "free"
             user.subscription_expires_at = None
@@ -1715,6 +1956,9 @@ async def bulk_update_users(
         "skipped": len(skipped_user_ids),
         "updated_user_ids": updated_user_ids,
         "skipped_user_ids": skipped_user_ids,
+        "jackpot_id": jackpot.id if jackpot else None,
+        "jackpot_type": jackpot.type if jackpot else None,
+        "jackpot_dc_level": jackpot.dc_level if jackpot else None,
     }
 
 
@@ -1724,15 +1968,16 @@ async def onboard_sms_user(
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    if body.duration_days < 1 or body.duration_days > 365:
-        raise HTTPException(status_code=400, detail="Duration must be 1-365 days.")
     if body.amount_paid <= 0:
         raise HTTPException(status_code=400, detail="Amount paid must be greater than zero.")
-
-    tier_res = await db.execute(select(SubscriptionTier).where(SubscriptionTier.tier_id == body.tier))
-    tier = tier_res.scalar_one_or_none()
-    if not tier:
-        raise HTTPException(status_code=400, detail=f"Invalid tier: {body.tier}")
+    jackpot = await _validate_assignment_payload(
+        db,
+        assignment_mode=body.assignment_mode,
+        tier=body.tier,
+        duration_days=body.duration_days,
+        jackpot_type=body.jackpot_type,
+        jackpot_dc_level=body.jackpot_dc_level,
+    )
 
     phone = _normalize_phone(body.phone)
     if len(phone) < 10 or len(phone) > 20:
@@ -1745,19 +1990,40 @@ async def onboard_sms_user(
     user.sms_tips_enabled = True
     user.is_active = True
 
-    _grant_subscription_access(user, body.tier, body.duration_days)
+    if body.assignment_mode == "subscription":
+        assert body.tier is not None
+        assert body.duration_days is not None
+        _grant_subscription_access(user, body.tier, body.duration_days)
     db.add(user)
     await db.flush()
 
-    payment = _create_subscription_payment(
-        user=user,
-        amount_paid=body.amount_paid,
-        tier=body.tier,
-        duration_days=body.duration_days,
-        admin_id=admin.id,
-        source="admin_sms_onboard",
-    )
+    if body.assignment_mode == "subscription":
+        assert body.tier is not None
+        assert body.duration_days is not None
+        payment = _create_subscription_payment(
+            user=user,
+            amount_paid=body.amount_paid,
+            tier=body.tier,
+            duration_days=body.duration_days,
+            admin_id=admin.id,
+            source="admin_sms_onboard",
+        )
+    else:
+        assert jackpot is not None
+        payment = _create_jackpot_payment(
+            user=user,
+            amount_paid=body.amount_paid,
+            jackpot=jackpot,
+            admin_id=admin.id,
+            source="admin_sms_onboard",
+        )
     db.add(payment)
+    await db.flush()
+    if body.assignment_mode == "jackpot":
+        assert jackpot is not None
+        _, created_purchase = await _grant_jackpot_access(db, user=user, jackpot=jackpot, payment_id=payment.id)
+        if not created_purchase:
+            raise HTTPException(status_code=400, detail="User already has access to the selected jackpot.")
     await db.commit()
     await db.refresh(user)
 
@@ -1765,9 +2031,13 @@ async def onboard_sms_user(
         "status": "success",
         "created": created,
         "user_id": user.id,
+        "assignment_mode": body.assignment_mode,
         "tier": user.subscription_tier,
         "expires_at": user.subscription_expires_at.isoformat() if user.subscription_expires_at else None,
         "sms_tips_enabled": user.sms_tips_enabled,
+        "jackpot_id": jackpot.id if jackpot else None,
+        "jackpot_type": jackpot.type if jackpot else None,
+        "jackpot_dc_level": jackpot.dc_level if jackpot else None,
     }
 
 
@@ -1975,13 +2245,14 @@ async def assign_legacy_mpesa_transaction(
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    if body.duration_days < 1 or body.duration_days > 365:
-        raise HTTPException(status_code=400, detail="Duration must be 1-365 days.")
-
-    tier_res = await db.execute(select(SubscriptionTier).where(SubscriptionTier.tier_id == body.tier))
-    tier = tier_res.scalar_one_or_none()
-    if not tier:
-        raise HTTPException(status_code=400, detail=f"Invalid tier: {body.tier}")
+    jackpot = await _validate_assignment_payload(
+        db,
+        assignment_mode=body.assignment_mode,
+        tier=body.tier,
+        duration_days=body.duration_days,
+        jackpot_type=body.jackpot_type,
+        jackpot_dc_level=body.jackpot_dc_level,
+    )
 
     queue_res = await db.execute(select(LegacyMpesaTransaction).where(LegacyMpesaTransaction.id == queue_id))
     queue_item = queue_res.scalar_one_or_none()
@@ -1993,8 +2264,11 @@ async def assign_legacy_mpesa_transaction(
     user, payment = await _assign_legacy_queue_item(
         db,
         queue_item=queue_item,
+        assignment_mode=body.assignment_mode,
         tier=body.tier,
         duration_days=body.duration_days,
+        jackpot_type=body.jackpot_type,
+        jackpot_dc_level=body.jackpot_dc_level,
         admin_id=admin.id,
     )
 
@@ -2003,11 +2277,15 @@ async def assign_legacy_mpesa_transaction(
 
     return {
         "status": "success",
+        "assignment_mode": body.assignment_mode,
         "queue_id": queue_item.id,
         "user_id": user.id,
         "payment_id": payment.id,
         "tier": user.subscription_tier,
         "expires_at": user.subscription_expires_at.isoformat() if user.subscription_expires_at else None,
+        "jackpot_id": jackpot.id if jackpot else None,
+        "jackpot_type": jackpot.type if jackpot else None,
+        "jackpot_dc_level": jackpot.dc_level if jackpot else None,
     }
 
 
@@ -2017,13 +2295,14 @@ async def bulk_assign_legacy_mpesa_transactions(
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    if body.duration_days < 1 or body.duration_days > 365:
-        raise HTTPException(status_code=400, detail="Duration must be 1-365 days.")
-
-    tier_res = await db.execute(select(SubscriptionTier).where(SubscriptionTier.tier_id == body.tier))
-    tier = tier_res.scalar_one_or_none()
-    if not tier:
-        raise HTTPException(status_code=400, detail=f"Invalid tier: {body.tier}")
+    jackpot = await _validate_assignment_payload(
+        db,
+        assignment_mode=body.assignment_mode,
+        tier=body.tier,
+        duration_days=body.duration_days,
+        jackpot_type=body.jackpot_type,
+        jackpot_dc_level=body.jackpot_dc_level,
+    )
 
     if body.apply_to_all_pending:
         queue_items = (
@@ -2059,8 +2338,11 @@ async def bulk_assign_legacy_mpesa_transactions(
         await _assign_legacy_queue_item(
             db,
             queue_item=queue_item,
+            assignment_mode=body.assignment_mode,
             tier=body.tier,
             duration_days=body.duration_days,
+            jackpot_type=body.jackpot_type,
+            jackpot_dc_level=body.jackpot_dc_level,
             admin_id=admin.id,
         )
         assigned += 1
@@ -2070,12 +2352,16 @@ async def bulk_assign_legacy_mpesa_transactions(
 
     return {
         "status": "success",
+        "assignment_mode": body.assignment_mode,
         "tier": body.tier,
         "duration_days": body.duration_days,
         "assigned": assigned,
         "skipped": skipped,
         "processed": len(queue_items),
         "assigned_queue_ids": assigned_queue_ids,
+        "jackpot_id": jackpot.id if jackpot else None,
+        "jackpot_type": jackpot.type if jackpot else None,
+        "jackpot_dc_level": jackpot.dc_level if jackpot else None,
     }
 
 
