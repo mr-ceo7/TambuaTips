@@ -89,4 +89,5 @@ class TipStatsResponse(BaseModel):
     lost: int
     pending: int
     voided: int
+    postponed: int
     win_rate: float

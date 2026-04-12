@@ -398,7 +398,7 @@ function JackpotCard({ jackpot, onGetFree }: { jackpot: JackpotPrediction; key?:
 export function TipsPage() {
   const { user, hasAccess, hasJackpotAccess, setShowAuthModal, setShowPricingModal, setShowJackpotModal, setSelectedJackpot } = useUser();
   const [activeTab, setActiveTab] = useState<'free' | 'tips' | 'jackpot'>('free');
-  const [stats, setStats] = useState({ total: 0, won: 0, lost: 0, pending: 0, voided: 0, winRate: 0 });
+  const [stats, setStats] = useState({ total: 0, won: 0, lost: 0, pending: 0, voided: 0, postponed: 0, winRate: 0 });
   const [jackpots, setJackpots] = useState<JackpotPrediction[]>([]);
   const [bundleInfo, setBundleInfo] = useState<JackpotBundleInfo | null>(null);
   const [tipsByCategory, setTipsByCategory] = useState<Record<string, Tip[]>>({});
@@ -505,7 +505,13 @@ export function TipsPage() {
       tipsResults.forEach(r => { newMap[r.cat] = r.tips; });
       setTipsByCategory(newMap);
       setFreeTips(fetchedFreeTips);
-      setJackpots(jackpotResults);
+      setJackpots(
+        [...jackpotResults].sort((a, b) => {
+          const freeDiff = Number(a.price !== 0) - Number(b.price !== 0);
+          if (freeDiff !== 0) return freeDiff;
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        })
+      );
       setBundleInfo(bundleResult);
       setPricingTiers(fetchedTiers);
 

@@ -33,11 +33,10 @@ def user_has_access(user: Optional[User], tip: Tip, tier_dict: dict) -> bool:
         return True
     if not user:
         return False
-    if not user.is_subscription_active:
-        return False
-    
     if user.is_admin or user.subscription_tier == "premium":
         return True
+    if not user.is_subscription_active:
+        return False
 
     user_tier_conf = tier_dict.get(user.subscription_tier)
     if user_tier_conf and isinstance(user_tier_conf.categories, list):
@@ -88,12 +87,12 @@ async def list_tips(
     response = []
 
     # Pre-calculate if the user is Premium/Admin to bypass the marketing filters
-    is_premium_or_admin = user and TIER_RANK.get(user.subscription_tier, 0) == 3
+    is_premium_or_admin = bool(user and (user.is_admin or TIER_RANK.get(user.subscription_tier, 0) == 3))
     lost_counter = 0
 
     for tip in tips:
         has_normal_access = user_has_access(user, tip, tier_dict)
-        is_decided = tip.result in ["won", "lost", "void"]
+        is_decided = tip.result in ["won", "lost", "void", "postponed"]
 
         # CONVERSION BOOST: If a non-premium user is looking at historical tips,
         # we purposely drop 3 out of every 4 "lost" tips to curate an overwhelming "won" feed.
@@ -141,6 +140,7 @@ async def tip_stats(db: AsyncSession = Depends(get_db)):
     lost = sum(1 for t in tips if t.result == "lost")
     pending = sum(1 for t in tips if t.result == "pending")
     voided = sum(1 for t in tips if t.result == "void")
+    postponed = sum(1 for t in tips if t.result == "postponed")
     decided = won + lost
 
     return TipStatsResponse(
@@ -149,6 +149,7 @@ async def tip_stats(db: AsyncSession = Depends(get_db)):
         lost=lost,
         pending=pending,
         voided=voided,
+        postponed=postponed,
         win_rate=round((won / decided) * 100, 1) if decided > 0 else 0,
     )
 

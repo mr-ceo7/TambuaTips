@@ -18,11 +18,12 @@ import { AutocompleteInput } from '../../components/AutocompleteInput';
 const DEFAULT_PREDICTIONS = ['1', 'X', '2', '1X', 'X2', '12', 'Ov1.5', 'Ov2.5', 'Ov3.5', 'Un2.5', 'GG', 'NG', 'GG & O2.5'];
 
 const TIP_CATEGORIES: TipCategory[] = ['free', '2+', '4+', 'gg', '10+', 'vip'];
+const FREE_IN_PAID_CATEGORY_FILTERS = TIP_CATEGORIES.filter((cat) => cat !== 'free');
 
 
 export function TipsManagePage() {
   const [tips, setTips] = useState<Tip[]>([]);
-  const [stats, setStats] = useState({ total: 0, won: 0, lost: 0, pending: 0, voided: 0, winRate: 0 });
+  const [stats, setStats] = useState({ total: 0, won: 0, lost: 0, pending: 0, voided: 0, postponed: 0, winRate: 0 });
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -212,7 +213,7 @@ export function TipsManagePage() {
     toast.success('Tip deleted');
   };
 
-  const handleResult = async (id: string, result: 'won' | 'lost' | 'void') => {
+  const handleResult = async (id: string, result: 'won' | 'lost' | 'void' | 'postponed') => {
     await updateTip(id, { result });
     await loadData();
     toast.success(`Marked as ${result}`);
@@ -232,7 +233,7 @@ export function TipsManagePage() {
   };
 
   // Bulk result marking
-  const handleBulkResult = async (result: 'won' | 'lost' | 'void') => {
+  const handleBulkResult = async (result: 'won' | 'lost' | 'void' | 'postponed') => {
     if (selectedTips.size === 0) return;
     if (!confirm(`Mark ${selectedTips.size} tips as ${result}?`)) return;
     await Promise.all(Array.from(selectedTips).map((id: string) => updateTip(id, { result })));
@@ -252,7 +253,12 @@ export function TipsManagePage() {
 
   // Filtered tips
   const filteredTips = tips.filter(t => {
-    if (filterCategory !== 'all' && t.category !== filterCategory) return false;
+    if (filterCategory.startsWith('free:')) {
+      const freeCategory = filterCategory.slice(5);
+      if (!(t.isFree && t.category === freeCategory)) return false;
+    } else if (filterCategory !== 'all' && t.category !== filterCategory) {
+      return false;
+    }
     if (filterResult !== 'all' && t.result !== filterResult) return false;
     return true;
   });
@@ -284,12 +290,13 @@ export function TipsManagePage() {
       </div>
 
       {/* ─── Stats Row ───────────────────────────────────── */}
-      <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 sm:gap-3">
+      <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 sm:gap-3">
         {[
           { label: 'Total', value: stats.total, color: 'text-white' },
           { label: 'Won', value: stats.won, color: 'text-emerald-400' },
           { label: 'Lost', value: stats.lost, color: 'text-red-400' },
           { label: 'Pending', value: stats.pending, color: 'text-yellow-400' },
+          { label: 'PPD', value: stats.postponed, color: 'text-orange-400' },
           { label: 'Win Rate', value: `${stats.winRate}%`, color: 'text-emerald-400' },
         ].map(s => (
           <div key={s.label} className="bg-zinc-900/60 border border-zinc-800/60 rounded-xl p-3 text-center">
@@ -534,8 +541,19 @@ export function TipsManagePage() {
             >{CATEGORY_LABELS[cat]?.label || cat}</button>
           ))}
         </div>
+        <div className="flex gap-1 bg-zinc-900/60 border border-zinc-800/60 rounded-xl p-1 overflow-x-auto shrink-0">
+          {FREE_IN_PAID_CATEGORY_FILTERS.map(cat => (
+            <button
+              key={`free:${cat}`}
+              onClick={() => setFilterCategory(`free:${cat}`)}
+              className={`px-3 py-1.5 rounded-lg text-[11px] font-bold whitespace-nowrap transition-all ${
+                filterCategory === `free:${cat}` ? 'bg-emerald-500 text-zinc-950' : 'text-zinc-500 hover:text-zinc-300'
+              }`}
+            >{`Free ${CATEGORY_LABELS[cat]?.label || cat}`}</button>
+          ))}
+        </div>
         <div className="flex gap-1 bg-zinc-900/60 border border-zinc-800/60 rounded-xl p-1">
-          {['all', 'pending', 'won', 'lost', 'void'].map(r => (
+          {['all', 'pending', 'won', 'lost', 'void', 'postponed'].map(r => (
             <button
               key={r}
               onClick={() => setFilterResult(r)}
@@ -556,6 +574,9 @@ export function TipsManagePage() {
           </button>
           <button onClick={() => handleBulkResult('lost')} className="px-3 py-1.5 bg-red-500/10 text-red-400 text-xs font-bold rounded-lg hover:bg-red-500/20 transition-all">
             Mark Lost
+          </button>
+          <button onClick={() => handleBulkResult('postponed')} className="px-3 py-1.5 bg-orange-500/10 text-orange-400 text-xs font-bold rounded-lg hover:bg-orange-500/20 transition-all">
+            Mark Postponed
           </button>
           <button onClick={() => handleBulkResult('void')} className="px-3 py-1.5 bg-zinc-800 text-zinc-400 text-xs font-bold rounded-lg hover:bg-zinc-700 transition-all">
             Mark Void
@@ -613,6 +634,7 @@ export function TipsManagePage() {
                 <span className={`px-2 py-1 rounded text-[10px] font-bold ${
                   tip.result === 'won' ? 'bg-emerald-500/20 text-emerald-400' :
                   tip.result === 'lost' ? 'bg-red-500/20 text-red-400' :
+                  tip.result === 'postponed' ? 'bg-orange-500/20 text-orange-400' :
                   tip.result === 'void' ? 'bg-zinc-800 text-zinc-500' :
                   'bg-yellow-500/10 text-yellow-400'
                 }`}>{tip.result}</span>
@@ -623,6 +645,9 @@ export function TipsManagePage() {
                     </button>
                     <button onClick={() => handleResult(tip.id, 'lost')} className="p-1.5 bg-red-500/10 text-red-400 rounded-lg hover:bg-red-500/20 transition-all" title="Lost">
                       <X className="w-3.5 h-3.5" />
+                    </button>
+                    <button onClick={() => handleResult(tip.id, 'postponed')} className="p-1.5 bg-orange-500/10 text-orange-400 rounded-lg hover:bg-orange-500/20 transition-all" title="Postponed">
+                      P
                     </button>
                   </>
                 )}

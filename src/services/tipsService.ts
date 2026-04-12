@@ -25,7 +25,7 @@ export interface Tip {
   category: TipCategory;
   isPremium: boolean;
   isFree: boolean;
-  result: 'pending' | 'won' | 'lost' | 'void';
+  result: 'pending' | 'won' | 'lost' | 'void' | 'postponed';
   createdAt: string;
   updatedAt: string;
 }
@@ -173,7 +173,7 @@ export async function getTipById(id: string): Promise<Tip | null> {
   }
 }
 
-export async function getTipStats(): Promise<{ total: number; won: number; lost: number; pending: number; voided: number; winRate: number }> {
+export async function getTipStats(): Promise<{ total: number; won: number; lost: number; pending: number; voided: number; postponed: number; winRate: number }> {
   try {
     const res = await apiClient.get('/tips/stats');
     return {
@@ -182,10 +182,11 @@ export async function getTipStats(): Promise<{ total: number; won: number; lost:
       lost: res.data.lost,
       pending: res.data.pending,
       voided: res.data.voided,
+      postponed: res.data.postponed ?? 0,
       winRate: res.data.win_rate,
     };
   } catch {
-    return { total: 0, won: 0, lost: 0, pending: 0, voided: 0, winRate: 0 };
+    return { total: 0, won: 0, lost: 0, pending: 0, voided: 0, postponed: 0, winRate: 0 };
   }
 }
 

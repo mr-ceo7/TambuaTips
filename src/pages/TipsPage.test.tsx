@@ -17,6 +17,7 @@ vi.mock('../services/tipsService', () => ({
   getTipsByCategory: vi.fn(),
   getTipStats: vi.fn(),
   getAllJackpots: vi.fn(),
+  getJackpotBundleInfo: vi.fn(),
 }));
 
 describe('TipsPage', () => {
@@ -75,8 +76,10 @@ describe('TipsPage', () => {
         isPremium: true
       }
     ] as any);
-    vi.mocked(tipsService.getTipStats).mockResolvedValue({ total: 1, won: 0, lost: 0, pending: 1, voided: 0, winRate: 0 });
+    vi.mocked(tipsService.getFreeTips).mockResolvedValue([]);
+    vi.mocked(tipsService.getTipStats).mockResolvedValue({ total: 1, won: 0, lost: 0, pending: 1, voided: 0, postponed: 0, winRate: 0 });
     vi.mocked(tipsService.getAllJackpots).mockResolvedValue([]);
+    vi.mocked(tipsService.getJackpotBundleInfo).mockResolvedValue(null);
 
     // Not logged in -> no access
     const mockContext = {
@@ -91,6 +94,8 @@ describe('TipsPage', () => {
         <TipsPage />
       </MemoryRouter>
     );
+
+    fireEvent.click(screen.getByText(/Daily Tips/i));
 
     // Assert that the lock icon or unlock button is rendered for the vip tip
     const components = await screen.findAllByText(/Arsenal/i, {}, { timeout: 4000 });

@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -5,6 +7,8 @@ from sqlalchemy import select, update
 from unittest.mock import patch
 
 from app.models.user import User
+from app.models.tip import Tip
+from app.routers.tips import tip_stats
 
 async def _login_helper_with_tier(client: AsyncClient, db_session: AsyncSession, email: str, name: str, tier: str = "free", admin: bool = False) -> str:
     with patch("google.oauth2.id_token.verify_oauth2_token") as mock_verify:
@@ -63,6 +67,131 @@ async def test_create_valid_tip(client: AsyncClient, db_session: AsyncSession):
         headers={"Authorization": f"Bearer {admin_token}"}
     )
     assert response.status_code == 201
+
+
+@pytest.mark.asyncio
+async def test_admin_without_subscription_can_view_premium_tip(client: AsyncClient, db_session: AsyncSession):
+    admin_token = await _login_helper_with_tier(
+        client,
+        db_session,
+        "admin-nosub@example.com",
+        "Admin No Sub",
+        tier="free",
+        admin=True,
+    )
+
+    tip = Tip(
+        fixture_id=88001,
+        home_team="Admin FC",
+        away_team="Premium United",
+        league="Admin League",
+        match_date=datetime(2026, 4, 12, 15, 0, 0),
+        prediction="Home Win",
+        odds="1.90",
+        bookmaker="Betway",
+        confidence=4,
+        reasoning="Admin access test.",
+        category="vip",
+        is_premium=1,
+        result="pending",
+    )
+    db_session.add(tip)
+    await db_session.commit()
+    await db_session.refresh(tip)
+
+    response = await client.get(
+        f"/api/tips/{tip.id}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["id"] == tip.id
+    assert payload["prediction"] == "Home Win"
+
+
+@pytest.mark.asyncio
+async def test_admin_without_subscription_sees_lost_premium_tip_in_list(client: AsyncClient, db_session: AsyncSession):
+    admin_token = await _login_helper_with_tier(
+        client,
+        db_session,
+        "admin-list-nosub@example.com",
+        "Admin List No Sub",
+        tier="free",
+        admin=True,
+    )
+
+    lost_tip = Tip(
+        fixture_id=88002,
+        home_team="Lost FC",
+        away_team="History United",
+        league="Admin League",
+        match_date=datetime(2026, 4, 11, 15, 0, 0),
+        prediction="Away Win",
+        odds="2.20",
+        bookmaker="Betway",
+        confidence=3,
+        reasoning="Admin list access test.",
+        category="vip",
+        is_premium=1,
+        result="lost",
+    )
+    db_session.add(lost_tip)
+    await db_session.commit()
+    await db_session.refresh(lost_tip)
+
+    response = await client.get(
+        "/api/tips?date=all",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    returned_tip = next((item for item in payload if item["id"] == lost_tip.id), None)
+    assert returned_tip is not None
+    assert returned_tip["prediction"] == "Away Win"
+
+
+@pytest.mark.asyncio
+async def test_tip_stats_include_postponed_results(db_session: AsyncSession):
+    db_session.add_all([
+        Tip(
+            fixture_id=99001,
+            home_team="Won FC",
+            away_team="Other FC",
+            league="Stats League",
+            match_date=datetime(2026, 4, 10, 12, 0, 0),
+            prediction="1",
+            odds="1.70",
+            bookmaker="Betway",
+            confidence=3,
+            category="2+",
+            is_premium=1,
+            result="won",
+        ),
+        Tip(
+            fixture_id=99002,
+            home_team="PPD FC",
+            away_team="Other FC",
+            league="Stats League",
+            match_date=datetime(2026, 4, 11, 12, 0, 0),
+            prediction="X",
+            odds="2.10",
+            bookmaker="Betway",
+            confidence=3,
+            category="4+",
+            is_premium=1,
+            result="postponed",
+        ),
+    ])
+    await db_session.commit()
+
+    stats = await tip_stats(db=db_session)
+
+    assert stats.total == 2
+    assert stats.won == 1
+    assert stats.postponed == 1
+    assert stats.pending == 0
 
 @pytest.mark.asyncio
 async def test_double_purchasing_jackpot(client: AsyncClient, db_session: AsyncSession):
