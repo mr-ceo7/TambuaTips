@@ -166,6 +166,9 @@ function JackpotCard({ jackpot, onGetFree }: { jackpot: JackpotPrediction; key?:
   const { user, setShowAuthModal, setSelectedJackpot, setShowJackpotModal } = useUser();
   const isUnlocked = !jackpot.locked;
   const variationCount = jackpot.variations?.length || jackpot.variation_count || 0;
+  const settledWins = jackpot.matches?.filter((match) => match.result === 'won').length || 0;
+  const settledLosses = jackpot.matches?.filter((match) => match.result === 'lost').length || 0;
+  const showWinLossStats = settledWins > 0 || settledLosses > 0;
 
   const handlePurchase = () => {
     if (!user) {
@@ -206,6 +209,11 @@ function JackpotCard({ jackpot, onGetFree }: { jackpot: JackpotPrediction; key?:
               </h4>
               <p className="text-xs text-zinc-400 font-medium">
                 {jackpot.type === 'midweek' ? '13 Matches' : '17 Matches'} • <span className="text-gold-400 font-bold">{jackpot.dcLevel === 99 ? 'ALL ' : jackpot.dcLevel}DC</span> • {variationCount} Variation{variationCount !== 1 ? 's' : ''}
+                {showWinLossStats && (
+                  <>
+                    {' '}• <span className="text-emerald-400 font-bold">{settledWins}W</span>/<span className="text-red-400 font-bold">{settledLosses}L</span>
+                  </>
+                )}
               </p>
             </div>
           </div>

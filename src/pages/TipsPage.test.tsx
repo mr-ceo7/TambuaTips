@@ -101,4 +101,45 @@ describe('TipsPage', () => {
     const components = await screen.findAllByText(/Arsenal/i, {}, { timeout: 4000 });
     expect(components.length).toBeGreaterThan(0);
   });
+
+  it('shows jackpot win loss stats on the jackpot card', async () => {
+    vi.mocked(tipsService.getTipsByCategory).mockResolvedValue([]);
+    vi.mocked(tipsService.getFreeTips).mockResolvedValue([]);
+    vi.mocked(tipsService.getTipStats).mockResolvedValue({ total: 0, won: 0, lost: 0, pending: 0, voided: 0, postponed: 0, winRate: 0 });
+    vi.mocked(tipsService.getAllJackpots).mockResolvedValue([
+      {
+        id: 'jp-1',
+        type: 'mega',
+        dcLevel: 10,
+        matches: [
+          { homeTeam: 'A', awayTeam: 'B', result: 'won' },
+          { homeTeam: 'C', awayTeam: 'D', result: 'won' },
+          { homeTeam: 'E', awayTeam: 'F', result: 'lost' },
+        ],
+        variations: [['1', 'X', '2']],
+        price: 100,
+        result: 'pending',
+        createdAt: '2026-04-13T10:00:00Z',
+        updatedAt: '2026-04-13T10:00:00Z',
+        locked: false,
+      }
+    ] as any);
+    vi.mocked(tipsService.getJackpotBundleInfo).mockResolvedValue(null);
+
+    vi.mocked(useUser).mockReturnValue({
+      ...mockContextDefaults,
+      hasAccess: vi.fn().mockReturnValue(true),
+    } as any);
+
+    render(
+      <MemoryRouter>
+        <TipsPage />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByText(/Jackpot/i));
+
+    expect(await screen.findByText('2W', {}, { timeout: 4000 })).toBeInTheDocument();
+    expect(screen.getByText('1L')).toBeInTheDocument();
+  });
 });
