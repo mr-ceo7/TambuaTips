@@ -12,6 +12,12 @@ const DC_LEVELS: DCLevel[] = [0, 3, 4, 5, 6, 7, 10, 99];
 
 export function JackpotsManagePage() {
   const [jackpots, setJackpots] = useState<JackpotPrediction[]>([]);
+  const [selectedJackpotIds, setSelectedJackpotIds] = useState<string[]>([]);
+  const [bulkAction, setBulkAction] = useState<'set_result' | 'set_price' | 'delete'>('set_result');
+  const [bulkResult, setBulkResult] = useState<'pending' | 'won' | 'lost' | 'bonus' | 'postponed' | 'void'>('pending');
+  const [bulkPrice, setBulkPrice] = useState<number>(500);
+  const [bulkIntPrice, setBulkIntPrice] = useState<number>(5.99);
+  const [bulkApplying, setBulkApplying] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -57,7 +63,26 @@ export function JackpotsManagePage() {
   }, []);
 
   const loadJackpots = () => {
-    getAllJackpots().then(setJackpots);
+    getAllJackpots().then((data) => {
+      setJackpots(data);
+      setSelectedJackpotIds((current) => current.filter((id) => data.some((jackpot) => jackpot.id === id)));
+    });
+  };
+
+  const toggleJackpotSelection = (jackpotId: string) => {
+    setSelectedJackpotIds((current) =>
+      current.includes(jackpotId)
+        ? current.filter((id) => id !== jackpotId)
+        : [...current, jackpotId]
+    );
+  };
+
+  const selectVisibleJackpots = () => {
+    setSelectedJackpotIds(jackpots.map((jackpot) => jackpot.id));
+  };
+
+  const clearJackpotSelection = () => {
+    setSelectedJackpotIds([]);
   };
 
   const addMatchToJackpot = () => {
@@ -342,8 +367,64 @@ export function JackpotsManagePage() {
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this jackpot prediction?')) return;
     await deleteJackpot(id);
+    setSelectedJackpotIds((current) => current.filter((selectedId) => selectedId !== id));
     loadJackpots();
     toast.success('Jackpot deleted');
+  };
+
+  const handleBulkAction = async () => {
+    const selectedJackpots = jackpots.filter((jackpot) => selectedJackpotIds.includes(jackpot.id));
+    if (selectedJackpots.length === 0) {
+      toast.error('Select at least one jackpot');
+      return;
+    }
+
+    if (bulkAction === 'set_price') {
+      if (!Number.isFinite(bulkPrice) || bulkPrice < 0 || !Number.isFinite(bulkIntPrice) || bulkIntPrice < 0) {
+        toast.error('Enter valid local and international prices');
+        return;
+      }
+    }
+
+    if (bulkAction === 'delete' && !confirm(`Delete ${selectedJackpots.length} selected jackpot${selectedJackpots.length === 1 ? '' : 's'}?`)) {
+      return;
+    }
+
+    setBulkApplying(true);
+    try {
+      if (bulkAction === 'set_result') {
+        await Promise.all(
+          selectedJackpots.map((jackpot) => updateJackpot(jackpot.id, { result: bulkResult }))
+        );
+        toast.success(`Updated result for ${selectedJackpots.length} jackpot${selectedJackpots.length === 1 ? '' : 's'}`);
+      } else if (bulkAction === 'set_price') {
+        await Promise.all(
+          selectedJackpots.map((jackpot) =>
+            updateJackpot(jackpot.id, {
+              price: bulkPrice,
+              regional_prices: {
+                ...(jackpot.regional_prices || {}),
+                international: {
+                  ...((jackpot.regional_prices || {}).international || {}),
+                  price: bulkIntPrice,
+                },
+              },
+            })
+          )
+        );
+        toast.success(`Updated price for ${selectedJackpots.length} jackpot${selectedJackpots.length === 1 ? '' : 's'}`);
+      } else {
+        await Promise.all(selectedJackpots.map((jackpot) => deleteJackpot(jackpot.id)));
+        toast.success(`Deleted ${selectedJackpots.length} jackpot${selectedJackpots.length === 1 ? '' : 's'}`);
+      }
+
+      setSelectedJackpotIds([]);
+      loadJackpots();
+    } catch (error: any) {
+      toast.error(error?.response?.data?.detail || 'Bulk jackpot action failed');
+    } finally {
+      setBulkApplying(false);
+    }
   };
 
   const PICK_OPTIONS = ['1X', 'X2', '12', '1', 'X', '2'];
@@ -670,6 +751,90 @@ export function JackpotsManagePage() {
 
       {/* ─── Jackpot List ────────────────────────────────── */}
       <div className="space-y-3">
+        {jackpots.length > 0 && (
+          <div className="bg-zinc-900/60 border border-zinc-800/60 rounded-2xl p-4 sm:p-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+              <div>
+                <h3 className="text-sm font-bold text-white uppercase tracking-wider">Mass Editing</h3>
+                <p className="text-xs text-zinc-500 mt-1">Apply a safe bulk action to selected jackpots.</p>
+              </div>
+              <span className="text-xs text-zinc-400">{selectedJackpotIds.length} selected</span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+              <select
+                value={bulkAction}
+                onChange={(e) => setBulkAction(e.target.value as typeof bulkAction)}
+                className="admin-input"
+              >
+                <option value="set_result">Set Result</option>
+                <option value="set_price">Set Prices</option>
+                <option value="delete">Delete Selected</option>
+              </select>
+
+              {bulkAction === 'set_result' && (
+                <select value={bulkResult} onChange={(e) => setBulkResult(e.target.value as typeof bulkResult)} className="admin-input">
+                  <option value="pending">Pending</option>
+                  <option value="won">Won</option>
+                  <option value="lost">Lost</option>
+                  <option value="bonus">Bonus</option>
+                  <option value="postponed">Postponed</option>
+                  <option value="void">Void</option>
+                </select>
+              )}
+
+              {bulkAction === 'set_price' && (
+                <>
+                  <input
+                    type="number"
+                    min="0"
+                    value={bulkPrice}
+                    onChange={(e) => setBulkPrice(parseFloat(e.target.value) || 0)}
+                    className="admin-input"
+                    placeholder="Local Price (KES)"
+                  />
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={bulkIntPrice}
+                    onChange={(e) => setBulkIntPrice(parseFloat(e.target.value) || 0)}
+                    className="admin-input"
+                    placeholder="Intl Price (USD)"
+                  />
+                </>
+              )}
+
+              <div className="flex flex-wrap gap-2 md:col-span-2">
+                <button
+                  type="button"
+                  onClick={selectVisibleJackpots}
+                  disabled={bulkApplying || jackpots.length === 0}
+                  className="px-3 py-2 bg-zinc-800 text-zinc-300 rounded-xl hover:bg-zinc-700 transition-all text-sm disabled:opacity-50"
+                >
+                  Select Visible
+                </button>
+                <button
+                  type="button"
+                  onClick={clearJackpotSelection}
+                  disabled={bulkApplying || selectedJackpotIds.length === 0}
+                  className="px-3 py-2 bg-zinc-800 text-zinc-300 rounded-xl hover:bg-zinc-700 transition-all text-sm disabled:opacity-50"
+                >
+                  Clear Selection
+                </button>
+                <button
+                  type="button"
+                  onClick={handleBulkAction}
+                  disabled={bulkApplying || selectedJackpotIds.length === 0}
+                  className="px-4 py-2 bg-yellow-500 text-zinc-950 font-bold rounded-xl hover:bg-yellow-400 transition-all text-sm disabled:opacity-50"
+                >
+                  {bulkApplying ? 'Applying...' : 'Apply To Selected'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {jackpots.length === 0 ? (
           <div className="text-center py-12 bg-zinc-900/40 border border-zinc-800/60 rounded-2xl">
             <Trophy className="w-10 h-10 text-zinc-700 mx-auto mb-3" />
@@ -694,6 +859,15 @@ export function JackpotsManagePage() {
                 {/* Header */}
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
                   <div className="flex items-center gap-3">
+                    <label className="flex items-center self-start sm:self-center pt-1 sm:pt-0">
+                      <input
+                        type="checkbox"
+                        checked={selectedJackpotIds.includes(j.id)}
+                        onChange={() => toggleJackpotSelection(j.id)}
+                        className="w-4 h-4 accent-yellow-500"
+                        aria-label={`Select jackpot ${j.id}`}
+                      />
+                    </label>
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
                       j.result === 'won' ? 'bg-emerald-500/20' :
                       j.result === 'lost' ? 'bg-red-500/20' :

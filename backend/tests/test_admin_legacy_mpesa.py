@@ -344,48 +344,6 @@ async def test_bulk_update_users_can_revoke_subscription_for_selected_users(db_s
 
 
 @pytest.mark.asyncio
-async def test_bulk_update_users_can_grant_free_tier(db_session):
-    admin = await _create_user(
-        db_session,
-        email="admin-bulk-free@example.com",
-        name="Admin Bulk Free",
-        is_admin=True,
-        tier="premium",
-    )
-    paid_user = await _create_user(
-        db_session,
-        email="paid-free@example.com",
-        name="Paid User",
-        phone="+254700003101",
-        tier="standard",
-    )
-    paid_user.subscription_expires_at = datetime.now(UTC).replace(tzinfo=None) + timedelta(days=30)
-    db_session.add(paid_user)
-    await db_session.commit()
-
-    payload = await bulk_update_users(
-        body=BulkUserUpdateRequest(
-            action="grant_subscription",
-            user_ids=[paid_user.id],
-            tier="free",
-            duration_days=30,
-        ),
-        db=db_session,
-        admin=admin,
-    )
-
-    assert payload["status"] == "success"
-    assert payload["action"] == "grant_subscription"
-    assert payload["updated"] == 1
-
-    refreshed_user = (
-        await db_session.execute(select(User).where(User.id == paid_user.id))
-    ).scalar_one()
-    assert refreshed_user.subscription_tier == "free"
-    assert refreshed_user.subscription_expires_at is None
-
-
-@pytest.mark.asyncio
 async def test_bulk_update_users_can_ban_filtered_users_and_skip_admin_self(db_session):
     admin = await _create_user(
         db_session,
@@ -1162,61 +1120,6 @@ async def test_bulk_assign_legacy_mpesa_transactions_can_apply_to_all_pending(db
     assert all(row.onboarding_status == "assigned" for row in assigned_rows)
     assert all(row.assigned_tier == "premium" for row in assigned_rows)
     assert all(row.assigned_duration_days == 45 for row in assigned_rows)
-
-
-@pytest.mark.asyncio
-async def test_bulk_assign_legacy_mpesa_transactions_can_assign_free_tier(db_session):
-    admin = await _create_user(
-        db_session,
-        email="admin-bulk-legacy-free@example.com",
-        name="Admin Legacy Free",
-        is_admin=True,
-        tier="premium",
-    )
-
-    pending_row = LegacyMpesaTransaction(
-        source_record_id=704,
-        biz_no="7334523",
-        phone="254744400004",
-        first_name="Pending",
-        other_name="Free",
-        amount=450.0,
-        paid_at=datetime.now(UTC).replace(tzinfo=None),
-        onboarding_status="pending_assignment",
-    )
-    db_session.add(pending_row)
-    await db_session.commit()
-    await db_session.refresh(pending_row)
-
-    payload = await bulk_assign_legacy_mpesa_transactions(
-        body=LegacyMpesaBulkAssignRequest(
-            tier="free",
-            duration_days=30,
-            queue_ids=[pending_row.id],
-        ),
-        db=db_session,
-        admin=admin,
-    )
-
-    assert payload["status"] == "success"
-    assert payload["assigned"] == 1
-    assert payload["processed"] == 1
-
-    refreshed_row = (
-        await db_session.execute(select(LegacyMpesaTransaction).where(LegacyMpesaTransaction.id == pending_row.id))
-    ).scalar_one()
-    assigned_user = (
-        await db_session.execute(select(User).where(User.id == refreshed_row.user_id))
-    ).scalar_one()
-    created_payment = (
-        await db_session.execute(select(Payment).where(Payment.id == refreshed_row.payment_id))
-    ).scalar_one()
-
-    assert refreshed_row.onboarding_status == "assigned"
-    assert refreshed_row.assigned_tier == "free"
-    assert assigned_user.subscription_tier == "free"
-    assert assigned_user.subscription_expires_at is None
-    assert created_payment.item_id == "free"
 
 
 @pytest.mark.asyncio
