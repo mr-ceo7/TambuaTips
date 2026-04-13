@@ -3,6 +3,7 @@ API-Football proxy service with server-side key rotation.
 Replaces frontend apiRotator.ts + sportsApiService.ts.
 """
 
+import asyncio
 import httpx
 import logging
 import time
