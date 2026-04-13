@@ -1750,6 +1750,8 @@ async def _validate_assignment_payload(
             raise HTTPException(status_code=400, detail="tier is required for subscription assignment.")
         if duration_days is None or duration_days < 1 or duration_days > 365:
             raise HTTPException(status_code=400, detail="duration_days must be 1-365 for subscription assignment.")
+        if tier == "free":
+            return None
         tier_res = await db.execute(select(SubscriptionTier.tier_id).where(SubscriptionTier.tier_id == tier))
         if not tier_res.scalar_one_or_none():
             raise HTTPException(status_code=400, detail=f"Invalid tier: {tier}")
@@ -1901,9 +1903,10 @@ async def bulk_update_users(
             raise HTTPException(status_code=400, detail="tier is required for grant_subscription.")
         if body.duration_days is None or body.duration_days < 1 or body.duration_days > 365:
             raise HTTPException(status_code=400, detail="duration_days must be 1-365 for grant_subscription.")
-        tier_res = await db.execute(select(SubscriptionTier.tier_id).where(SubscriptionTier.tier_id == body.tier))
-        if not tier_res.scalar_one_or_none():
-            raise HTTPException(status_code=400, detail=f"Invalid tier: {body.tier}")
+        if body.tier != "free":
+            tier_res = await db.execute(select(SubscriptionTier.tier_id).where(SubscriptionTier.tier_id == body.tier))
+            if not tier_res.scalar_one_or_none():
+                raise HTTPException(status_code=400, detail=f"Invalid tier: {body.tier}")
     elif action == "grant_jackpot":
         jackpot = await _validate_assignment_payload(
             db,
