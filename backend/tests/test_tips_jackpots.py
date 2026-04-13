@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 from app.models.user import User
 from app.models.tip import Tip
+from app.models.jackpot import JackpotPurchase
 from app.routers.tips import tip_stats
 
 async def _login_helper_with_tier(client: AsyncClient, db_session: AsyncSession, email: str, name: str, tier: str = "free", admin: bool = False) -> str:
@@ -230,3 +231,32 @@ async def test_double_purchasing_jackpot(client: AsyncClient, db_session: AsyncS
         res2 = await client.post("/api/pay/mpesa", json=pay_data, headers=headers)
         assert res2.status_code == 400
         assert "already purchased" in res2.text.lower()
+
+
+@pytest.mark.asyncio
+async def test_delete_jackpot_removes_dependent_purchases(client: AsyncClient, db_session: AsyncSession):
+    admin_token = await _login_helper_with_tier(client, db_session, "admin-delete-jp@example.com", "Admin", admin=True)
+    user_token = await _login_helper_with_tier(client, db_session, "jp-holder@example.com", "JP Holder")
+
+    jp_data = {
+        "type": "mega",
+        "dc_level": 4,
+        "matches": [
+            {"homeTeam": "Delete FC", "awayTeam": "Cleanup United"}
+        ],
+        "variations": [["1"]],
+        "price": 100
+    }
+    jp_res = await client.post("/api/jackpots", json=jp_data, headers={"Authorization": f"Bearer {admin_token}"})
+    assert jp_res.status_code == 201
+    jackpot_id = jp_res.json()["id"]
+
+    user = (await db_session.execute(select(User).where(User.email == "jp-holder@example.com"))).scalar_one()
+    db_session.add(JackpotPurchase(user_id=user.id, jackpot_id=jackpot_id))
+    await db_session.commit()
+
+    delete_res = await client.delete(f"/api/jackpots/{jackpot_id}", headers={"Authorization": f"Bearer {admin_token}"})
+    assert delete_res.status_code == 204
+
+    remaining_purchase = (await db_session.execute(select(JackpotPurchase).where(JackpotPurchase.jackpot_id == jackpot_id))).scalar_one_or_none()
+    assert remaining_purchase is None

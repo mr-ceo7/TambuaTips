@@ -5,7 +5,7 @@ Jackpot routes: CRUD for jackpot predictions.
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import delete, select
 
 from app.dependencies import get_db, get_current_user, get_current_user_optional, require_admin
 from app.models.user import User
@@ -263,5 +263,6 @@ async def delete_jackpot(jackpot_id: int, db: AsyncSession = Depends(get_db), ad
     jp = result.scalar_one_or_none()
     if not jp:
         raise HTTPException(status_code=404, detail="Jackpot not found")
+    await db.execute(delete(JackpotPurchase).where(JackpotPurchase.jackpot_id == jackpot_id))
     await db.delete(jp)
     await db.commit()
