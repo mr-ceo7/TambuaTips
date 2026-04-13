@@ -46,7 +46,7 @@ with open(db_file, 'w') as f: json.dump(data, f)
   source venv/bin/activate || true
   pip install -r requirements.txt || true
   pipenv install || true
-  pipenv run alembic upgrade head || true
+  venv/bin/python -m alembic upgrade head || true
   cd ..
 
   # Restart Services
@@ -70,7 +70,7 @@ try:
 except: pass
 "
 pipenv install || true
-pipenv run alembic upgrade head || true
+venv/bin/python -m alembic upgrade head || true
 cd ..
 
 systemctl restart tambuatips-api
