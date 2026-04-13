@@ -53,6 +53,7 @@ export interface JackpotPrediction {
   variations: string[][]; // Each inner array is a row of picks
   price: number;
   result: string; // pending, won, lost, void, bonus
+  displayDate?: string;
   createdAt: string;
   updatedAt: string;
   currency?: string;
@@ -107,6 +108,7 @@ function mapJackpot(data: any): JackpotPrediction {
     variations: Array.isArray(data.variations) ? data.variations : [],
     price: data.price,
     result: data.result || 'pending',
+    displayDate: data.display_date || undefined,
     createdAt: data.created_at,
     updatedAt: data.created_at,
     currency: data.currency || 'KES',
@@ -298,6 +300,7 @@ export async function addJackpot(jackpot: any): Promise<JackpotPrediction> {
     type: jackpot.type,
     dc_level: jackpot.dcLevel,
     price: jackpot.price,
+    display_date: jackpot.displayDate || null,
     matches: jackpot.matches,
     variations: jackpot.variations || [],
     regional_prices: jackpot.regional_prices || {},
@@ -317,6 +320,7 @@ export async function updateJackpot(id: string, data: any): Promise<JackpotPredi
   if (data.dcLevel !== undefined) payload.dc_level = data.dcLevel;
   if (data.price !== undefined) payload.price = data.price;
   if (data.result !== undefined) payload.result = data.result;
+  if (data.displayDate !== undefined) payload.display_date = data.displayDate || null;
   if (data.matches !== undefined) payload.matches = data.matches;
   if (data.variations !== undefined) payload.variations = data.variations;
   if (data.regional_prices !== undefined) payload.regional_prices = data.regional_prices;

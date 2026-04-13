@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 
 import pytest
 from httpx import AsyncClient
@@ -260,3 +260,35 @@ async def test_delete_jackpot_removes_dependent_purchases(client: AsyncClient, d
 
     remaining_purchase = (await db_session.execute(select(JackpotPurchase).where(JackpotPurchase.jackpot_id == jackpot_id))).scalar_one_or_none()
     assert remaining_purchase is None
+
+
+@pytest.mark.asyncio
+async def test_create_and_update_jackpot_display_date(client: AsyncClient, db_session: AsyncSession):
+    admin_token = await _login_helper_with_tier(client, db_session, "admin-jp-date@example.com", "Admin", admin=True)
+
+    create_payload = {
+        "type": "midweek",
+        "dc_level": 3,
+        "matches": [{"homeTeam": "Date FC", "awayTeam": "Target FC"}] * 13,
+        "variations": [["1"] * 13],
+        "price": 100,
+        "display_date": "2026-04-20",
+    }
+
+    create_response = await client.post(
+        "/api/jackpots",
+        json=create_payload,
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert create_response.status_code == 201
+    created = create_response.json()
+    assert created["display_date"] == "2026-04-20"
+
+    update_response = await client.put(
+        f"/api/jackpots/{created['id']}",
+        json={"display_date": "2026-04-21"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert update_response.status_code == 200
+    updated = update_response.json()
+    assert updated["display_date"] == "2026-04-21"

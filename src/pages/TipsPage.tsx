@@ -169,6 +169,13 @@ function JackpotCard({ jackpot, onGetFree }: { jackpot: JackpotPrediction; key?:
   const settledWins = jackpot.matches?.filter((match) => match.result === 'won').length || 0;
   const settledLosses = jackpot.matches?.filter((match) => match.result === 'lost').length || 0;
   const showWinLossStats = settledWins > 0 || settledLosses > 0;
+  const formattedDisplayDate = jackpot.displayDate
+    ? new Date(`${jackpot.displayDate}T00:00:00`).toLocaleDateString(undefined, {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      })
+    : null;
 
   const handlePurchase = () => {
     if (!user) {
@@ -209,6 +216,7 @@ function JackpotCard({ jackpot, onGetFree }: { jackpot: JackpotPrediction; key?:
               </h4>
               <p className="text-xs text-zinc-400 font-medium">
                 {jackpot.type === 'midweek' ? '13 Matches' : '17 Matches'} • <span className="text-gold-400 font-bold">{jackpot.dcLevel === 99 ? 'ALL ' : jackpot.dcLevel}DC</span> • {variationCount} Variation{variationCount !== 1 ? 's' : ''}
+                {formattedDisplayDate && <> • {formattedDisplayDate}</>}
                 {showWinLossStats && (
                   <>
                     {' '}• <span className="text-emerald-400 font-bold">{settledWins}W</span>/<span className="text-red-400 font-bold">{settledLosses}L</span>
@@ -233,11 +241,11 @@ function JackpotCard({ jackpot, onGetFree }: { jackpot: JackpotPrediction; key?:
 
         {jackpot.price === 0 ? (
           <p className="text-sm text-zinc-400 mb-4">
-            FREE prediction with <span className="text-gold-400 font-semibold">ALL</span> Double Chances to guide you
+            FREE prediction with <span className="text-gold-400 font-semibold">ALL</span> Double Chances to guide you{formattedDisplayDate ? <> for date <span className="text-white font-semibold">{formattedDisplayDate}</span></> : null}
           </p>
         ) : (
           <p className="text-sm text-zinc-400 mb-4">
-            <span className="text-white font-semibold">{variationCount}</span> prediction{variationCount !== 1 ? 's' : ''} with <span className="text-gold-400 font-semibold">{jackpot.dcLevel === 99 ? 'ALL' : jackpot.dcLevel}</span> Double Chances
+            <span className="text-white font-semibold">{variationCount}</span> prediction{variationCount !== 1 ? 's' : ''} with <span className="text-gold-400 font-semibold">{jackpot.dcLevel === 99 ? 'ALL' : jackpot.dcLevel}</span> Double Chances{formattedDisplayDate ? <> for date <span className="text-white font-semibold">{formattedDisplayDate}</span></> : null}
           </p>
         )}
 

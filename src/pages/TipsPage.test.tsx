@@ -119,6 +119,7 @@ describe('TipsPage', () => {
         variations: [['1', 'X', '2']],
         price: 100,
         result: 'pending',
+        displayDate: '2026-04-18',
         createdAt: '2026-04-13T10:00:00Z',
         updatedAt: '2026-04-13T10:00:00Z',
         locked: false,
@@ -141,5 +142,8 @@ describe('TipsPage', () => {
 
     expect(await screen.findByText('2W', {}, { timeout: 4000 })).toBeInTheDocument();
     expect(screen.getByText('1L')).toBeInTheDocument();
+    expect(
+      screen.getAllByText((_, element) => element?.textContent?.includes('for date Apr 18, 2026') ?? false).length
+    ).toBeGreaterThan(0);
   });
 });

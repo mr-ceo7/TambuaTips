@@ -2,7 +2,7 @@
 Pydantic schemas for jackpot endpoints.
 """
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional, List
 from pydantic import BaseModel, model_validator
 
@@ -21,6 +21,7 @@ class JackpotCreate(BaseModel):
     matches: List[JackpotMatch]
     variations: List[List[str]]  # Each inner list is a row of picks
     price: float
+    display_date: Optional[date] = None
     regional_prices: Optional[dict] = {}
     notify: bool = False
     notify_target: str = "all"
@@ -44,6 +45,7 @@ class JackpotUpdate(BaseModel):
     variations: Optional[List[List[str]]] = None
     price: Optional[float] = None
     result: Optional[str] = None  # pending, won, lost, void, bonus
+    display_date: Optional[date] = None
     regional_prices: Optional[dict] = None
 
 
@@ -55,6 +57,7 @@ class JackpotResponse(BaseModel):
     variations: List[List[str]]
     price: float
     result: Optional[str] = "pending"
+    display_date: Optional[date] = None
     regional_prices: Optional[dict] = {}
     currency: Optional[str] = "KES"
     currency_symbol: Optional[str] = "KES"
@@ -73,6 +76,7 @@ class JackpotLockedResponse(BaseModel):
     price: float
     result: Optional[str] = "pending"
     locked: bool = True
+    display_date: Optional[date] = None
     regional_prices: Optional[dict] = {}
     currency: Optional[str] = "KES"
     currency_symbol: Optional[str] = "KES"

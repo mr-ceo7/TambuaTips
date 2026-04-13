@@ -26,6 +26,7 @@ export function JackpotsManagePage() {
     dcLevel: 3 as DCLevel,
     price: 500,
     intPrice: 5.99,
+    displayDate: '',
     matches: [] as JackpotMatch[],
     variations: [[]] as string[][],
     notify: false,
@@ -296,6 +297,7 @@ export function JackpotsManagePage() {
     
     const payload = {
       ...form,
+      displayDate: form.displayDate || undefined,
       matches: finalMatches,
       regional_prices: { international: { price: form.intPrice } }
     };
@@ -320,7 +322,7 @@ export function JackpotsManagePage() {
   };
 
   const resetForm = () => {
-    setForm({ type: 'midweek', dcLevel: 3, price: defaultPrices.midweek, intPrice: defaultPrices.midweekInt, matches: [], variations: [[]], notify: false, notify_target: 'subscribers', notify_channel: 'both' });
+    setForm({ type: 'midweek', dcLevel: 3, price: defaultPrices.midweek, intPrice: defaultPrices.midweekInt, displayDate: '', matches: [], variations: [[]], notify: false, notify_target: 'subscribers', notify_channel: 'both' });
     setEditingId(null);
     setShowForm(false);
     setActiveVariation(0);
@@ -332,6 +334,7 @@ export function JackpotsManagePage() {
       dcLevel: j.dcLevel,
       price: j.price,
       intPrice: j.regional_prices?.international?.price || 5.99,
+      displayDate: j.displayDate || '',
       matches: j.matches.map(m => ({ 
         homeTeam: m.homeTeam, 
         awayTeam: m.awayTeam, 
@@ -449,7 +452,7 @@ export function JackpotsManagePage() {
         <div className="bg-zinc-900/80 border border-zinc-800/60 rounded-2xl p-6 backdrop-blur-sm">
           <h3 className="text-lg font-bold text-white mb-4 font-display">{editingId ? '✏️ Edit Jackpot' : '🏆 Create Jackpot Prediction'}</h3>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
               <div>
                 <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-1 tracking-wider">Jackpot Type</label>
                 <select value={form.type} onChange={e => {
@@ -480,6 +483,15 @@ export function JackpotsManagePage() {
                 }} className="admin-input">
                   {DC_LEVELS.map(dc => <option key={dc} value={dc}>{dc === 99 ? 'ALL ' : dc}DC</option>)}
                 </select>
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-1 tracking-wider">Jackpot Date</label>
+                <input
+                  type="date"
+                  value={form.displayDate}
+                  onChange={e => setForm({ ...form, displayDate: e.target.value })}
+                  className="admin-input"
+                />
               </div>
               <div className="flex items-end pb-1">
                 <label className="flex items-center gap-3 cursor-pointer group">
@@ -895,6 +907,7 @@ export function JackpotsManagePage() {
                       </div>
                       <p className="text-xs text-zinc-500">
                         KES {j.price.toLocaleString()} • ${(j.regional_prices?.international?.price || 5.99).toLocaleString()} (Intl) • {j.matches.length} matches • {j.variations.length} variations
+                        {j.displayDate && <span className="ml-1">• {new Date(`${j.displayDate}T00:00:00`).toLocaleDateString()}</span>}
                         {markedCount > 0 && <span className="ml-1">• <span className="text-emerald-400">{wonCount}W</span>/<span className="text-red-400">{lostCount}L</span>{ppdCount > 0 && <>/<span className="text-orange-400">{ppdCount}P</span></>}</span>}
                       </p>
                     </div>

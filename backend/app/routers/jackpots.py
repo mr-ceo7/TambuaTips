@@ -195,6 +195,7 @@ async def create_jackpot(body: JackpotCreate, background_tasks: BackgroundTasks,
         matches=[m.model_dump() for m in body.matches],
         variations=[list(v) for v in body.variations],
         price=body.price,
+        display_date=body.display_date,
         regional_prices=body.regional_prices or {},
     )
     db.add(jp)
@@ -245,6 +246,8 @@ async def update_jackpot(
         jp.price = body.price
     if body.result is not None:
         jp.result = body.result
+    if "display_date" in body.model_fields_set:
+        jp.display_date = body.display_date
     if body.regional_prices is not None:
         jp.regional_prices = body.regional_prices
     if body.matches is not None:
