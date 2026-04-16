@@ -16,6 +16,19 @@ from app.security import decode_token
 security_scheme = HTTPBearer(auto_error=False)
 
 
+async def _auto_downgrade_expired_subscription(db: AsyncSession, user) -> bool:
+    if (
+        user.subscription_tier != "free"
+        and user.subscription_expires_at is not None
+        and user.subscription_expires_at <= datetime.now(UTC).replace(tzinfo=None)
+    ):
+        user.subscription_tier = "free"
+        user.subscription_expires_at = None
+        db.add(user)
+        return True
+    return False
+
+
 async def get_db():
     """Yield an async DB session."""
     async with AsyncSessionLocal() as session:
@@ -73,6 +86,8 @@ async def get_current_user(
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account disabled")
 
+    subscription_downgraded = await _auto_downgrade_expired_subscription(db, user)
+
     # Multi-device session validation
     session_id_from_token = payload.get("session_id")
     
@@ -103,6 +118,11 @@ async def get_current_user(
                 status_code=status.HTTP_401_UNAUTHORIZED, 
                 detail="Session expired. Device logged in elsewhere."
             )
+        if subscription_downgraded:
+            try:
+                await db.commit()
+            except Exception:
+                await db.rollback()
 
     return user
 
@@ -143,6 +163,8 @@ async def get_unverified_user(
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
 
+    subscription_downgraded = await _auto_downgrade_expired_subscription(db, user)
+
     # Multi-device session validation
     session_id_from_token = payload.get("session_id")
     
@@ -173,6 +195,11 @@ async def get_unverified_user(
                 status_code=status.HTTP_401_UNAUTHORIZED, 
                 detail="Session expired. Device logged in elsewhere."
             )
+        if subscription_downgraded:
+            try:
+                await db.commit()
+            except Exception:
+                await db.rollback()
 
     return user
 
@@ -212,6 +239,8 @@ async def get_current_user_optional(
         return None
     
     if user:
+        subscription_downgraded = await _auto_downgrade_expired_subscription(db, user)
+
         # Multi-device session validation
         session_id_from_token = payload.get("session_id")
         
@@ -236,6 +265,11 @@ async def get_current_user_optional(
             # Fallback for backward compatibility
             if user.session_id:
                 return None
+            if subscription_downgraded:
+                try:
+                    await db.commit()
+                except Exception:
+                    pass
         
     return user
 

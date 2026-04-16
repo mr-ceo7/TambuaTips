@@ -2,6 +2,12 @@ import pytest
 import os
 from httpx import AsyncClient
 from unittest.mock import patch, MagicMock
+from datetime import datetime, UTC, timedelta
+
+from sqlalchemy import select
+
+from app.models.user import User, UserSession
+from app.security import create_access_token
 
 @pytest.mark.asyncio
 async def test_auth_google_login_invalid_token(client: AsyncClient):
@@ -233,3 +239,69 @@ async def test_session_cleanup_expired(client: AsyncClient, db_session):
     result = await db_session.execute(select(UserSession).where(UserSession.user_id == user.id))
     sessions = result.scalars().all()
     assert sessions[0].session_id != old_session_id
+
+
+@pytest.mark.asyncio
+async def test_expired_subscription_is_auto_downgraded_on_authenticated_request(client: AsyncClient, db_session):
+    expired_user = User(
+        email="expired-auth@example.com",
+        name="Expired Auth",
+        password="hashedpassword",
+        is_active=True,
+        subscription_tier="premium",
+        subscription_expires_at=datetime.now(UTC).replace(tzinfo=None) - timedelta(days=1),
+    )
+    db_session.add(expired_user)
+    await db_session.commit()
+    await db_session.refresh(expired_user)
+
+    session = UserSession(
+        user_id=expired_user.id,
+        session_id="expired-auth-session",
+    )
+    db_session.add(session)
+    await db_session.commit()
+
+    token = create_access_token(str(expired_user.id), extra={"session_id": session.session_id})
+    response = await client.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["subscription_tier"] == "free"
+    assert payload["is_subscription_active"] is False
+    assert payload["subscription_expires_at"] is None
+
+    refreshed = await db_session.get(User, expired_user.id)
+    assert refreshed.subscription_tier == "free"
+    assert refreshed.subscription_expires_at is None
+
+
+@pytest.mark.asyncio
+async def test_expired_subscription_is_auto_downgraded_on_optional_auth_request(client: AsyncClient, db_session):
+    expired_user = User(
+        email="expired-optional@example.com",
+        name="Expired Optional",
+        password="hashedpassword",
+        is_active=True,
+        subscription_tier="standard",
+        subscription_expires_at=datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=12),
+    )
+    db_session.add(expired_user)
+    await db_session.commit()
+    await db_session.refresh(expired_user)
+
+    session = UserSession(
+        user_id=expired_user.id,
+        session_id="expired-optional-session",
+    )
+    db_session.add(session)
+    await db_session.commit()
+
+    token = create_access_token(str(expired_user.id), extra={"session_id": session.session_id})
+    response = await client.get("/api/tips", headers={"Authorization": f"Bearer {token}"})
+
+    assert response.status_code == 200
+
+    refreshed = await db_session.get(User, expired_user.id)
+    assert refreshed.subscription_tier == "free"
+    assert refreshed.subscription_expires_at is None
