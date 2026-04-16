@@ -187,224 +187,257 @@ function JackpotCard({ jackpot, onGetFree }: { jackpot: JackpotPrediction; key?:
   };
 
   const resultBadge = jackpot.result && jackpot.result !== 'pending' ? jackpot.result : null;
+  const promoTitle = jackpot.promoTitle || `${jackpot.type === 'midweek' ? 'Midweek' : 'Mega'} Jackpot`;
+  const promoOnly = !!jackpot.promoOnly;
 
   return (
-    <div className={`bg-zinc-900/60 border rounded-2xl overflow-hidden transition-all ${
-      resultBadge === 'won' ? 'border-emerald-500/40' :
-      resultBadge === 'lost' ? 'border-red-500/40' :
-      resultBadge === 'bonus' ? 'border-yellow-500/40' :
-      resultBadge === 'postponed' ? 'border-orange-500/40' :
-      'border-zinc-800'
-    }`}>
-      <div className="p-5">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <div className={`p-2.5 rounded-xl ${
-              resultBadge === 'won' ? 'bg-emerald-500/20' :
-              resultBadge === 'lost' ? 'bg-red-500/20' :
-              'bg-gold-500/20'
-            }`}>
-              <Trophy className={`w-6 h-6 ${
-                resultBadge === 'won' ? 'text-emerald-400' :
-                resultBadge === 'lost' ? 'text-red-400' :
-                'text-gold-400'
-              }`} />
+    <div className="space-y-3">
+      {jackpot.promoImageUrl && (
+        <div className="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950/70">
+          <img
+            src={jackpot.promoImageUrl}
+            alt={promoTitle}
+            className="w-full object-cover"
+            loading="lazy"
+          />
+          {(jackpot.promoTitle || jackpot.promoCaption) && (
+            <div className="border-t border-zinc-800 bg-zinc-950/90 px-4 py-3">
+              {jackpot.promoTitle && (
+                <p className="text-sm font-bold text-white">{jackpot.promoTitle}</p>
+              )}
+              {jackpot.promoCaption && (
+                <p className="mt-1 text-xs leading-relaxed text-zinc-400">{jackpot.promoCaption}</p>
+              )}
             </div>
-            <div>
-              <h4 className="text-base font-bold text-white uppercase tracking-wide">
-                {jackpot.type === 'midweek' ? 'Midweek Jackpot' : 'Mega Jackpot'}
-              </h4>
-              <p className="text-xs text-zinc-400 font-medium">
-                {jackpot.type === 'midweek' ? '13 Matches' : '17 Matches'} • <span className="text-gold-400 font-bold">{jackpot.dcLevel === 99 ? 'ALL ' : jackpot.dcLevel}DC</span> • {variationCount} Variation{variationCount !== 1 ? 's' : ''}
-                {formattedDisplayDate && <> • {formattedDisplayDate}</>}
-                {showWinLossStats && (
-                  <>
-                    {' '}• <span className="text-emerald-400 font-bold">{settledWins}W</span>/<span className="text-red-400 font-bold">{settledLosses}L</span>
-                  </>
-                )}
-              </p>
-            </div>
-          </div>
-          <div className="text-right">
-            {resultBadge && (
-              <span className={`block text-[10px] font-black uppercase tracking-wider mb-1 px-2.5 py-0.5 rounded-full ${
-                resultBadge === 'won' ? 'bg-emerald-500/20 text-emerald-400' :
-                resultBadge === 'lost' ? 'bg-red-500/20 text-red-400' :
-                resultBadge === 'bonus' ? 'bg-yellow-500/20 text-yellow-400' :
-                resultBadge === 'postponed' ? 'bg-orange-500/20 text-orange-400' :
-                'bg-zinc-800 text-zinc-400'
-              }`}>{resultBadge}</span>
-            )}
-            <span className="text-lg font-bold text-gold-400">{jackpot.price === 0 ? <span className="text-emerald-400">FREE</span> : `${jackpot.currency_symbol || 'KES'} ${jackpot.price.toLocaleString(undefined, {minimumFractionDigits: jackpot.price % 1 !== 0 ? 2 : 0})}`}</span>
-          </div>
+          )}
         </div>
+      )}
 
-        {jackpot.price === 0 ? (
-          <p className="text-sm text-zinc-400 mb-4">
-            FREE prediction with <span className="text-gold-400 font-semibold">ALL</span> Double Chances to guide you{formattedDisplayDate ? <> for date <span className="text-white font-semibold">{formattedDisplayDate}</span></> : null}
+      {promoOnly ? (
+        <div className="rounded-2xl border border-sky-500/20 bg-sky-500/5 px-4 py-3">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-sky-400">Promo Only</p>
+          <p className="mt-1 text-sm text-zinc-300">
+            Prediction drops soon{formattedDisplayDate ? <> for <span className="font-semibold text-white">{formattedDisplayDate}</span></> : null}.
           </p>
-        ) : (
-          <p className="text-sm text-zinc-400 mb-4">
-            <span className="text-white font-semibold">{variationCount}</span> prediction{variationCount !== 1 ? 's' : ''} with <span className="text-gold-400 font-semibold">{jackpot.dcLevel === 99 ? 'ALL' : jackpot.dcLevel}</span> Double Chances{formattedDisplayDate ? <> for date <span className="text-white font-semibold">{formattedDisplayDate}</span></> : null}
-          </p>
-        )}
+        </div>
+      ) : (
+        <div className={`bg-zinc-900/60 border rounded-2xl overflow-hidden transition-all ${
+          resultBadge === 'won' ? 'border-emerald-500/40' :
+          resultBadge === 'lost' ? 'border-red-500/40' :
+          resultBadge === 'bonus' ? 'border-yellow-500/40' :
+          resultBadge === 'postponed' ? 'border-orange-500/40' :
+          'border-zinc-800'
+        }`}>
+          <div className="p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className={`p-2.5 rounded-xl ${
+                  resultBadge === 'won' ? 'bg-emerald-500/20' :
+                  resultBadge === 'lost' ? 'bg-red-500/20' :
+                  'bg-gold-500/20'
+                }`}>
+                  <Trophy className={`w-6 h-6 ${
+                    resultBadge === 'won' ? 'text-emerald-400' :
+                    resultBadge === 'lost' ? 'text-red-400' :
+                    'text-gold-400'
+                  }`} />
+                </div>
+                <div>
+                  <h4 className="text-base font-bold text-white uppercase tracking-wide">
+                    {jackpot.type === 'midweek' ? 'Midweek Jackpot' : 'Mega Jackpot'}
+                  </h4>
+                  <p className="text-xs text-zinc-400 font-medium">
+                    {jackpot.type === 'midweek' ? '13 Matches' : '17 Matches'} • <span className="text-gold-400 font-bold">{jackpot.dcLevel === 99 ? 'ALL ' : jackpot.dcLevel}DC</span> • {variationCount} Unique Version{variationCount !== 1 ? 's' : ''}
+                    {formattedDisplayDate && <> • {formattedDisplayDate}</>}
+                    {showWinLossStats && (
+                      <>
+                        {' '}• <span className="text-emerald-400 font-bold">{settledWins}W</span>/<span className="text-red-400 font-bold">{settledLosses}L</span>
+                      </>
+                    )}
+                  </p>
+                </div>
+              </div>
+              <div className="text-right">
+                {resultBadge && (
+                  <span className={`block text-[10px] font-black uppercase tracking-wider mb-1 px-2.5 py-0.5 rounded-full ${
+                    resultBadge === 'won' ? 'bg-emerald-500/20 text-emerald-400' :
+                    resultBadge === 'lost' ? 'bg-red-500/20 text-red-400' :
+                    resultBadge === 'bonus' ? 'bg-yellow-500/20 text-yellow-400' :
+                    resultBadge === 'postponed' ? 'bg-orange-500/20 text-orange-400' :
+                    'bg-zinc-800 text-zinc-400'
+                  }`}>{resultBadge}</span>
+                )}
+                <span className="text-lg font-bold text-gold-400">{jackpot.price === 0 ? <span className="text-emerald-400">FREE</span> : `${jackpot.currency_symbol || 'KES'} ${jackpot.price.toLocaleString(undefined, { minimumFractionDigits: jackpot.price % 1 !== 0 ? 2 : 0 })}`}</span>
+              </div>
+            </div>
 
-        {/* Locked/Unlocked Content */}
-        {isUnlocked && jackpot.variations && jackpot.variations.length > 0 ? (
-          <div className="bg-zinc-950/50 border border-emerald-500/20 rounded-xl overflow-hidden mb-4">
-            <div className="max-h-72 overflow-auto">
-              <table className="w-full text-xs">
-                <thead className="sticky top-0 bg-zinc-900 z-10">
-                  <tr className="border-b border-zinc-800">
-                    <th className="px-2.5 py-2 text-left text-zinc-500 font-bold uppercase tracking-wider w-7">#</th>
-                    <th className="px-2.5 py-2 text-left text-zinc-500 font-bold uppercase tracking-wider">Match</th>
-                    {jackpot.variations.map((_, vi) => (
-                      <th key={vi} className="px-2 py-2 text-center text-gold-400 font-bold uppercase tracking-wider w-12">V{vi + 1}</th>
-                    ))}
-                    <th className="px-2 py-2 text-center text-zinc-500 font-bold uppercase tracking-wider w-16">Result</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(() => {
-                    const labelsOrder: string[] = [];
-                    const groupedMatches = jackpot.matches.reduce((acc, m, idx) => {
-                      let dateLabel = 'TBA';
-                      if (m.matchDate) {
-                        try {
-                          const dateObj = new Date(m.matchDate);
-                          if (!isNaN(dateObj.getTime())) {
-                            dateLabel = format(dateObj, 'MMM d, yyyy');
-                            if (isToday(dateObj)) dateLabel = 'Today';
-                            else if (isTomorrow(dateObj)) dateLabel = 'Tomorrow';
-                            else if (isYesterday(dateObj)) dateLabel = 'Yesterday';
+            {jackpot.price === 0 ? (
+              <p className="text-sm text-zinc-400 mb-4">
+                FREE prediction with <span className="text-gold-400 font-semibold">ALL</span> Double Chances to guide you{formattedDisplayDate ? <> for date <span className="text-white font-semibold">{formattedDisplayDate}</span></> : null}
+              </p>
+            ) : (
+              <p className="text-sm text-zinc-400 mb-4">
+                <span className="text-white font-semibold">{variationCount}</span> unique version{variationCount !== 1 ? 's' : ''} with <span className="text-gold-400 font-semibold">{jackpot.dcLevel === 99 ? 'ALL' : jackpot.dcLevel}</span> Double Chances{formattedDisplayDate ? <> for date <span className="text-white font-semibold">{formattedDisplayDate}</span></> : null}
+              </p>
+            )}
+
+            {isUnlocked && jackpot.variations && jackpot.variations.length > 0 ? (
+              <div className="bg-zinc-950/50 border border-emerald-500/20 rounded-xl overflow-hidden mb-4">
+                <div className="max-h-72 overflow-auto">
+                  <table className="w-full text-xs">
+                    <thead className="sticky top-0 bg-zinc-900 z-10">
+                      <tr className="border-b border-zinc-800">
+                        <th className="px-2.5 py-2 text-left text-zinc-500 font-bold uppercase tracking-wider w-7">#</th>
+                        <th className="px-2.5 py-2 text-left text-zinc-500 font-bold uppercase tracking-wider">Match</th>
+                        {jackpot.variations.map((_, vi) => (
+                          <th key={vi} className="px-2 py-2 text-center text-gold-400 font-bold uppercase tracking-wider w-12">V{vi + 1}</th>
+                        ))}
+                        <th className="px-2 py-2 text-center text-zinc-500 font-bold uppercase tracking-wider w-16">Result</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(() => {
+                        const labelsOrder: string[] = [];
+                        const groupedMatches = jackpot.matches.reduce((acc, m, idx) => {
+                          let dateLabel = 'TBA';
+                          if (m.matchDate) {
+                            try {
+                              const dateObj = new Date(m.matchDate);
+                              if (!isNaN(dateObj.getTime())) {
+                                dateLabel = format(dateObj, 'MMM d, yyyy');
+                                if (isToday(dateObj)) dateLabel = 'Today';
+                                else if (isTomorrow(dateObj)) dateLabel = 'Tomorrow';
+                                else if (isYesterday(dateObj)) dateLabel = 'Yesterday';
+                              }
+                            } catch {}
                           }
-                        } catch {}
-                      }
 
-                      if (!acc[dateLabel]) {
-                        acc[dateLabel] = [];
-                        labelsOrder.push(dateLabel);
-                      }
-                      acc[dateLabel].push({ ...m, _idx: idx });
-                      return acc;
-                    }, {} as Record<string, any[]>);
+                          if (!acc[dateLabel]) {
+                            acc[dateLabel] = [];
+                            labelsOrder.push(dateLabel);
+                          }
+                          acc[dateLabel].push({ ...m, _idx: idx });
+                          return acc;
+                        }, {} as Record<string, any[]>);
 
-                    let displayIdx = 0;
-                    return labelsOrder.map(dateLabel => {
-                      const group = groupedMatches[dateLabel];
-                      return (
-                        <React.Fragment key={dateLabel}>
-                          <tr className="bg-zinc-800/40 border-b border-zinc-800">
-                            <td colSpan={3 + (jackpot.variations?.length || 0)} className="px-2.5 py-1 w-full text-[10px] font-black text-zinc-400 uppercase tracking-widest text-center">
-                              —— {dateLabel} ——
-                            </td>
-                          </tr>
-                          {group.map((m) => {
-                            const originalIdx = m._idx;
-                            const idx = displayIdx++;
-                            return (
-                              <tr key={originalIdx} className={`border-b border-zinc-800/50 last:border-0 ${
-                                m.result === 'won' ? 'bg-emerald-500/5' : m.result === 'lost' ? 'bg-red-500/5' : m.result === 'postponed' ? 'bg-orange-500/5' : ''
-                              }`}>
-                                <td className="px-2.5 py-1.5 text-zinc-500 font-mono">{idx + 1}</td>
-                                <td className="px-2.5 py-1.5">
-                                  <div className="flex flex-col gap-0.5">
-                                    {(m.country || m.matchDate) && (
-                                      <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider flex items-center gap-1">
-                                        {m.country && m.countryFlag && (
-                                          m.countryFlag.startsWith('http') 
-                                            ? <img src={m.countryFlag} alt={m.country} className="w-3.5 h-2.5 object-cover rounded-[2px]" />
-                                            : <span className="text-xs">{m.countryFlag}</span>
-                                        )}
-                                        {m.country && <span>{m.country}</span>}
-                                        {m.country && m.matchDate && <span className="mx-0.5 opacity-50">•</span>}
-                                        {m.matchDate && (
-                                          <span className="text-zinc-400 font-mono flex items-center gap-0.5" title="Kickoff Time">
-                                            <Clock className="w-2.5 h-2.5" />
-                                            {(() => {
-                                              try {
-                                                return format(parseISO(m.matchDate), 'HH:mm');
-                                              } catch {
-                                                return String(m.matchDate).split('T')[1]?.substring(0,5) || String(m.matchDate);
-                                              }
-                                            })()}
-                                          </span>
-                                        )}
-                                      </span>
-                                    )}
-                                    <span className="text-zinc-300 inline-flex items-center gap-1 flex-wrap">
-                                      <TeamWithLogo teamName={m.homeTeam} size={14} textClassName="text-xs" />
-                                      <span className="text-zinc-600 mx-0.5">vs</span>
-                                      <TeamWithLogo teamName={m.awayTeam} size={14} textClassName="text-xs" />
-                                    </span>
-                                  </div>
-                                </td>
-                                {jackpot.variations.map((v, vi) => (
-                                  <td key={vi} className="px-2 py-1.5 text-center">
-                                    <span className="font-mono font-bold text-emerald-400 text-sm">{v[originalIdx] || '-'}</span>
-                                  </td>
-                                ))}
-                                <td className="px-2 py-1.5 text-center">
-                                  {m.result === 'won' ? (
-                                    <span className="text-[10px] font-black text-emerald-400 bg-emerald-500/15 px-2 py-0.5 rounded-full uppercase">Won</span>
-                                  ) : m.result === 'lost' ? (
-                                    <span className="text-[10px] font-black text-red-400 bg-red-500/15 px-2 py-0.5 rounded-full uppercase">Lost</span>
-                                  ) : m.result === 'postponed' ? (
-                                    <span className="text-[10px] font-black text-orange-400 bg-orange-500/15 px-2 py-0.5 rounded-full uppercase">PPD</span>
-                                  ) : (
-                                    <span className="text-[10px] text-zinc-600">—</span>
-                                  )}
+                        let displayIdx = 0;
+                        return labelsOrder.map((dateLabel) => {
+                          const group = groupedMatches[dateLabel];
+                          return (
+                            <React.Fragment key={dateLabel}>
+                              <tr className="bg-zinc-800/40 border-b border-zinc-800">
+                                <td colSpan={3 + (jackpot.variations?.length || 0)} className="px-2.5 py-1 w-full text-[10px] font-black text-zinc-400 uppercase tracking-widest text-center">
+                                  —— {dateLabel} ——
                                 </td>
                               </tr>
-                            );
-                          })}
-                        </React.Fragment>
-                      );
-                    });
-                  })()}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        ) : isUnlocked ? (
-          <div className="bg-zinc-950/50 border border-emerald-500/20 rounded-xl p-4 mb-4 text-center">
-            <p className="text-sm text-zinc-500">No variations added yet.</p>
-          </div>
-        ) : (
-          <div className="bg-zinc-950/50 border border-zinc-800 rounded-xl p-5 mb-4 text-center">
-            <Lock className="w-7 h-7 text-gold-400/40 mx-auto mb-2" />
-            <p className="text-xs text-zinc-500 font-bold uppercase tracking-wider">
-              {jackpot.match_count || jackpot.matches?.length || 0} matches • {variationCount} variations locked
-            </p>
-          </div>
-        )}
+                              {group.map((m) => {
+                                const originalIdx = m._idx;
+                                const idx = displayIdx++;
+                                return (
+                                  <tr key={originalIdx} className={`border-b border-zinc-800/50 last:border-0 ${
+                                    m.result === 'won' ? 'bg-emerald-500/5' : m.result === 'lost' ? 'bg-red-500/5' : m.result === 'postponed' ? 'bg-orange-500/5' : ''
+                                  }`}>
+                                    <td className="px-2.5 py-1.5 text-zinc-500 font-mono">{idx + 1}</td>
+                                    <td className="px-2.5 py-1.5">
+                                      <div className="flex flex-col gap-0.5">
+                                        {(m.country || m.matchDate) && (
+                                          <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider flex items-center gap-1">
+                                            {m.country && m.countryFlag && (
+                                              m.countryFlag.startsWith('http')
+                                                ? <img src={m.countryFlag} alt={m.country} className="w-3.5 h-2.5 object-cover rounded-[2px]" />
+                                                : <span className="text-xs">{m.countryFlag}</span>
+                                            )}
+                                            {m.country && <span>{m.country}</span>}
+                                            {m.country && m.matchDate && <span className="mx-0.5 opacity-50">•</span>}
+                                            {m.matchDate && (
+                                              <span className="text-zinc-400 font-mono flex items-center gap-0.5" title="Kickoff Time">
+                                                <Clock className="w-2.5 h-2.5" />
+                                                {(() => {
+                                                  try {
+                                                    return format(parseISO(m.matchDate), 'HH:mm');
+                                                  } catch {
+                                                    return String(m.matchDate).split('T')[1]?.substring(0, 5) || String(m.matchDate);
+                                                  }
+                                                })()}
+                                              </span>
+                                            )}
+                                          </span>
+                                        )}
+                                        <span className="text-zinc-300 inline-flex items-center gap-1 flex-wrap">
+                                          <TeamWithLogo teamName={m.homeTeam} size={14} textClassName="text-xs" />
+                                          <span className="text-zinc-600 mx-0.5">vs</span>
+                                          <TeamWithLogo teamName={m.awayTeam} size={14} textClassName="text-xs" />
+                                        </span>
+                                      </div>
+                                    </td>
+                                    {jackpot.variations.map((v, vi) => (
+                                      <td key={vi} className="px-2 py-1.5 text-center">
+                                        <span className="font-mono font-bold text-emerald-400 text-sm">{v[originalIdx] || '-'}</span>
+                                      </td>
+                                    ))}
+                                    <td className="px-2 py-1.5 text-center">
+                                      {m.result === 'won' ? (
+                                        <span className="text-[10px] font-black text-emerald-400 bg-emerald-500/15 px-2 py-0.5 rounded-full uppercase">Won</span>
+                                      ) : m.result === 'lost' ? (
+                                        <span className="text-[10px] font-black text-red-400 bg-red-500/15 px-2 py-0.5 rounded-full uppercase">Lost</span>
+                                      ) : m.result === 'postponed' ? (
+                                        <span className="text-[10px] font-black text-orange-400 bg-orange-500/15 px-2 py-0.5 rounded-full uppercase">PPD</span>
+                                      ) : (
+                                        <span className="text-[10px] text-zinc-600">—</span>
+                                      )}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </React.Fragment>
+                          );
+                        });
+                      })()}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : isUnlocked ? (
+              <div className="bg-zinc-950/50 border border-emerald-500/20 rounded-xl p-4 mb-4 text-center">
+                <p className="text-sm text-zinc-500">No variations added yet.</p>
+              </div>
+            ) : (
+              <div className="bg-zinc-950/50 border border-zinc-800 rounded-xl p-5 mb-4 text-center">
+                <Lock className="w-7 h-7 text-gold-400/40 mx-auto mb-2" />
+                <p className="text-xs text-zinc-500 font-bold uppercase tracking-wider">
+                  {jackpot.match_count || jackpot.matches?.length || 0} matches • {variationCount} variations locked
+                </p>
+              </div>
+            )}
 
-        {!isUnlocked && (
-          <div className="flex flex-col sm:flex-row gap-2">
-            <button
-              onClick={handlePurchase}
-              className="flex-1 py-3 bg-gold-500 text-zinc-950 font-bold rounded-xl text-sm hover:bg-gold-400 transition-all shadow-lg shadow-gold-500/20"
-            >
-              Unlock {jackpot.currency_symbol || 'KES'} {jackpot.price.toLocaleString(undefined, {minimumFractionDigits: jackpot.price % 1 !== 0 ? 2 : 0})}
-            </button>
-            {onGetFree && (
-              <button 
-                onClick={(e) => { e.preventDefault(); onGetFree(); }}
-                className="flex-1 py-3 flex items-center justify-center gap-1.5 bg-emerald-500 text-zinc-950 font-bold rounded-xl text-sm hover:bg-emerald-400 transition-all shadow-lg shadow-emerald-500/20"
-              >
-                <Gift className="w-4 h-4" />
-                Get Free
-              </button>
+            {!isUnlocked && (
+              <div className="flex flex-col sm:flex-row gap-2">
+                <button
+                  onClick={handlePurchase}
+                  className="flex-1 py-3 bg-gold-500 text-zinc-950 font-bold rounded-xl text-sm hover:bg-gold-400 transition-all shadow-lg shadow-gold-500/20"
+                >
+                  Unlock {jackpot.currency_symbol || 'KES'} {jackpot.price.toLocaleString(undefined, { minimumFractionDigits: jackpot.price % 1 !== 0 ? 2 : 0 })}
+                </button>
+                {onGetFree && (
+                  <button
+                    onClick={(e) => { e.preventDefault(); onGetFree(); }}
+                    className="flex-1 py-3 flex items-center justify-center gap-1.5 bg-emerald-500 text-zinc-950 font-bold rounded-xl text-sm hover:bg-emerald-400 transition-all shadow-lg shadow-emerald-500/20"
+                  >
+                    <Gift className="w-4 h-4" />
+                    Get Free
+                  </button>
+                )}
+              </div>
+            )}
+
+            {isUnlocked && (
+              <div className="w-full py-3 bg-emerald-500/20 text-emerald-400 font-bold rounded-xl text-sm text-center border border-emerald-500/30">
+                ✓ Predictions Unlocked
+              </div>
             )}
           </div>
-        )}
-        
-        {isUnlocked && (
-          <div className="w-full py-3 bg-emerald-500/20 text-emerald-400 font-bold rounded-xl text-sm text-center border border-emerald-500/30">
-            ✓ Predictions Unlocked
-          </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -414,6 +447,7 @@ function JackpotCard({ jackpot, onGetFree }: { jackpot: JackpotPrediction; key?:
 export function TipsPage() {
   const { user, hasAccess, hasJackpotAccess, setShowAuthModal, setShowPricingModal, setShowJackpotModal, setSelectedJackpot } = useUser();
   const [activeTab, setActiveTab] = useState<'free' | 'tips' | 'jackpot'>('free');
+  const [jackpotSubTab, setJackpotSubTab] = useState<'all' | 'midweek' | 'mega'>('all');
   const [stats, setStats] = useState({ total: 0, won: 0, lost: 0, pending: 0, voided: 0, postponed: 0, winRate: 0 });
   const [jackpots, setJackpots] = useState<JackpotPrediction[]>([]);
   const [bundleInfo, setBundleInfo] = useState<JackpotBundleInfo | null>(null);
@@ -425,6 +459,8 @@ export function TipsPage() {
   const [loadingTips, setLoadingTips] = useState(true);
   const [loadingJackpot, setLoadingJackpot] = useState(true);
   const [pricingTiers, setPricingTiers] = useState<TierConfig[]>([]);
+
+  const filteredJackpots = jackpots.filter((jackpot) => jackpotSubTab === 'all' || jackpot.type === jackpotSubTab);
 
   // ─── 3D Carousel Mobile State ────────────────────────────────
   const [activeMobileIndex, setActiveMobileIndex] = useState(1);
@@ -1185,6 +1221,23 @@ export function TipsPage() {
         <div>
           <div className="mb-6">
             <h2 className="text-lg font-display font-bold uppercase mb-1">Sportpesa Jackpot Predictions</h2>
+            <div className="mt-4 inline-flex rounded-xl border border-zinc-800 bg-zinc-900/60 p-1">
+              {[
+                { id: 'all', label: 'All' },
+                { id: 'midweek', label: 'Midweek' },
+                { id: 'mega', label: 'Mega' },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setJackpotSubTab(tab.id as 'all' | 'midweek' | 'mega')}
+                  className={`rounded-lg px-4 py-2 text-sm font-bold transition-all ${
+                    jackpotSubTab === tab.id ? 'bg-gold-500 text-zinc-950' : 'text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           {loadingJackpot ? (
@@ -1192,7 +1245,7 @@ export function TipsPage() {
               <div className="h-64 bg-zinc-900/60 border border-zinc-800 rounded-2xl" />
               <div className="h-64 bg-zinc-900/60 border border-zinc-800 rounded-2xl" />
             </div>
-          ) : jackpots.length > 0 ? (
+          ) : filteredJackpots.length > 0 ? (
             <div className="space-y-6">
               {/* Bundle Upsell Banner */}
               {bundleInfo && bundleInfo.locked_count > 1 && (
@@ -1249,7 +1302,7 @@ export function TipsPage() {
               )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {jackpots.map(j => {
+                {filteredJackpots.map(j => {
                   const isUnlocked = !j.locked;
                   return (
                     <JackpotCard 
@@ -1264,7 +1317,7 @@ export function TipsPage() {
           ) : (
             <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-8 text-center">
               <Trophy className="w-10 h-10 text-zinc-700 mx-auto mb-3" />
-              <p className="text-zinc-400 mb-2">No jackpot predictions available yet</p>
+              <p className="text-zinc-400 mb-2">No {jackpotSubTab === 'all' ? '' : `${jackpotSubTab} `}jackpot predictions available yet</p>
               <p className="text-xs text-zinc-600">Check back when the next Midweek or Mega Jackpot is announced</p>
             </div>
           )}

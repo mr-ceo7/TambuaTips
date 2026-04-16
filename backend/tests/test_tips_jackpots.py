@@ -273,6 +273,10 @@ async def test_create_and_update_jackpot_display_date(client: AsyncClient, db_se
         "variations": [["1"] * 13],
         "price": 100,
         "display_date": "2026-04-20",
+        "promo_image_url": "/media/uploads/midweek-promo.jpg",
+        "promo_title": "This Week's Midweek Jackpot",
+        "promo_caption": "Official poster before our prediction",
+        "promo_only": True,
     }
 
     create_response = await client.post(
@@ -283,12 +287,60 @@ async def test_create_and_update_jackpot_display_date(client: AsyncClient, db_se
     assert create_response.status_code == 201
     created = create_response.json()
     assert created["display_date"] == "2026-04-20"
+    assert created["promo_image_url"] == "/media/uploads/midweek-promo.jpg"
+    assert created["promo_title"] == "This Week's Midweek Jackpot"
+    assert created["promo_caption"] == "Official poster before our prediction"
+    assert created["promo_only"] is True
 
     update_response = await client.put(
         f"/api/jackpots/{created['id']}",
-        json={"display_date": "2026-04-21"},
+        json={
+            "display_date": "2026-04-21",
+            "promo_title": "Updated Jackpot Poster",
+            "promo_caption": None,
+            "promo_only": False,
+        },
         headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert update_response.status_code == 200
     updated = update_response.json()
     assert updated["display_date"] == "2026-04-21"
+    assert updated["promo_image_url"] == "/media/uploads/midweek-promo.jpg"
+    assert updated["promo_title"] == "Updated Jackpot Poster"
+    assert updated["promo_caption"] is None
+    assert updated["promo_only"] is False
+
+
+@pytest.mark.asyncio
+async def test_promo_only_jackpot_is_public_without_prediction_access(client: AsyncClient, db_session: AsyncSession):
+    admin_token = await _login_helper_with_tier(client, db_session, "admin-promo-only@example.com", "Admin", admin=True)
+
+    create_payload = {
+        "type": "mega",
+        "dc_level": 99,
+        "matches": [],
+        "variations": [],
+        "price": 1000,
+        "promo_image_url": "/media/uploads/mega-promo.jpg",
+        "promo_title": "This Week's Mega Jackpot",
+        "promo_caption": "Poster only",
+        "promo_only": True,
+    }
+
+    create_response = await client.post(
+        "/api/jackpots",
+        json=create_payload,
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert create_response.status_code == 201
+
+    public_response = await client.get("/api/jackpots")
+    assert public_response.status_code == 200
+    payload = public_response.json()
+
+    returned = next((row for row in payload if row["id"] == create_response.json()["id"]), None)
+    assert returned is not None
+    assert returned["promo_only"] is True
+    assert returned["promo_title"] == "This Week's Mega Jackpot"
+    assert returned["matches"] == []
+    assert returned["variations"] == []

@@ -36,6 +36,8 @@ async def get_bundle_info(
     locked_count = 0
     
     for jp in pending_jackpots:
+        if jp.promo_only:
+            continue
         has_access = await user_has_jackpot_access(user, jp.id, db, jackpot_price=jp.price)
         if has_access:
             continue
@@ -141,7 +143,7 @@ async def list_jackpots(
         jp_dict["currency_symbol"] = region.currency_symbol if region else "KES"
 
         has_access = await user_has_jackpot_access(user, jp.id, db, jackpot_price=jp.price)
-        if has_access:
+        if jp.promo_only or has_access:
             response.append(JackpotResponse.model_validate(jp_dict))
         else:
             jp_dict["match_count"] = len(jp_dict.get("matches", []))
@@ -178,7 +180,7 @@ async def get_jackpot(
     jp_dict["currency_symbol"] = region.currency_symbol if region else "KES"
 
     has_access = await user_has_jackpot_access(user, jp.id, db, jackpot_price=jp.price)
-    if has_access:
+    if jp.promo_only or has_access:
         return JackpotResponse.model_validate(jp_dict)
     else:
         jp_dict["match_count"] = len(jp_dict.get("matches", []))
@@ -196,6 +198,10 @@ async def create_jackpot(body: JackpotCreate, background_tasks: BackgroundTasks,
         variations=[list(v) for v in body.variations],
         price=body.price,
         display_date=body.display_date,
+        promo_image_url=body.promo_image_url,
+        promo_title=body.promo_title,
+        promo_caption=body.promo_caption,
+        promo_only=body.promo_only,
         regional_prices=body.regional_prices or {},
     )
     db.add(jp)
@@ -248,6 +254,14 @@ async def update_jackpot(
         jp.result = body.result
     if "display_date" in body.model_fields_set:
         jp.display_date = body.display_date
+    if "promo_image_url" in body.model_fields_set:
+        jp.promo_image_url = body.promo_image_url
+    if "promo_title" in body.model_fields_set:
+        jp.promo_title = body.promo_title
+    if "promo_caption" in body.model_fields_set:
+        jp.promo_caption = body.promo_caption
+    if "promo_only" in body.model_fields_set:
+        jp.promo_only = body.promo_only
     if body.regional_prices is not None:
         jp.regional_prices = body.regional_prices
     if body.matches is not None:

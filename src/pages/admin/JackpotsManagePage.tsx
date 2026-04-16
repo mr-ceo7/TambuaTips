@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Trophy, X, GripVertical, Check, Zap, Edit, ChevronDown, ChevronUp, Award, Copy } from 'lucide-react';
+import { Plus, Trash2, Trophy, X, GripVertical, Check, Zap, Edit, ChevronDown, ChevronUp, Award, Copy, ImageIcon, Upload } from 'lucide-react';
 import {
   getAllJackpots, addJackpot, deleteJackpot, updateJackpot,
   type JackpotPrediction, type JackpotType, type DCLevel, type JackpotMatch
 } from '../../services/tipsService';
 import { toast } from 'sonner';
 import { TeamWithLogo } from '../../components/TeamLogo';
-import { adminService } from '../../services/adminService';
+import { adminService, uploadCampaignAsset } from '../../services/adminService';
+import { resolveBackendAssetUrl } from '../../services/apiClient';
 
 const DC_LEVELS: DCLevel[] = [0, 3, 4, 5, 6, 7, 10, 99];
 
@@ -21,12 +22,17 @@ export function JackpotsManagePage() {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [promoUploading, setPromoUploading] = useState(false);
   const [form, setForm] = useState({
     type: 'midweek' as JackpotType,
     dcLevel: 3 as DCLevel,
     price: 500,
     intPrice: 5.99,
     displayDate: '',
+    promoImageUrl: '',
+    promoTitle: '',
+    promoCaption: '',
+    promoOnly: false,
     matches: [] as JackpotMatch[],
     variations: [[]] as string[][],
     notify: false,
@@ -260,26 +266,28 @@ export function JackpotsManagePage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const expected = form.type === 'midweek' ? 13 : 17;
-    if (form.matches.length !== expected) {
-      toast.error(`${form.type === 'midweek' ? 'Midweek' : 'Mega'} jackpot requires exactly ${expected} matches. You have ${form.matches.length}.`);
-      return;
-    }
-
-    if (form.variations.length === 0) {
-      toast.error('Add at least one variation');
-      return;
-    }
-
-    // Validate each variation has the right number of picks
-    for (let i = 0; i < form.variations.length; i++) {
-      if (form.variations[i].length !== form.matches.length) {
-        toast.error(`Variation ${i + 1} has ${form.variations[i].length} picks but needs ${form.matches.length}`);
+    if (!form.promoOnly) {
+      const expected = form.type === 'midweek' ? 13 : 17;
+      if (form.matches.length !== expected) {
+        toast.error(`${form.type === 'midweek' ? 'Midweek' : 'Mega'} jackpot requires exactly ${expected} matches. You have ${form.matches.length}.`);
         return;
       }
+
+      if (form.variations.length === 0) {
+        toast.error('Add at least one variation');
+        return;
+      }
+
+      for (let i = 0; i < form.variations.length; i++) {
+        if (form.variations[i].length !== form.matches.length) {
+          toast.error(`Variation ${i + 1} has ${form.variations[i].length} picks but needs ${form.matches.length}`);
+          return;
+        }
+      }
     }
+
     let finalMatches = form.matches;
-    const missingCountries = form.matches.some(m => !m.country);
+    const missingCountries = !form.promoOnly && form.matches.some(m => !m.country);
     if (missingCountries) {
       const loadingToastId = toast.loading(`Auto-filling country data for ${form.matches.length} matches...`);
       try {
@@ -298,6 +306,10 @@ export function JackpotsManagePage() {
     const payload = {
       ...form,
       displayDate: form.displayDate || undefined,
+      promoImageUrl: form.promoImageUrl || undefined,
+      promoTitle: form.promoTitle || undefined,
+      promoCaption: form.promoCaption || undefined,
+      promoOnly: form.promoOnly,
       matches: finalMatches,
       regional_prices: { international: { price: form.intPrice } }
     };
@@ -322,7 +334,7 @@ export function JackpotsManagePage() {
   };
 
   const resetForm = () => {
-    setForm({ type: 'midweek', dcLevel: 3, price: defaultPrices.midweek, intPrice: defaultPrices.midweekInt, displayDate: '', matches: [], variations: [[]], notify: false, notify_target: 'subscribers', notify_channel: 'both' });
+    setForm({ type: 'midweek', dcLevel: 3, price: defaultPrices.midweek, intPrice: defaultPrices.midweekInt, displayDate: '', promoImageUrl: '', promoTitle: '', promoCaption: '', promoOnly: false, matches: [], variations: [[]], notify: false, notify_target: 'subscribers', notify_channel: 'both' });
     setEditingId(null);
     setShowForm(false);
     setActiveVariation(0);
@@ -335,6 +347,10 @@ export function JackpotsManagePage() {
       price: j.price,
       intPrice: j.regional_prices?.international?.price || 5.99,
       displayDate: j.displayDate || '',
+      promoImageUrl: j.promoImageUrl || '',
+      promoTitle: j.promoTitle || '',
+      promoCaption: j.promoCaption || '',
+      promoOnly: !!j.promoOnly,
       matches: j.matches.map(m => ({ 
         homeTeam: m.homeTeam, 
         awayTeam: m.awayTeam, 
@@ -373,6 +389,20 @@ export function JackpotsManagePage() {
     setSelectedJackpotIds((current) => current.filter((selectedId) => selectedId !== id));
     loadJackpots();
     toast.success('Jackpot deleted');
+  };
+
+  const handlePromoImageSelected = async (file: File | null) => {
+    if (!file) return;
+    setPromoUploading(true);
+    try {
+      const url = await uploadCampaignAsset(file);
+      setForm((prev) => ({ ...prev, promoImageUrl: url }));
+      toast.success('Promo image uploaded');
+    } catch {
+      toast.error('Failed to upload promo image');
+    } finally {
+      setPromoUploading(false);
+    }
   };
 
   const handleBulkAction = async () => {
@@ -490,6 +520,7 @@ export function JackpotsManagePage() {
                   type="date"
                   value={form.displayDate}
                   onChange={e => setForm({ ...form, displayDate: e.target.value })}
+                  aria-label="Jackpot Date"
                   className="admin-input"
                 />
               </div>
@@ -515,6 +546,80 @@ export function JackpotsManagePage() {
                 </button>
               </div>
             </div>
+
+            <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-4">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={form.promoOnly}
+                  onChange={e => setForm({ ...form, promoOnly: e.target.checked })}
+                  className="w-4 h-4 accent-blue-500"
+                />
+                <span className="text-sm font-bold text-white">Promo Only</span>
+              </label>
+              <p className="mt-2 text-xs text-zinc-400">
+                When enabled, the public page shows only the promo card first and hides the prediction card until you turn this off.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <div className="lg:col-span-2">
+                <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-1 tracking-wider">Promo Image URL</label>
+                <input
+                  type="text"
+                  value={form.promoImageUrl}
+                  onChange={e => setForm({ ...form, promoImageUrl: e.target.value })}
+                  placeholder="/media/uploads/jackpot-promo.jpg or https://..."
+                  aria-label="Promo Image URL"
+                  className="admin-input"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-1 tracking-wider">Upload Promo Image</label>
+                <label className="flex items-center justify-center gap-2 w-full px-3 py-2.5 rounded-xl border border-zinc-700 bg-zinc-900 text-zinc-300 hover:bg-zinc-800 transition-colors cursor-pointer">
+                  {promoUploading ? <Upload className="w-4 h-4 animate-pulse" /> : <ImageIcon className="w-4 h-4" />}
+                  <span className="text-sm font-medium">{promoUploading ? 'Uploading...' : 'Choose Image'}</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={e => handlePromoImageSelected(e.target.files?.[0] || null)}
+                    disabled={promoUploading}
+                  />
+                </label>
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-1 tracking-wider">Promo Title</label>
+                <input
+                  type="text"
+                  value={form.promoTitle}
+                  onChange={e => setForm({ ...form, promoTitle: e.target.value })}
+                  placeholder="This Week's Midweek Jackpot"
+                  aria-label="Promo Title"
+                  className="admin-input"
+                />
+              </div>
+              <div className="lg:col-span-2">
+                <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-1 tracking-wider">Promo Caption</label>
+                <input
+                  type="text"
+                  value={form.promoCaption}
+                  onChange={e => setForm({ ...form, promoCaption: e.target.value })}
+                  placeholder="Official jackpot poster shown before our prediction"
+                  aria-label="Promo Caption"
+                  className="admin-input"
+                />
+              </div>
+            </div>
+
+            {form.promoImageUrl && (
+              <div className="rounded-2xl border border-zinc-800/60 bg-zinc-950/40 p-3">
+                <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2">Promo Preview</p>
+                <div className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900">
+                  <img src={resolveBackendAssetUrl(form.promoImageUrl)} alt={form.promoTitle || 'Jackpot promo'} className="w-full max-h-80 object-cover" />
+                </div>
+              </div>
+            )}
             {form.price > 0 && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
@@ -529,6 +634,7 @@ export function JackpotsManagePage() {
             )}
 
             {/* ─── Matches Section ────────────────────────────── */}
+            {!form.promoOnly && (
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
@@ -607,9 +713,10 @@ export function JackpotsManagePage() {
                 </div>
               )}
             </div>
+            )}
 
             {/* ─── Variations Section ────────────────────────── */}
-            {form.matches.length > 0 && (
+            {!form.promoOnly && form.matches.length > 0 && (
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <label className="block text-[10px] font-bold text-yellow-400 uppercase tracking-wider">
@@ -908,6 +1015,8 @@ export function JackpotsManagePage() {
                       <p className="text-xs text-zinc-500">
                         KES {j.price.toLocaleString()} • ${(j.regional_prices?.international?.price || 5.99).toLocaleString()} (Intl) • {j.matches.length} matches • {j.variations.length} variations
                         {j.displayDate && <span className="ml-1">• {new Date(`${j.displayDate}T00:00:00`).toLocaleDateString()}</span>}
+                        {j.promoImageUrl && <span className="ml-1 text-blue-400">• Promo Banner</span>}
+                        {j.promoOnly && <span className="ml-1 text-sky-400">• Promo Only</span>}
                         {markedCount > 0 && <span className="ml-1">• <span className="text-emerald-400">{wonCount}W</span>/<span className="text-red-400">{lostCount}L</span>{ppdCount > 0 && <>/<span className="text-orange-400">{ppdCount}P</span></>}</span>}
                       </p>
                     </div>

@@ -1,7 +1,18 @@
 import axios from 'axios';
 
 // Get backend URL from environment or use default
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+export function resolveBackendAssetUrl(url?: string | null): string | undefined {
+  if (!url) return undefined;
+  if (/^https?:\/\//i.test(url) || /^data:/i.test(url) || /^blob:/i.test(url)) {
+    return url;
+  }
+  if (url.startsWith('/media/')) {
+    return `${API_BASE_URL.replace(/\/+$/, '')}${url}`;
+  }
+  return url;
+}
 
 const apiClient = axios.create({
   baseURL: `${API_BASE_URL}/api`,

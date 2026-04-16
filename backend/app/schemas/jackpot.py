@@ -22,6 +22,10 @@ class JackpotCreate(BaseModel):
     variations: List[List[str]]  # Each inner list is a row of picks
     price: float
     display_date: Optional[date] = None
+    promo_image_url: Optional[str] = None
+    promo_title: Optional[str] = None
+    promo_caption: Optional[str] = None
+    promo_only: bool = False
     regional_prices: Optional[dict] = {}
     notify: bool = False
     notify_target: str = "all"
@@ -29,6 +33,8 @@ class JackpotCreate(BaseModel):
 
     @model_validator(mode="after")
     def validate_variations(self):
+        if self.promo_only:
+            return self
         match_count = len(self.matches)
         for i, var in enumerate(self.variations):
             if len(var) != match_count:
@@ -46,6 +52,10 @@ class JackpotUpdate(BaseModel):
     price: Optional[float] = None
     result: Optional[str] = None  # pending, won, lost, void, bonus
     display_date: Optional[date] = None
+    promo_image_url: Optional[str] = None
+    promo_title: Optional[str] = None
+    promo_caption: Optional[str] = None
+    promo_only: Optional[bool] = None
     regional_prices: Optional[dict] = None
 
 
@@ -58,6 +68,10 @@ class JackpotResponse(BaseModel):
     price: float
     result: Optional[str] = "pending"
     display_date: Optional[date] = None
+    promo_image_url: Optional[str] = None
+    promo_title: Optional[str] = None
+    promo_caption: Optional[str] = None
+    promo_only: bool = False
     regional_prices: Optional[dict] = {}
     currency: Optional[str] = "KES"
     currency_symbol: Optional[str] = "KES"
@@ -77,6 +91,10 @@ class JackpotLockedResponse(BaseModel):
     result: Optional[str] = "pending"
     locked: bool = True
     display_date: Optional[date] = None
+    promo_image_url: Optional[str] = None
+    promo_title: Optional[str] = None
+    promo_caption: Optional[str] = None
+    promo_only: bool = False
     regional_prices: Optional[dict] = {}
     currency: Optional[str] = "KES"
     currency_symbol: Optional[str] = "KES"

@@ -1,4 +1,4 @@
-import apiClient from './apiClient';
+import apiClient, { resolveBackendAssetUrl } from './apiClient';
 
 export type TipCategory = 'free'|'2+' | '4+' | 'gg' | '10+' | 'vip';
 export type JackpotType = 'midweek' | 'mega';
@@ -54,6 +54,10 @@ export interface JackpotPrediction {
   price: number;
   result: string; // pending, won, lost, void, bonus
   displayDate?: string;
+  promoImageUrl?: string;
+  promoTitle?: string;
+  promoCaption?: string;
+  promoOnly?: boolean;
   createdAt: string;
   updatedAt: string;
   currency?: string;
@@ -109,6 +113,10 @@ function mapJackpot(data: any): JackpotPrediction {
     price: data.price,
     result: data.result || 'pending',
     displayDate: data.display_date || undefined,
+    promoImageUrl: resolveBackendAssetUrl(data.promo_image_url || undefined),
+    promoTitle: data.promo_title || undefined,
+    promoCaption: data.promo_caption || undefined,
+    promoOnly: Boolean(data.promo_only),
     createdAt: data.created_at,
     updatedAt: data.created_at,
     currency: data.currency || 'KES',
@@ -301,6 +309,10 @@ export async function addJackpot(jackpot: any): Promise<JackpotPrediction> {
     dc_level: jackpot.dcLevel,
     price: jackpot.price,
     display_date: jackpot.displayDate || null,
+    promo_image_url: jackpot.promoImageUrl || null,
+    promo_title: jackpot.promoTitle || null,
+    promo_caption: jackpot.promoCaption || null,
+    promo_only: jackpot.promoOnly ?? false,
     matches: jackpot.matches,
     variations: jackpot.variations || [],
     regional_prices: jackpot.regional_prices || {},
@@ -321,6 +333,10 @@ export async function updateJackpot(id: string, data: any): Promise<JackpotPredi
   if (data.price !== undefined) payload.price = data.price;
   if (data.result !== undefined) payload.result = data.result;
   if (data.displayDate !== undefined) payload.display_date = data.displayDate || null;
+  if (data.promoImageUrl !== undefined) payload.promo_image_url = data.promoImageUrl || null;
+  if (data.promoTitle !== undefined) payload.promo_title = data.promoTitle || null;
+  if (data.promoCaption !== undefined) payload.promo_caption = data.promoCaption || null;
+  if (data.promoOnly !== undefined) payload.promo_only = data.promoOnly;
   if (data.matches !== undefined) payload.matches = data.matches;
   if (data.variations !== undefined) payload.variations = data.variations;
   if (data.regional_prices !== undefined) payload.regional_prices = data.regional_prices;

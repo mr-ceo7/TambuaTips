@@ -3,7 +3,7 @@ Jackpot ORM model and JackpotPurchase model — replaces frontend localStorage j
 """
 
 from datetime import datetime, UTC
-from sqlalchemy import Column, BigInteger, String, Integer, Float, Date, DateTime, JSON, ForeignKey
+from sqlalchemy import Column, BigInteger, String, Integer, Float, Date, DateTime, JSON, ForeignKey, Boolean
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -20,6 +20,10 @@ class Jackpot(Base):
     price = Column(Float, nullable=False)  # KES
     result = Column(String(20), default="pending")  # pending, won, lost, void, bonus
     display_date = Column(Date, nullable=True)
+    promo_image_url = Column(String(500), nullable=True)
+    promo_title = Column(String(255), nullable=True)
+    promo_caption = Column(String(500), nullable=True)
+    promo_only = Column(Boolean, default=False, nullable=False, server_default="0")
     regional_prices = Column(JSON, default=dict)  # For dynamic overrides
 
     created_at = Column(DateTime, default=lambda: datetime.now(UTC).replace(tzinfo=None))
