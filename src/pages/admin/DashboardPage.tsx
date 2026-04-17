@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'motion/react';
 import {
   Users, Wifi, Crown, DollarSign, Target, TrendingUp,
@@ -59,19 +59,65 @@ export function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [days, setDays] = useState(30);
+  const statsFetchInFlight = useRef(false);
+  const legacyAutoSyncInFlight = useRef(false);
 
   useEffect(() => {
-    const fetchStats = () => {
-      adminService.getDashboardStats(days)
-        .then(setStats)
-        .catch(() => toast.error('Failed to load dashboard'))
-        .finally(() => setLoading(false));
+    let cancelled = false;
+
+    const fetchStats = async (showError = true) => {
+      if (statsFetchInFlight.current) return;
+      statsFetchInFlight.current = true;
+      try {
+        const nextStats = await adminService.getDashboardStats(days);
+        if (!cancelled) {
+          setStats(nextStats);
+        }
+      } catch (error) {
+        if (!cancelled && showError) {
+          toast.error('Failed to load dashboard');
+        }
+      } finally {
+        statsFetchInFlight.current = false;
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
     };
 
-    fetchStats();
-    const intervalId = setInterval(fetchStats, 15000); // Poll every 15s
+    const runLegacyAutoSync = async () => {
+      if (legacyAutoSyncInFlight.current) return;
+      legacyAutoSyncInFlight.current = true;
+      try {
+        const result = await adminService.syncLegacyMpesa();
+        if (!cancelled && (result.imported > 0 || result.created_payments > 0)) {
+          await fetchStats(false);
+        }
+      } catch (error) {
+        console.error('Dashboard legacy auto-sync failed', error);
+      } finally {
+        legacyAutoSyncInFlight.current = false;
+      }
+    };
 
-    return () => clearInterval(intervalId);
+    const initialize = async () => {
+      await runLegacyAutoSync();
+      await fetchStats(true);
+    };
+
+    initialize();
+    const statsIntervalId = setInterval(() => {
+      void fetchStats(false);
+    }, 15000);
+    const syncIntervalId = setInterval(() => {
+      void runLegacyAutoSync();
+    }, 30000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(statsIntervalId);
+      clearInterval(syncIntervalId);
+    };
   }, [days]);
 
   if (loading) {
