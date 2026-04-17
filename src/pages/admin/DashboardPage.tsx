@@ -171,16 +171,24 @@ export function DashboardPage() {
           positive
           color="emerald"
           extraContent={
-            <div className="mt-2 space-y-1">
-              <div className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-2.5 py-1.5">
-                <ArrowUpRight className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                <span className="text-sm font-black text-emerald-400">+{stats.users.today_registered || 0}</span>
-                <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">users today</span>
+            <div className="mt-2 grid grid-cols-3 gap-1.5">
+              <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-2 py-1.5">
+                <p className="text-[8px] font-bold uppercase tracking-widest text-emerald-400/80">Today</p>
+                <p className="mt-0.5 text-xs font-black text-white">
+                  {formatCompact((stats.users.today_registered || 0) + (stats.users.today_guests || 0))}
+                </p>
               </div>
-              <div className="flex items-center gap-1.5 bg-blue-500/10 border border-blue-500/20 rounded-lg px-2.5 py-1.5">
-                <ArrowUpRight className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                <span className="text-sm font-black text-blue-400">+{stats.users.today_guests || 0}</span>
-                <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">guests today</span>
+              <div className="rounded-lg border border-blue-500/20 bg-blue-500/10 px-2 py-1.5">
+                <p className="text-[8px] font-bold uppercase tracking-widest text-blue-400/80">Yesterday</p>
+                <p className="mt-0.5 text-xs font-black text-white">
+                  {formatCompact((stats.users.yesterday_registered || 0) + (stats.users.yesterday_guests || 0))}
+                </p>
+              </div>
+              <div className="rounded-lg border border-purple-500/20 bg-purple-500/10 px-2 py-1.5">
+                <p className="text-[8px] font-bold uppercase tracking-widest text-purple-400/80">2 Days Ago</p>
+                <p className="mt-0.5 text-xs font-black text-white">
+                  {formatCompact((stats.users.day_before_yesterday_registered || 0) + (stats.users.day_before_yesterday_guests || 0))}
+                </p>
               </div>
             </div>
           }
@@ -230,6 +238,24 @@ export function DashboardPage() {
             }))}
           positive
           color="emerald"
+          extraContent={
+            <div className="mt-2 space-y-1">
+              <div className="grid grid-cols-3 gap-1.5">
+                <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-2 py-1.5">
+                  <p className="text-[8px] font-bold uppercase tracking-widest text-emerald-400/80">Today</p>
+                  <p className="mt-0.5 text-xs font-black text-white">{formatKES(stats.revenue.today)}</p>
+                </div>
+                <div className="rounded-lg border border-blue-500/20 bg-blue-500/10 px-2 py-1.5">
+                  <p className="text-[8px] font-bold uppercase tracking-widest text-blue-400/80">Yesterday</p>
+                  <p className="mt-0.5 text-xs font-black text-white">{formatKES(stats.revenue.yesterday)}</p>
+                </div>
+                <div className="rounded-lg border border-purple-500/20 bg-purple-500/10 px-2 py-1.5">
+                  <p className="text-[8px] font-bold uppercase tracking-widest text-purple-400/80">2 Days Ago</p>
+                  <p className="mt-0.5 text-xs font-black text-white">{formatKES(stats.revenue.day_before_yesterday)}</p>
+                </div>
+              </div>
+            </div>
+          }
         />
         {/* Win Rate */}
         <KPICard

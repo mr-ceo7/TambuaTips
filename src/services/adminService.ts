@@ -75,6 +75,10 @@ export interface DashboardStats {
     online_guests: number;
     today_registered: number;
     today_guests: number;
+    yesterday_registered: number;
+    yesterday_guests: number;
+    day_before_yesterday_registered: number;
+    day_before_yesterday_guests: number;
     subscribers_by_tier: Record<string, number>;
     active_subscribers: number;
     conversion_rate: number;
@@ -84,6 +88,8 @@ export interface DashboardStats {
     total: number;
     by_method: Record<string, number>;
     today: number;
+    yesterday: number;
+    day_before_yesterday: number;
     this_week: number;
     this_month: number;
     this_year: number;

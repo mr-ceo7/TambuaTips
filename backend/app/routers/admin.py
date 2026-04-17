@@ -754,10 +754,20 @@ async def dashboard_stats(
     total_guests = len(all_visitors)
     online_guests = sum(1 for v in all_visitors if v.last_seen and v.last_seen > three_min_ago)
 
-    # Today's signups
+    # Daily signup/visitor buckets
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    yesterday_start = today_start - timedelta(days=1)
+    day_before_yesterday_start = today_start - timedelta(days=2)
     today_registered = sum(1 for u in all_users if u.created_at and u.created_at >= today_start)
+    yesterday_registered = sum(1 for u in all_users if u.created_at and yesterday_start <= u.created_at < today_start)
+    day_before_yesterday_registered = sum(
+        1 for u in all_users if u.created_at and day_before_yesterday_start <= u.created_at < yesterday_start
+    )
     today_guests = sum(1 for v in all_visitors if v.first_seen and v.first_seen >= today_start)
+    yesterday_guests = sum(1 for v in all_visitors if v.first_seen and yesterday_start <= v.first_seen < today_start)
+    day_before_yesterday_guests = sum(
+        1 for v in all_visitors if v.first_seen and day_before_yesterday_start <= v.first_seen < yesterday_start
+    )
 
     # Subscribers by tier
     tier_counts = {}
@@ -818,11 +828,23 @@ async def dashboard_stats(
 
     # Revenue by period
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    yesterday_start = today_start - timedelta(days=1)
+    day_before_yesterday_start = today_start - timedelta(days=2)
     week_start = today_start - timedelta(days=today_start.weekday())
     month_start = today_start.replace(day=1)
     year_start = today_start.replace(month=1, day=1)
 
     revenue_today = sum(p.amount for p in all_payments if p.created_at and p.created_at >= today_start)
+    revenue_yesterday = sum(
+        p.amount
+        for p in all_payments
+        if p.created_at and yesterday_start <= p.created_at < today_start
+    )
+    revenue_day_before_yesterday = sum(
+        p.amount
+        for p in all_payments
+        if p.created_at and day_before_yesterday_start <= p.created_at < yesterday_start
+    )
     revenue_week = sum(p.amount for p in all_payments if p.created_at and p.created_at >= week_start)
     revenue_month = sum(p.amount for p in all_payments if p.created_at and p.created_at >= month_start)
     revenue_year = sum(p.amount for p in all_payments if p.created_at and p.created_at >= year_start)
@@ -926,6 +948,10 @@ async def dashboard_stats(
             "total_guests": total_guests,
             "today_registered": today_registered,
             "today_guests": today_guests,
+            "yesterday_registered": yesterday_registered,
+            "yesterday_guests": yesterday_guests,
+            "day_before_yesterday_registered": day_before_yesterday_registered,
+            "day_before_yesterday_guests": day_before_yesterday_guests,
             "online_registered": online_users,
             "online_guests": online_guests,
             "subscribers_by_tier": tier_counts,
@@ -937,6 +963,8 @@ async def dashboard_stats(
             "total": total_revenue,
             "by_method": revenue_by_method,
             "today": revenue_today,
+            "yesterday": revenue_yesterday,
+            "day_before_yesterday": revenue_day_before_yesterday,
             "this_week": revenue_week,
             "this_month": revenue_month,
             "this_year": revenue_year,
