@@ -286,11 +286,7 @@ export function DashboardPage() {
           color="emerald"
           extraContent={
             <div className="mt-2 space-y-1">
-              <div className="grid grid-cols-3 gap-1.5">
-                <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-2 py-1.5">
-                  <p className="text-[8px] font-bold uppercase tracking-widest text-emerald-400/80">Today</p>
-                  <p className="mt-0.5 text-xs font-black text-white">{formatKES(stats.revenue.today)}</p>
-                </div>
+              <div className="grid grid-cols-2 gap-1.5">
                 <div className="rounded-lg border border-blue-500/20 bg-blue-500/10 px-2 py-1.5">
                   <p className="text-[8px] font-bold uppercase tracking-widest text-blue-400/80">Yesterday</p>
                   <p className="mt-0.5 text-xs font-black text-white">{formatKES(stats.revenue.yesterday)}</p>
