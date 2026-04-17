@@ -302,25 +302,51 @@ async def _assign_legacy_queue_item(
     db.add(user)
     await db.flush()
 
+    payment = None
+    if queue_item.payment_id:
+        payment = (
+            await db.execute(select(Payment).where(Payment.id == queue_item.payment_id))
+        ).scalar_one_or_none()
+
     if assignment_mode == "subscription":
         assert tier is not None
         assert duration_days is not None
         _grant_subscription_access(user, tier, duration_days)
-        payment = _create_subscription_payment(
-            user=user,
-            amount_paid=queue_item.amount,
-            tier=tier,
-            duration_days=duration_days,
-            admin_id=admin_id,
-            source="legacy_mpesa_assignment",
-            reference=f"LEGACY-MPESA-{queue_item.source_record_id}",
-            transaction_id=f"LEGACY-MPESA-{queue_item.source_record_id}",
-            extra_metadata={
-                "legacy_transaction_id": queue_item.source_record_id,
-                "legacy_queue_id": queue_item.id,
-                "biz_no": queue_item.biz_no,
-            },
-        )
+        if payment is None:
+            payment = _create_subscription_payment(
+                user=user,
+                amount_paid=queue_item.amount,
+                tier=tier,
+                duration_days=duration_days,
+                admin_id=admin_id,
+                source="legacy_mpesa_assignment",
+                reference=f"LEGACY-MPESA-{queue_item.source_record_id}",
+                transaction_id=f"LEGACY-MPESA-{queue_item.source_record_id}",
+                extra_metadata={
+                    "legacy_transaction_id": queue_item.source_record_id,
+                    "legacy_queue_id": queue_item.id,
+                    "biz_no": queue_item.biz_no,
+                },
+            )
+        else:
+            payment.user_id = user.id
+            payment.item_type = "subscription"
+            payment.item_id = tier
+            payment.phone = user.phone
+            payment.email = user.email
+            payment.gateway_response = json.dumps(
+                {
+                    "source": "legacy_mpesa_sync",
+                    "legacy_transaction_id": queue_item.source_record_id,
+                    "legacy_queue_id": queue_item.id,
+                    "biz_no": queue_item.biz_no,
+                    "pending_assignment": False,
+                    "assignment_mode": "subscription",
+                    "assigned_tier": tier,
+                    "assigned_duration_days": duration_days,
+                    "admin_id": admin_id,
+                }
+            )
         assigned_label = tier
         assigned_duration_days = duration_days
     else:
@@ -331,22 +357,43 @@ async def _assign_legacy_queue_item(
             jackpot_type=jackpot_type,
             jackpot_dc_level=jackpot_dc_level,
         )
-        payment = _create_jackpot_payment(
-            user=user,
-            amount_paid=queue_item.amount,
-            jackpot=jackpot,
-            admin_id=admin_id,
-            source="legacy_mpesa_assignment",
-            reference=f"LEGACY-MPESA-{queue_item.source_record_id}",
-            transaction_id=f"LEGACY-MPESA-{queue_item.source_record_id}",
-            extra_metadata={
-                "legacy_transaction_id": queue_item.source_record_id,
-                "legacy_queue_id": queue_item.id,
-                "biz_no": queue_item.biz_no,
-            },
-        )
-        db.add(payment)
-        await db.flush()
+        if payment is None:
+            payment = _create_jackpot_payment(
+                user=user,
+                amount_paid=queue_item.amount,
+                jackpot=jackpot,
+                admin_id=admin_id,
+                source="legacy_mpesa_assignment",
+                reference=f"LEGACY-MPESA-{queue_item.source_record_id}",
+                transaction_id=f"LEGACY-MPESA-{queue_item.source_record_id}",
+                extra_metadata={
+                    "legacy_transaction_id": queue_item.source_record_id,
+                    "legacy_queue_id": queue_item.id,
+                    "biz_no": queue_item.biz_no,
+                },
+            )
+            db.add(payment)
+            await db.flush()
+        else:
+            payment.user_id = user.id
+            payment.item_type = "jackpot"
+            payment.item_id = str(jackpot.id)
+            payment.phone = user.phone
+            payment.email = user.email
+            payment.gateway_response = json.dumps(
+                {
+                    "source": "legacy_mpesa_sync",
+                    "legacy_transaction_id": queue_item.source_record_id,
+                    "legacy_queue_id": queue_item.id,
+                    "biz_no": queue_item.biz_no,
+                    "pending_assignment": False,
+                    "assignment_mode": "jackpot",
+                    "jackpot_id": jackpot.id,
+                    "jackpot_type": jackpot.type,
+                    "jackpot_dc_level": jackpot.dc_level,
+                    "admin_id": admin_id,
+                }
+            )
         purchase, created = await _grant_jackpot_access(
             db,
             user=user,

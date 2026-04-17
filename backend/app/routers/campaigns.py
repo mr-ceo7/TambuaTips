@@ -134,7 +134,7 @@ async def upload_campaign_asset(
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
         
-    return {"url": f"/media/uploads/{safe_name}"}
+    return {"url": f"/api/media/uploads/{safe_name}"}
 
 from app.database import AsyncSessionLocal
 

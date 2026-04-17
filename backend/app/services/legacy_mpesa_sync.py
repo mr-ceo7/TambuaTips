@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from app.config import settings
 from app.models.legacy_mpesa import LegacyMpesaTransaction
+from app.models.payment import Payment
 from app.models.user import User
 from app.security import hash_password
 
@@ -311,7 +312,7 @@ async def fetch_legacy_mpesa_records_between(date_from: datetime, date_to: datet
 
 async def sync_legacy_mpesa_transactions(db: AsyncSession, records: list[LegacyMpesaRecord]) -> dict[str, int]:
     if not records:
-        return {"imported": 0, "created_users": 0, "linked_existing_users": 0, "skipped": 0}
+        return {"imported": 0, "created_users": 0, "linked_existing_users": 0, "created_payments": 0, "skipped": 0}
 
     source_ids = [record.source_record_id for record in records]
     existing_ids = set(
@@ -326,6 +327,7 @@ async def sync_legacy_mpesa_transactions(db: AsyncSession, records: list[LegacyM
     imported = 0
     created_users = 0
     linked_existing_users = 0
+    created_payments = 0
     skipped = 0
 
     for record in records:
@@ -349,6 +351,36 @@ async def sync_legacy_mpesa_transactions(db: AsyncSession, records: list[LegacyM
         else:
             linked_existing_users += 1
 
+        payment_ref = f"LEGACY-MPESA-{record.source_record_id}"
+        payment = (
+            await db.execute(select(Payment).where(Payment.reference == payment_ref))
+        ).scalar_one_or_none()
+        if payment is None:
+            payment = Payment(
+                user_id=user.id,
+                amount=record.amount,
+                currency="KES",
+                method="mpesa",
+                status="completed",
+                reference=payment_ref,
+                transaction_id=payment_ref,
+                item_type="legacy_pending",
+                item_id=str(record.source_record_id),
+                phone=normalized_phone,
+                email=user.email,
+                gateway_response=json.dumps(
+                    {
+                        "source": "legacy_mpesa_sync",
+                        "legacy_transaction_id": record.source_record_id,
+                        "biz_no": record.biz_no,
+                        "pending_assignment": True,
+                    }
+                ),
+            )
+            db.add(payment)
+            await db.flush()
+            created_payments += 1
+
         db.add(
             LegacyMpesaTransaction(
                 source_record_id=record.source_record_id,
@@ -360,15 +392,73 @@ async def sync_legacy_mpesa_transactions(db: AsyncSession, records: list[LegacyM
                 paid_at=record.paid_at,
                 raw_payload=json.dumps(asdict(record), default=str),
                 user_id=user.id,
+                payment_id=payment.id,
                 onboarding_status="pending_assignment",
             )
         )
         imported += 1
+
+    # Backfill payment rows for old queue items created before payment-at-sync was introduced.
+    missing_payment_items = (
+        await db.execute(
+            select(LegacyMpesaTransaction)
+            .where(LegacyMpesaTransaction.payment_id.is_(None))
+        )
+    ).scalars().all()
+
+    for queue_item in missing_payment_items:
+        user = None
+        if queue_item.user_id:
+            user = (
+                await db.execute(select(User).where(User.id == queue_item.user_id))
+            ).scalar_one_or_none()
+        if not user:
+            user, _ = await ensure_phone_user(
+                db,
+                queue_item.phone,
+                first_name=queue_item.first_name,
+                other_name=queue_item.other_name,
+            )
+            queue_item.user_id = user.id
+
+        payment_ref = f"LEGACY-MPESA-{queue_item.source_record_id}"
+        payment = (
+            await db.execute(select(Payment).where(Payment.reference == payment_ref))
+        ).scalar_one_or_none()
+        if payment is None:
+            payment = Payment(
+                user_id=user.id,
+                amount=queue_item.amount,
+                currency="KES",
+                method="mpesa",
+                status="completed",
+                reference=payment_ref,
+                transaction_id=payment_ref,
+                item_type="legacy_pending",
+                item_id=str(queue_item.source_record_id),
+                phone=queue_item.phone,
+                email=user.email,
+                gateway_response=json.dumps(
+                    {
+                        "source": "legacy_mpesa_sync_backfill",
+                        "legacy_transaction_id": queue_item.source_record_id,
+                        "legacy_queue_id": queue_item.id,
+                        "biz_no": queue_item.biz_no,
+                        "pending_assignment": queue_item.onboarding_status != "assigned",
+                    }
+                ),
+            )
+            db.add(payment)
+            await db.flush()
+            created_payments += 1
+        queue_item.payment_id = payment.id
+        db.add(queue_item)
 
     await db.commit()
     return {
         "imported": imported,
         "created_users": created_users,
         "linked_existing_users": linked_existing_users,
+        "created_payments": created_payments,
         "skipped": skipped,
     }

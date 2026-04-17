@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Search, ChevronDown, ChevronUp, Users as UsersIcon, Shield, Ban,
   Crown, Clock, Globe, MoreVertical, Eye, ArrowUpDown, UserX, UserCheck,
@@ -77,6 +77,7 @@ export function UsersPage() {
   const [legacyBulkDays, setLegacyBulkDays] = useState<number>(30);
   const [legacyBulkJackpotType, setLegacyBulkJackpotType] = useState<JackpotGrantType>('midweek');
   const [legacyBulkJackpotDcLevel, setLegacyBulkJackpotDcLevel] = useState<number>(3);
+  const legacyAutoSyncInFlight = useRef(false);
 
   const [grantModalOpen, setGrantModalOpen] = useState<number | null>(null);
   const [grantTier, setGrantTier] = useState<string>('premium');
@@ -217,6 +218,30 @@ export function UsersPage() {
   useEffect(() => {
     loadLegacyQueue(legacyQueuePage);
   }, [legacyQueuePage, legacyQueueStatus, paidTiers]);
+
+  useEffect(() => {
+    if (paidTiers.length === 0) return undefined;
+
+    const runAutoSync = async () => {
+      if (legacyAutoSyncInFlight.current) return;
+      legacyAutoSyncInFlight.current = true;
+      try {
+        const result = await adminService.syncLegacyMpesa();
+        if (result.imported > 0 || result.created_payments > 0) {
+          loadLegacyQueue(legacyQueuePage);
+          loadUsers(currentPage);
+        }
+      } catch (error) {
+        console.error('Legacy auto-sync failed', error);
+      } finally {
+        legacyAutoSyncInFlight.current = false;
+      }
+    };
+
+    runAutoSync();
+    const intervalId = window.setInterval(runAutoSync, 30000);
+    return () => window.clearInterval(intervalId);
+  }, [paidTiers, legacyQueuePage, currentPage, legacyQueueStatus]);
 
   useEffect(() => {
     setSelectedLegacyQueueIds((prev) =>

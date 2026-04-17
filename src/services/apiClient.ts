@@ -8,7 +8,11 @@ export function resolveBackendAssetUrl(url?: string | null): string | undefined 
   if (/^https?:\/\//i.test(url) || /^data:/i.test(url) || /^blob:/i.test(url)) {
     return url;
   }
+  // Normalize old /media/ paths to /api/media/ so Nginx proxies them correctly
   if (url.startsWith('/media/')) {
+    return `${API_BASE_URL.replace(/\/+$/, '')}/api${url}`;
+  }
+  if (url.startsWith('/api/media/')) {
     return `${API_BASE_URL.replace(/\/+$/, '')}${url}`;
   }
   return url;

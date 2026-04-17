@@ -297,7 +297,7 @@ app = FastAPI(
 )
 
 os.makedirs("media/uploads", exist_ok=True)
-app.mount("/media", StaticFiles(directory="media"), name="media")
+app.mount("/api/media", StaticFiles(directory="media"), name="media")
 
 # ── CORS ─────────────────────────────────────────────────────
 app.add_middleware(

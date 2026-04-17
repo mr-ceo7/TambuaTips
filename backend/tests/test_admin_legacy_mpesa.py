@@ -486,6 +486,7 @@ async def test_sync_legacy_mpesa_creates_queue_items_and_placeholder_users(db_se
     assert payload["imported"] == 2
     assert payload["created_users"] == 1
     assert payload["linked_existing_users"] == 1
+    assert payload["created_payments"] == 2
     assert payload["skipped"] == 0
 
     queue_rows = (
@@ -495,7 +496,16 @@ async def test_sync_legacy_mpesa_creates_queue_items_and_placeholder_users(db_se
     ).scalars().all()
     assert len(queue_rows) == 2
     assert queue_rows[0].user_id == existing_user.id
+    assert queue_rows[0].payment_id is not None
     assert queue_rows[0].onboarding_status == "pending_assignment"
+
+    payments = (
+        await db_session.execute(
+            select(Payment).where(Payment.reference.in_(["LEGACY-MPESA-101", "LEGACY-MPESA-102"])).order_by(Payment.reference.asc())
+        )
+    ).scalars().all()
+    assert len(payments) == 2
+    assert all(payment.item_type == "legacy_pending" for payment in payments)
 
     created_user = (
         await db_session.execute(select(User).where(User.phone == "+254722333444"))
@@ -801,7 +811,7 @@ async def test_delete_legacy_mpesa_queue_item_removes_single_pending_row_only(db
 
 
 @pytest.mark.asyncio
-async def test_assign_legacy_mpesa_transaction_grants_subscription_and_creates_payment(db_session):
+async def test_assign_legacy_mpesa_transaction_grants_subscription_without_creating_duplicate_payment(db_session):
     admin = await _create_user(
         db_session,
         email="admin-assign@example.com",
@@ -809,6 +819,30 @@ async def test_assign_legacy_mpesa_transaction_grants_subscription_and_creates_p
         is_admin=True,
         tier="premium",
     )
+
+    assigned_user = await _create_user(
+        db_session,
+        email="legacy-assigned@example.com",
+        name="Legacy Assigned",
+        phone="+254733000111",
+        tier="free",
+    )
+    existing_payment = Payment(
+        user_id=assigned_user.id,
+        amount=860.0,
+        currency="KES",
+        method="mpesa",
+        status="completed",
+        reference="LEGACY-MPESA-555",
+        transaction_id="LEGACY-MPESA-555",
+        item_type="legacy_pending",
+        item_id="555",
+        phone=assigned_user.phone,
+        email=assigned_user.email,
+    )
+    db_session.add(existing_payment)
+    await db_session.commit()
+    await db_session.refresh(existing_payment)
 
     queue_item = LegacyMpesaTransaction(
         source_record_id=555,
@@ -819,6 +853,8 @@ async def test_assign_legacy_mpesa_transaction_grants_subscription_and_creates_p
         amount=860.0,
         paid_at=datetime.now(UTC).replace(tzinfo=None),
         onboarding_status="pending_assignment",
+        user_id=assigned_user.id,
+        payment_id=existing_payment.id,
     )
     db_session.add(queue_item)
     await db_session.commit()
@@ -852,11 +888,18 @@ async def test_assign_legacy_mpesa_transaction_grants_subscription_and_creates_p
     assert assigned_user.phone == "+254733000111"
     assert payment.amount == 860.0
     assert payment.reference == "LEGACY-MPESA-555"
+    assert payment.id == existing_payment.id
+    assert payment.item_type == "subscription"
     assert payment.item_id == "basic"
+
+    all_matching_payments = (
+        await db_session.execute(select(Payment).where(Payment.reference == "LEGACY-MPESA-555"))
+    ).scalars().all()
+    assert len(all_matching_payments) == 1
 
 
 @pytest.mark.asyncio
-async def test_assign_legacy_mpesa_transaction_can_grant_jackpot_access(db_session):
+async def test_assign_legacy_mpesa_transaction_can_grant_jackpot_access_without_duplicate_payment(db_session):
     admin = await _create_user(
         db_session,
         email="admin-assign-jackpot@example.com",
@@ -865,6 +908,30 @@ async def test_assign_legacy_mpesa_transaction_can_grant_jackpot_access(db_sessi
         tier="premium",
     )
     jackpot = await _create_pending_jackpot(db_session, jackpot_type="midweek", dc_level=5, price=700.0)
+
+    assigned_user = await _create_user(
+        db_session,
+        email="legacy-jackpot@example.com",
+        name="Legacy Jackpot",
+        phone="+254733000222",
+        tier="free",
+    )
+    existing_payment = Payment(
+        user_id=assigned_user.id,
+        amount=700.0,
+        currency="KES",
+        method="mpesa",
+        status="completed",
+        reference="LEGACY-MPESA-556",
+        transaction_id="LEGACY-MPESA-556",
+        item_type="legacy_pending",
+        item_id="556",
+        phone=assigned_user.phone,
+        email=assigned_user.email,
+    )
+    db_session.add(existing_payment)
+    await db_session.commit()
+    await db_session.refresh(existing_payment)
 
     queue_item = LegacyMpesaTransaction(
         source_record_id=556,
@@ -875,6 +942,8 @@ async def test_assign_legacy_mpesa_transaction_can_grant_jackpot_access(db_sessi
         amount=700.0,
         paid_at=datetime.now(UTC).replace(tzinfo=None),
         onboarding_status="pending_assignment",
+        user_id=assigned_user.id,
+        payment_id=existing_payment.id,
     )
     db_session.add(queue_item)
     await db_session.commit()
@@ -912,6 +981,7 @@ async def test_assign_legacy_mpesa_transaction_can_grant_jackpot_access(db_sessi
 
     assert refreshed_queue.onboarding_status == "assigned"
     assert refreshed_queue.assigned_tier == "midweek_5dc"
+    assert payment.id == existing_payment.id
     assert payment.item_type == "jackpot"
     assert payment.item_id == str(jackpot.id)
     assert purchase.payment_id == payment.id

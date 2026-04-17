@@ -437,12 +437,12 @@ export const adminService = {
     return response.data;
   },
 
-  syncLegacyMpesa: async (): Promise<{ status: string; fetched: number; imported: number; created_users: number; linked_existing_users: number; skipped: number }> => {
+  syncLegacyMpesa: async (): Promise<{ status: string; fetched: number; imported: number; created_users: number; linked_existing_users: number; created_payments: number; skipped: number }> => {
     const response = await apiClient.post('/admin/legacy-mpesa/sync');
     return response.data;
   },
 
-  backfillLegacyMpesa: async (): Promise<{ status: string; mode: string; fetched: number; imported: number; created_users: number; linked_existing_users: number; skipped: number }> => {
+  backfillLegacyMpesa: async (): Promise<{ status: string; mode: string; fetched: number; imported: number; created_users: number; linked_existing_users: number; created_payments: number; skipped: number }> => {
     const response = await apiClient.post('/admin/legacy-mpesa/backfill');
     return response.data;
   },
@@ -456,6 +456,7 @@ export const adminService = {
     imported: number;
     created_users: number;
     linked_existing_users: number;
+    created_payments: number;
     skipped: number;
   }> => {
     const response = await apiClient.post('/admin/legacy-mpesa/import-range', {
