@@ -1,13 +1,33 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { SEO } from '../components/SEO';
 import { FaWhatsapp, FaEnvelope } from 'react-icons/fa';
 import { motion } from 'motion/react';
+import apiClient from '../services/apiClient';
+
+interface SupportContact {
+  SUPPORT_EMAIL: string;
+  SUPPORT_WHATSAPP: string;
+  SUPPORT_WHATSAPP_NUMBER: string;
+}
+
+const DEFAULTS: SupportContact = {
+  SUPPORT_EMAIL: 'tambuatips@gmail.com',
+  SUPPORT_WHATSAPP: 'https://wa.me/254746957502',
+  SUPPORT_WHATSAPP_NUMBER: '+254 746 957 502',
+};
 
 export function ContactPage() {
-  <SEO title={'Contact Us'} />
+  const [contact, setContact] = useState<SupportContact>(DEFAULTS);
+
+  useEffect(() => {
+    apiClient.get<SupportContact>('/internal/support-contact')
+      .then(res => setContact(res.data))
+      .catch(() => {/* use defaults */});
+  }, []);
 
   return (
     <div className="container mx-auto px-4 py-8 sm:py-12 max-w-3xl font-sans text-zinc-300">
+      <SEO title={'Contact Us'} />
       <div className="text-center mb-10">
         <h1 className="text-3xl sm:text-4xl font-display font-bold text-white mb-4">Contact Support</h1>
         <p className="text-zinc-400">
@@ -17,7 +37,7 @@ export function ContactPage() {
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <motion.a 
-          href="mailto:tambuatips@gmail.com"
+          href={`mailto:${contact.SUPPORT_EMAIL}`}
           target="_blank" 
           rel="noopener noreferrer"
           whileHover={{ scale: 1.02 }}
@@ -28,12 +48,12 @@ export function ContactPage() {
             <FaEnvelope size={32} />
           </div>
           <h2 className="text-lg font-bold text-white mb-2">Email Support</h2>
-          <p className="text-sm text-zinc-500 text-center">tambuatips@gmail.com</p>
+          <p className="text-sm text-zinc-500 text-center">{contact.SUPPORT_EMAIL}</p>
           <p className="text-xs text-zinc-600 text-center mt-2">Expect a response within 24 hours.</p>
         </motion.a>
 
         <motion.a 
-          href="https://wa.me/254746957502"
+          href={contact.SUPPORT_WHATSAPP}
           target="_blank" 
           rel="noopener noreferrer"
           whileHover={{ scale: 1.02 }}
