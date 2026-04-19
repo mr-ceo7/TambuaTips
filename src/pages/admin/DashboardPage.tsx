@@ -221,7 +221,7 @@ export function DashboardPage() {
               <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-2 py-1.5">
                 <p className="text-[8px] font-bold uppercase tracking-widest text-emerald-400/80">Today</p>
                 <p className="mt-0.5 text-xs font-black text-white">
-                  {formatCompact((stats.users.today_registered || 0) + (stats.users.today_guests || 0))}
+                  {formatCompact(stats.users.today_registered || 0)}
                 </p>
               </div>
               <div className="rounded-lg border border-blue-500/20 bg-blue-500/10 px-2 py-1.5">
