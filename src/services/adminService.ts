@@ -496,7 +496,7 @@ export const adminService = {
     return response.data;
   },
 
-  deleteLegacyMpesaQueueItem: async (queueId: number): Promise<{ status: string; deleted_id: number }> => {
+  deleteLegacyMpesaQueueItem: async (queueId: number): Promise<{ status: string; ignored_id: number }> => {
     const response = await apiClient.delete(`/admin/legacy-mpesa/${queueId}`);
     return response.data;
   },

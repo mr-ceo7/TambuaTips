@@ -1816,7 +1816,7 @@ class LegacyMpesaClearQueueResponse(BaseModel):
 
 class LegacyMpesaDeleteQueueItemResponse(BaseModel):
     status: str
-    deleted_id: int
+    ignored_id: int
 
 
 async def _validate_assignment_payload(
@@ -2275,27 +2275,27 @@ async def clear_legacy_mpesa_queue(
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    pending_ids = (
+    pending_rows = (
         await db.execute(
-            select(LegacyMpesaTransaction.id)
+            select(LegacyMpesaTransaction)
             .where(LegacyMpesaTransaction.onboarding_status == "pending_assignment")
         )
     ).scalars().all()
 
-    if not pending_ids:
+    if not pending_rows:
         return {
             "status": "success",
             "cleared": 0,
         }
 
-    await db.execute(
-        delete(LegacyMpesaTransaction).where(LegacyMpesaTransaction.id.in_(pending_ids))
-    )
+    for queue_item in pending_rows:
+        queue_item.onboarding_status = "ignored"
+        db.add(queue_item)
     await db.commit()
 
     return {
         "status": "success",
-        "cleared": len(pending_ids),
+        "cleared": len(pending_rows),
     }
 
 
@@ -2313,14 +2313,15 @@ async def delete_legacy_mpesa_queue_item(
     if not queue_item:
         raise HTTPException(status_code=404, detail="Legacy transaction not found")
     if queue_item.onboarding_status != "pending_assignment":
-        raise HTTPException(status_code=400, detail="Only pending legacy transactions can be deleted")
+        raise HTTPException(status_code=400, detail="Only pending legacy transactions can be ignored")
 
-    await db.delete(queue_item)
+    queue_item.onboarding_status = "ignored"
+    db.add(queue_item)
     await db.commit()
 
     return {
         "status": "success",
-        "deleted_id": queue_id,
+        "ignored_id": queue_id,
     }
 
 
@@ -2344,8 +2345,10 @@ async def assign_legacy_mpesa_transaction(
     queue_item = queue_res.scalar_one_or_none()
     if not queue_item:
         raise HTTPException(status_code=404, detail="Legacy transaction not found")
-    if queue_item.onboarding_status == "assigned" and queue_item.payment_id:
-        raise HTTPException(status_code=400, detail="Legacy transaction has already been assigned")
+    if queue_item.onboarding_status != "pending_assignment":
+        if queue_item.onboarding_status == "assigned" and queue_item.payment_id:
+            raise HTTPException(status_code=400, detail="Legacy transaction has already been assigned")
+        raise HTTPException(status_code=400, detail="Only pending legacy transactions can be assigned")
 
     user, payment = await _assign_legacy_queue_item(
         db,

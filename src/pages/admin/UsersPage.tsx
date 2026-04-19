@@ -55,7 +55,7 @@ export function UsersPage() {
   const [legacyQueuePage, setLegacyQueuePage] = useState(1);
   const [legacyQueueTotal, setLegacyQueueTotal] = useState(0);
   const [legacyQueueTotalPages, setLegacyQueueTotalPages] = useState(1);
-  const [legacyQueueStatus, setLegacyQueueStatus] = useState<'pending_assignment' | 'assigned' | 'all'>('pending_assignment');
+  const [legacyQueueStatus, setLegacyQueueStatus] = useState<'pending_assignment' | 'ignored' | 'assigned' | 'all'>('pending_assignment');
   const [legacyQueueLoading, setLegacyQueueLoading] = useState(false);
   const [legacySyncing, setLegacySyncing] = useState(false);
   const [legacyBackfilling, setLegacyBackfilling] = useState(false);
@@ -532,17 +532,17 @@ export function UsersPage() {
   };
 
   const handleClearLegacyQueue = async () => {
-    if (!confirm('Clear all pending legacy queue items? Assigned rows will be kept.')) return;
+    if (!confirm('Ignore all pending legacy queue items? Assigned and previously ignored rows will be kept.')) return;
 
     setLegacyClearingQueue(true);
     try {
       const result = await adminService.clearLegacyMpesaQueue();
-      toast.success(`Cleared ${result.cleared} pending legacy queue item${result.cleared === 1 ? '' : 's'}`);
+      toast.success(`Ignored ${result.cleared} pending legacy queue item${result.cleared === 1 ? '' : 's'}`);
       setSelectedLegacyQueueIds([]);
       setLegacyQueuePage(1);
       loadLegacyQueue(1);
     } catch (error: any) {
-      const message = error?.response?.data?.detail || 'Failed to clear legacy queue';
+      const message = error?.response?.data?.detail || 'Failed to ignore pending legacy queue items';
       toast.error(message);
     } finally {
       setLegacyClearingQueue(false);
@@ -588,16 +588,16 @@ export function UsersPage() {
   };
 
   const handleDeleteLegacyQueueItem = async (item: LegacyMpesaQueueItem) => {
-    if (!confirm(`Delete pending legacy queue item ${item.source_record_id}?`)) return;
+    if (!confirm(`Ignore pending legacy queue item ${item.source_record_id}?`)) return;
 
     setLegacyDeletingId(item.id);
     try {
       await adminService.deleteLegacyMpesaQueueItem(item.id);
-      toast.success('Legacy queue item deleted');
+      toast.success('Legacy queue item ignored');
       setSelectedLegacyQueueIds((prev) => prev.filter((id) => id !== item.id));
       loadLegacyQueue(legacyQueuePage);
     } catch (error: any) {
-      const message = error?.response?.data?.detail || 'Failed to delete legacy queue item';
+      const message = error?.response?.data?.detail || 'Failed to ignore legacy queue item';
       toast.error(message);
     } finally {
       setLegacyDeletingId(null);
@@ -615,7 +615,7 @@ export function UsersPage() {
 
   const handleSelectAllVisibleLegacyQueue = () => {
     const visiblePendingIds = legacyQueue
-      .filter((item) => item.onboarding_status !== 'assigned')
+      .filter((item) => item.onboarding_status === 'pending_assignment')
       .map((item) => item.id);
     if (visiblePendingIds.length === 0) {
       return;
@@ -847,7 +847,7 @@ export function UsersPage() {
               disabled={legacyClearingQueue || legacySyncing || legacyBackfilling || legacyDateImporting}
               className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-red-500/10 border border-red-500/20 rounded-xl text-sm text-red-300 disabled:opacity-50"
             >
-              {legacyClearingQueue ? 'Clearing...' : 'Clear Pending Queue'}
+              {legacyClearingQueue ? 'Ignoring...' : 'Ignore Pending Queue'}
             </button>
           </div>
         </div>
@@ -987,6 +987,7 @@ export function UsersPage() {
         <div className="flex gap-2 overflow-x-auto">
           {[
             { key: 'pending_assignment', label: 'Pending' },
+            { key: 'ignored', label: 'Ignored' },
             { key: 'assigned', label: 'Assigned' },
             { key: 'all', label: 'All' },
           ].map((filter) => (
@@ -994,7 +995,7 @@ export function UsersPage() {
               key={filter.key}
               type="button"
               onClick={() => {
-                setLegacyQueueStatus(filter.key as 'pending_assignment' | 'assigned' | 'all');
+                setLegacyQueueStatus(filter.key as 'pending_assignment' | 'ignored' | 'assigned' | 'all');
                 setLegacyQueuePage(1);
               }}
               className={`px-3 py-1.5 rounded-lg text-[11px] font-bold whitespace-nowrap transition-all ${
@@ -1021,7 +1022,7 @@ export function UsersPage() {
                         type="checkbox"
                         checked={selectedLegacyQueueIds.includes(item.id)}
                         onChange={(e) => toggleLegacyQueueSelection(item.id, e.target.checked)}
-                        disabled={item.onboarding_status === 'assigned' || legacyBulkAssigning}
+                        disabled={item.onboarding_status !== 'pending_assignment' || legacyBulkAssigning}
                         className="w-4 h-4 rounded border-zinc-700 bg-zinc-900 text-emerald-500 focus:ring-emerald-500"
                       />
                       <span className="text-sm font-semibold text-white">
@@ -1030,6 +1031,8 @@ export function UsersPage() {
                       <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded-full ${
                         item.onboarding_status === 'assigned'
                           ? 'bg-emerald-500/10 text-emerald-400'
+                          : item.onboarding_status === 'ignored'
+                            ? 'bg-zinc-800 text-zinc-300'
                           : 'bg-amber-500/10 text-amber-400'
                       }`}>
                         {item.onboarding_status.replace('_', ' ')}
@@ -1048,7 +1051,7 @@ export function UsersPage() {
                     <select
                       value={legacyAssignMode[item.id] || 'subscription'}
                       onChange={(e) => setLegacyAssignMode((prev) => ({ ...prev, [item.id]: e.target.value as AssignmentMode }))}
-                      disabled={item.onboarding_status === 'assigned'}
+                      disabled={item.onboarding_status !== 'pending_assignment'}
                       className="bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-white"
                     >
                       <option value="subscription">Subscription</option>
@@ -1059,7 +1062,7 @@ export function UsersPage() {
                         <select
                           value={legacyAssignTier[item.id] || subscriptionTiers[0]?.id || ''}
                           onChange={(e) => setLegacyAssignTier((prev) => ({ ...prev, [item.id]: e.target.value }))}
-                          disabled={item.onboarding_status === 'assigned'}
+                          disabled={item.onboarding_status !== 'pending_assignment'}
                           className="bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-white"
                         >
                           {subscriptionTiers.map((tier) => (
@@ -1071,7 +1074,7 @@ export function UsersPage() {
                           min="1"
                           value={legacyAssignDays[item.id] || 30}
                           onChange={(e) => setLegacyAssignDays((prev) => ({ ...prev, [item.id]: Number(e.target.value) }))}
-                          disabled={item.onboarding_status === 'assigned'}
+                          disabled={item.onboarding_status !== 'pending_assignment'}
                           className="bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-white"
                         />
                       </>
@@ -1080,7 +1083,7 @@ export function UsersPage() {
                         <select
                           value={legacyAssignJackpotType[item.id] || 'midweek'}
                           onChange={(e) => setLegacyAssignJackpotType((prev) => ({ ...prev, [item.id]: e.target.value as JackpotGrantType }))}
-                          disabled={item.onboarding_status === 'assigned'}
+                          disabled={item.onboarding_status !== 'pending_assignment'}
                           className="bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-white"
                         >
                           <option value="midweek">Midweek</option>
@@ -1089,7 +1092,7 @@ export function UsersPage() {
                         <select
                           value={legacyAssignJackpotDcLevel[item.id] || 3}
                           onChange={(e) => setLegacyAssignJackpotDcLevel((prev) => ({ ...prev, [item.id]: Number(e.target.value) }))}
-                          disabled={item.onboarding_status === 'assigned'}
+                          disabled={item.onboarding_status !== 'pending_assignment'}
                           className="bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-white"
                         >
                           {JACKPOT_DC_OPTIONS.map((dc) => (
@@ -1100,13 +1103,13 @@ export function UsersPage() {
                     )}
                     <button
                       type="button"
-                      disabled={item.onboarding_status === 'assigned' || legacyAssigningId === item.id || legacyBulkAssigning || legacyDeletingId === item.id}
+                      disabled={item.onboarding_status !== 'pending_assignment' || legacyAssigningId === item.id || legacyBulkAssigning || legacyDeletingId === item.id}
                       onClick={() => handleAssignLegacyQueueItem(item)}
                       className="px-3 py-2 rounded-xl bg-emerald-500 text-zinc-950 text-sm font-bold disabled:opacity-50"
                     >
-                      {legacyAssigningId === item.id ? 'Assigning...' : item.onboarding_status === 'assigned' ? 'Assigned' : 'Assign'}
+                      {legacyAssigningId === item.id ? 'Assigning...' : item.onboarding_status === 'assigned' ? 'Assigned' : item.onboarding_status === 'ignored' ? 'Ignored' : 'Assign'}
                     </button>
-                    {item.onboarding_status !== 'assigned' && (
+                    {item.onboarding_status === 'pending_assignment' && (
                       <button
                         type="button"
                         disabled={legacyDeletingId === item.id || legacyAssigningId === item.id || legacyBulkAssigning}
@@ -1114,7 +1117,7 @@ export function UsersPage() {
                         className="px-3 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-300 text-sm font-bold disabled:opacity-50 inline-flex items-center justify-center gap-2"
                       >
                         <Trash2 className="w-4 h-4" />
-                        {legacyDeletingId === item.id ? 'Deleting...' : 'Delete'}
+                        {legacyDeletingId === item.id ? 'Ignoring...' : 'Ignore'}
                       </button>
                     )}
                   </div>

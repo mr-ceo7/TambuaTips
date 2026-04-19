@@ -32,8 +32,9 @@ from app.routers.admin import (
 )
 from app.routers.tips import FlushTipSmsQueueRequest, delete_tip, flush_tip_sms_queue
 from app.security import hash_password
-from app.services.legacy_mpesa_sync import LegacyMpesaRecord
+from app.services.legacy_mpesa_sync import LegacyMpesaRecord, sync_legacy_mpesa_transactions
 from app.services.sms_tip_delivery import _format_tip_bundle_message
+from app.services.subscription_access import grant_subscription_entitlement
 
 
 async def _login_admin(client: AsyncClient, db_session, *, email: str, name: str) -> str:
@@ -697,7 +698,7 @@ async def test_onboard_sms_user_can_grant_pending_jackpot_access(db_session):
 
 
 @pytest.mark.asyncio
-async def test_clear_legacy_mpesa_queue_removes_only_pending_rows(db_session):
+async def test_clear_legacy_mpesa_queue_marks_pending_rows_ignored_and_keeps_assigned_rows(db_session):
     admin = await _create_user(
         db_session,
         email="admin-clear-legacy@example.com",
@@ -752,13 +753,17 @@ async def test_clear_legacy_mpesa_queue_removes_only_pending_rows(db_session):
             select(LegacyMpesaTransaction).order_by(LegacyMpesaTransaction.source_record_id.asc())
         )
     ).scalars().all()
-    assert len(remaining_rows) == 1
-    assert remaining_rows[0].source_record_id == 802
-    assert remaining_rows[0].onboarding_status == "assigned"
+    assert len(remaining_rows) == 3
+    assert remaining_rows[0].source_record_id == 801
+    assert remaining_rows[0].onboarding_status == "ignored"
+    assert remaining_rows[1].source_record_id == 802
+    assert remaining_rows[1].onboarding_status == "assigned"
+    assert remaining_rows[2].source_record_id == 803
+    assert remaining_rows[2].onboarding_status == "ignored"
 
 
 @pytest.mark.asyncio
-async def test_delete_legacy_mpesa_queue_item_removes_single_pending_row_only(db_session):
+async def test_delete_legacy_mpesa_queue_item_marks_single_pending_row_ignored(db_session):
     admin = await _create_user(
         db_session,
         email="admin-delete-legacy@example.com",
@@ -797,7 +802,7 @@ async def test_delete_legacy_mpesa_queue_item_removes_single_pending_row_only(db
 
     assert payload == {
         "status": "success",
-        "deleted_id": pending_row.id,
+        "ignored_id": pending_row.id,
     }
 
     remaining_rows = (
@@ -805,9 +810,58 @@ async def test_delete_legacy_mpesa_queue_item_removes_single_pending_row_only(db
             select(LegacyMpesaTransaction).order_by(LegacyMpesaTransaction.source_record_id.asc())
         )
     ).scalars().all()
-    assert len(remaining_rows) == 1
-    assert remaining_rows[0].source_record_id == 902
-    assert remaining_rows[0].onboarding_status == "assigned"
+    assert len(remaining_rows) == 2
+    assert remaining_rows[0].source_record_id == 901
+    assert remaining_rows[0].onboarding_status == "ignored"
+    assert remaining_rows[1].source_record_id == 902
+    assert remaining_rows[1].onboarding_status == "assigned"
+
+
+@pytest.mark.asyncio
+async def test_sync_skips_ignored_legacy_queue_rows(db_session):
+    existing_ignored = LegacyMpesaTransaction(
+        source_record_id=9901,
+        biz_no="7334523",
+        phone="+254700009901",
+        first_name="Ignored",
+        other_name="Legacy",
+        amount=480.0,
+        paid_at=datetime.now(UTC).replace(tzinfo=None),
+        onboarding_status="ignored",
+    )
+    db_session.add(existing_ignored)
+    await db_session.commit()
+
+    stats = await sync_legacy_mpesa_transactions(
+        db_session,
+        [
+            LegacyMpesaRecord(
+                source_record_id=9901,
+                biz_no="7334523",
+                phone="254700009901",
+                first_name="Ignored",
+                other_name="Legacy",
+                amount=480.0,
+                paid_at=datetime.now(UTC).replace(tzinfo=None),
+            )
+        ],
+    )
+
+    assert stats == {
+        "imported": 0,
+        "created_users": 0,
+        "linked_existing_users": 0,
+        "created_payments": 1,
+        "skipped": 1,
+    }
+
+    rows = (
+        await db_session.execute(
+            select(LegacyMpesaTransaction).where(LegacyMpesaTransaction.source_record_id == 9901)
+        )
+    ).scalars().all()
+    assert len(rows) == 1
+    assert rows[0].onboarding_status == "ignored"
 
 
 @pytest.mark.asyncio
@@ -1308,6 +1362,12 @@ async def test_flush_tip_sms_queue_sends_pending_bundles_immediately(client: Asy
     sms_user.sms_tips_enabled = True
     sms_user.subscription_expires_at = datetime.now(UTC).replace(tzinfo=None) + timedelta(days=30)
     db_session.add(sms_user)
+    grant_subscription_entitlement(
+        sms_user,
+        tier_id="standard",
+        duration_days=30,
+        source="test_setup",
+    )
 
     tip = Tip(
         fixture_id=901001,
