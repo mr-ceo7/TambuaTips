@@ -14,6 +14,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, delete, update, or_, case
+from sqlalchemy.orm import selectinload
 
 from app.dependencies import get_db, require_admin
 from app.models.user import User
@@ -1235,7 +1236,11 @@ async def export_transactions(
 async def user_activity_detail(user_id: int, db: AsyncSession = Depends(get_db), admin: User = Depends(require_admin)):
     """Detailed activity breakdown for a specific user."""
     # Check user exists
-    user_res = await db.execute(select(User).where(User.id == user_id))
+    user_res = await db.execute(
+        select(User)
+        .options(selectinload(User.subscription_entitlement_rows))
+        .where(User.id == user_id)
+    )
     u = user_res.scalar_one_or_none()
     if not u:
         raise HTTPException(status_code=404, detail="User not found")
@@ -1289,6 +1294,16 @@ async def user_activity_detail(user_id: int, db: AsyncSession = Depends(get_db),
             "email": u.email,
             "subscription_tier": u.subscription_tier,
             "subscription_expires_at": u.subscription_expires_at.isoformat() if u.subscription_expires_at else None,
+            "subscription_entitlements": [
+                {
+                    "id": entitlement.id,
+                    "tier_id": entitlement.tier_id,
+                    "expires_at": entitlement.expires_at.isoformat() if entitlement.expires_at else None,
+                    "payment_id": entitlement.payment_id,
+                    "source": entitlement.source,
+                }
+                for entitlement in sorted(u.subscription_entitlements, key=lambda item: (item.expires_at, item.id))
+            ],
             "is_active": u.is_active,
             "is_admin": u.is_admin,
             "country": u.country,
@@ -1658,6 +1673,7 @@ async def list_users(
             func.coalesce(activity_totals_subq.c.total_time_spent, 0).label("total_time_spent"),
             top_path_subq.c.most_visited_page,
         )
+        .options(selectinload(User.subscription_entitlement_rows))
         .outerjoin(activity_totals_subq, activity_totals_subq.c.user_id == User.id)
         .outerjoin(top_path_subq, top_path_subq.c.user_id == User.id)
     )

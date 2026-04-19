@@ -10,6 +10,8 @@ from app.models.subscription import SubscriptionEntitlement, SubscriptionTier
 from app.models.tip import Tip
 from app.models.user import User
 from app.services.subscription_access import grant_subscription_entitlement, sync_user_subscription_summary
+from app.main import app
+from app.dependencies import require_admin
 
 
 async def _login_helper(client: AsyncClient, email: str, name: str) -> str:
@@ -108,3 +110,51 @@ async def test_access_falls_back_to_lower_active_entitlement_after_higher_expire
     assert refreshed_user.subscription_tier == "standard"
     entitlements = (await db_session.execute(select(SubscriptionEntitlement).where(SubscriptionEntitlement.user_id == user.id))).scalars().all()
     assert len(entitlements) == 2
+
+
+@pytest.mark.asyncio
+async def test_admin_user_payload_includes_active_entitlements(client: AsyncClient, db_session: AsyncSession):
+    admin_user = User(
+        name="Admin",
+        email="admin-entitlements@example.com",
+        password="hashed",
+        is_admin=True,
+        is_active=True,
+        subscription_tier="premium",
+        subscription_expires_at=datetime.now(UTC).replace(tzinfo=None) + timedelta(days=30),
+    )
+    target_user = User(
+        name="Managed User",
+        email="managed-user@example.com",
+        password="hashed",
+        is_active=True,
+        subscription_tier="standard",
+        subscription_expires_at=datetime.now(UTC).replace(tzinfo=None) + timedelta(days=20),
+    )
+    db_session.add_all([admin_user, target_user])
+    await db_session.commit()
+    await db_session.refresh(admin_user)
+    await db_session.refresh(target_user)
+
+    grant_subscription_entitlement(target_user, tier_id="basic", duration_days=14, source="test")
+    grant_subscription_entitlement(target_user, tier_id="standard", duration_days=30, source="test")
+    db_session.add(target_user)
+    await db_session.commit()
+
+    async def override_admin():
+        return admin_user
+
+    app.dependency_overrides[require_admin] = override_admin
+    try:
+        users_res = await client.get("/api/admin/users")
+        assert users_res.status_code == 200
+        payload = users_res.json()
+        managed = next(user for user in payload["users"] if user["id"] == target_user.id)
+        assert {item["tier_id"] for item in managed["subscription_entitlements"]} == {"basic", "standard"}
+
+        detail_res = await client.get(f"/api/admin/users/{target_user.id}/activity")
+        assert detail_res.status_code == 200
+        detail = detail_res.json()
+        assert {item["tier_id"] for item in detail["user"]["subscription_entitlements"]} == {"basic", "standard"}
+    finally:
+        app.dependency_overrides.pop(require_admin, None)

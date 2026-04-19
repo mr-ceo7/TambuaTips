@@ -12,6 +12,13 @@ export interface AdminUser {
   subscription_tier: string;
   is_subscription_active: boolean;
   subscription_expires_at: string | null;
+  subscription_entitlements: {
+    id: number;
+    tier_id: string;
+    expires_at: string;
+    payment_id: number | null;
+    source: string;
+  }[];
   sms_tips_enabled: boolean;
   country: string | null;
   created_at: string;
@@ -166,6 +173,13 @@ export interface UserActivityDetail {
     email: string;
     subscription_tier: string;
     subscription_expires_at: string | null;
+    subscription_entitlements: {
+      id: number;
+      tier_id: string;
+      expires_at: string;
+      payment_id: number | null;
+      source: string;
+    }[];
     is_active: boolean;
     is_admin: boolean;
     country: string | null;

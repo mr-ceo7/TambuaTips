@@ -102,6 +102,10 @@ export function UsersPage() {
     () => availableTiers.filter((tier) => tier.id !== 'free'),
     [availableTiers]
   );
+  const grantTargetUser = useMemo(
+    () => users.find((user) => user.id === grantModalOpen) || null,
+    [users, grantModalOpen]
+  );
 
   useEffect(() => {
     getPricingTiers().then((tiers) => {
@@ -1376,7 +1380,7 @@ export function UsersPage() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3.5"><TierBadge tier={u.subscription_tier} expiresAt={u.subscription_expires_at} /></td>
+                    <td className="px-4 py-3.5"><TierBadge tier={u.subscription_tier} expiresAt={u.subscription_expires_at} entitlements={u.subscription_entitlements} /></td>
                     <td className="px-4 py-3.5">
                       {u.is_online ? (<span className="inline-flex items-center gap-1.5 px-2 py-1 bg-emerald-500/10 text-emerald-400 text-[11px] font-bold rounded-full"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />Online</span>) : (<div><span className="text-[11px] text-zinc-500">Offline</span>{u.last_seen && <p className="text-[10px] text-zinc-600">{new Date(u.last_seen).toLocaleDateString()}</p>}</div>)}
                     </td>
@@ -1388,7 +1392,7 @@ export function UsersPage() {
                       <div className="flex items-center gap-1.5 justify-end">
                         <button onClick={() => handleExpandUser(u.id)} className="p-1.5 rounded-lg text-zinc-500 hover:text-white hover:bg-zinc-800 transition-all" title="View Details"><Eye className="w-3.5 h-3.5" /></button>
                         <button onClick={() => setGrantModalOpen(u.id)} className="p-1.5 rounded-lg text-zinc-500 hover:text-emerald-400 hover:bg-emerald-500/10 transition-all" title="Grant Subscription"><Gift className="w-3.5 h-3.5" /></button>
-                        {u.subscription_tier !== 'free' && <button onClick={() => handleRevoke(u.id)} className="p-1.5 rounded-lg text-zinc-500 hover:text-yellow-400 hover:bg-yellow-500/10 transition-all" title="Revoke Subscription"><XCircle className="w-3.5 h-3.5" /></button>}
+                        {u.subscription_tier !== 'free' && <button onClick={() => handleRevoke(u.id)} className="p-1.5 rounded-lg text-zinc-500 hover:text-yellow-400 hover:bg-yellow-500/10 transition-all" title="Revoke All Subscriptions"><XCircle className="w-3.5 h-3.5" /></button>}
                         <button onClick={() => handleToggleActive(u)} className={`p-1.5 rounded-lg transition-all ${u.is_active ? 'text-zinc-500 hover:text-red-400 hover:bg-red-500/10' : 'text-zinc-500 hover:text-emerald-400 hover:bg-emerald-500/10'}`}>{u.is_active ? <UserX className="w-3.5 h-3.5" /> : <UserCheck className="w-3.5 h-3.5" />}</button>
                         {!u.is_admin && <button onClick={() => handleMakeAdmin(u.id)} className="p-1.5 rounded-lg text-zinc-500 hover:text-emerald-400 hover:bg-emerald-500/10 transition-all"><Shield className="w-3.5 h-3.5" /></button>}
                       </div>
@@ -1399,7 +1403,19 @@ export function UsersPage() {
                       <div className="bg-zinc-800/30 rounded-xl p-4 my-2 border border-zinc-800/40">
                         {detailLoading ? (<div className="flex items-center justify-center py-8"><div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" /></div>) : userDetail ? (
                           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                            <div className="space-y-3"><h4 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Summary</h4><div className="space-y-2 text-xs"><p className="text-zinc-300">Total Time: <span className="font-bold text-white">{Math.floor(userDetail.total_time_spent / 60)}m {userDetail.total_time_spent % 60}s</span></p><p className="text-zinc-300">Total Spent: <span className="font-bold text-emerald-400">KES {userDetail.total_spent.toLocaleString()}</span></p><p className="text-zinc-300">Jackpot Purchases: <span className="font-bold">{userDetail.jackpot_purchases}</span></p><div className="text-zinc-300 flex items-center gap-1">Country: <span className="font-bold text-white">{userDetail.user.country ? <span className="inline-flex items-center gap-1"><span className="text-[13px] leading-none">{getFlagEmoji(userDetail.user.country)}</span>{userDetail.user.country}</span> : 'Unknown'}</span></div></div></div>
+                            <div className="space-y-3">
+                              <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Summary</h4>
+                              <div className="space-y-2 text-xs">
+                                <p className="text-zinc-300">Total Time: <span className="font-bold text-white">{Math.floor(userDetail.total_time_spent / 60)}m {userDetail.total_time_spent % 60}s</span></p>
+                                <p className="text-zinc-300">Total Spent: <span className="font-bold text-emerald-400">KES {userDetail.total_spent.toLocaleString()}</span></p>
+                                <p className="text-zinc-300">Jackpot Purchases: <span className="font-bold">{userDetail.jackpot_purchases}</span></p>
+                                <div className="text-zinc-300 flex items-center gap-1">Country: <span className="font-bold text-white">{userDetail.user.country ? <span className="inline-flex items-center gap-1"><span className="text-[13px] leading-none">{getFlagEmoji(userDetail.user.country)}</span>{userDetail.user.country}</span> : 'Unknown'}</span></div>
+                              </div>
+                              <div>
+                                <h5 className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2">Active Entitlements</h5>
+                                <ActiveEntitlementsList entitlements={userDetail.user.subscription_entitlements} />
+                              </div>
+                            </div>
                             <div className="space-y-3"><h4 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Page Activity</h4><div className="space-y-1.5 max-h-40 overflow-y-auto">{userDetail.pages.map(p => (<div key={p.path} className="flex items-center justify-between text-[11px]"><span className="text-zinc-400 truncate mr-2">{p.path}</span><span className="text-zinc-500 shrink-0">{p.visits}x &bull; {Math.floor(p.total_time / 60)}m</span></div>))}{userDetail.pages.length === 0 && <p className="text-xs text-zinc-600">No activity recorded</p>}</div></div>
                             <div className="space-y-3"><h4 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Payment History</h4><div className="space-y-1.5 max-h-40 overflow-y-auto">{userDetail.payments.map(p => (<div key={p.id} className="flex items-center justify-between text-[11px]"><div className="flex items-center gap-2"><span className={`w-1.5 h-1.5 rounded-full ${p.status === 'completed' ? 'bg-emerald-500' : p.status === 'failed' ? 'bg-red-500' : 'bg-yellow-500'}`} /><span className="text-zinc-300">KES {p.amount.toLocaleString()}</span></div><span className="text-zinc-500 capitalize">{p.method}</span></div>))}{userDetail.payments.length === 0 && <p className="text-xs text-zinc-600">No payments</p>}</div></div>
                           </div>
@@ -1448,7 +1464,7 @@ export function UsersPage() {
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <TierBadge tier={u.subscription_tier} expiresAt={u.subscription_expires_at} />
+                    <TierBadge tier={u.subscription_tier} expiresAt={u.subscription_expires_at} entitlements={u.subscription_entitlements} />
                     {u.country && <span className="text-[9px] text-zinc-600 bg-zinc-800 px-1.5 py-0.5 rounded inline-flex items-center gap-1"><span className="text-[10px] leading-none">{getFlagEmoji(u.country)}</span>{u.country}</span>}
                     <span className="text-[10px] text-zinc-600">{Math.floor(u.total_time_spent / 60)}m</span>
                   </div>
@@ -1471,6 +1487,10 @@ export function UsersPage() {
                           <p className="text-zinc-400">Spent: <span className="font-bold text-emerald-400">KES {userDetail.total_spent.toLocaleString()}</span></p>
                           <p className="text-zinc-400">Jackpots: <span className="font-bold text-white">{userDetail.jackpot_purchases}</span></p>
                           <p className="text-zinc-400">Joined: <span className="font-bold text-white">{userDetail.user.created_at ? new Date(userDetail.user.created_at).toLocaleDateString() : '\u2014'}</span></p>
+                        </div>
+                        <div>
+                          <h4 className="text-[10px] font-bold text-zinc-500 uppercase mb-1">Active Entitlements</h4>
+                          <ActiveEntitlementsList entitlements={userDetail.user.subscription_entitlements} compact />
                         </div>
                         {userDetail.pages.length > 0 && (<div><h4 className="text-[10px] font-bold text-zinc-500 uppercase mb-1">Top Pages</h4>{userDetail.pages.slice(0, 3).map(p => (<div key={p.path} className="flex justify-between text-[11px]"><span className="text-zinc-400 truncate mr-2">{p.path}</span><span className="text-zinc-500 shrink-0">{p.visits}x</span></div>))}</div>)}
                         {userDetail.payments.length > 0 && (<div><h4 className="text-[10px] font-bold text-zinc-500 uppercase mb-1">Recent Payments</h4>{userDetail.payments.slice(0, 3).map(p => (<div key={p.id} className="flex justify-between text-[11px]"><div className="flex items-center gap-1.5"><span className={`w-1.5 h-1.5 rounded-full ${p.status === 'completed' ? 'bg-emerald-500' : 'bg-yellow-500'}`} /><span className="text-zinc-300">KES {p.amount.toLocaleString()}</span></div><span className="text-zinc-500 capitalize">{p.method}</span></div>))}</div>)}
@@ -1514,6 +1534,17 @@ export function UsersPage() {
           <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-md overflow-hidden">
             <div className="p-5 border-b border-zinc-800">
               <h3 className="text-lg font-bold text-white">Grant Subscription</h3>
+              {grantTargetUser && (
+                <div className="mt-3 rounded-xl border border-zinc-800/80 bg-zinc-950/60 p-3">
+                  <p className="text-xs font-medium text-white">{grantTargetUser.name}</p>
+                  <p className="text-[11px] text-zinc-500">{grantTargetUser.email}</p>
+                  <div className="mt-3">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-2">Current Active Entitlements</p>
+                    <ActiveEntitlementsList entitlements={grantTargetUser.subscription_entitlements} compact />
+                  </div>
+                  <p className="mt-3 text-[11px] text-zinc-500">New grants stack independently. Granting another tier will not remove the existing ones.</p>
+                </div>
+              )}
             </div>
             <form onSubmit={handleGrantSubmit} className="p-5 space-y-4">
               <div>
@@ -1592,7 +1623,47 @@ function getTierColor(tier: string): string {
   return DYNAMIC_COLORS[Math.abs(hash) % DYNAMIC_COLORS.length];
 }
 
-function TierBadge({ tier, expiresAt }: { tier: string; expiresAt: string | null }) {
+function ActiveEntitlementsList({
+  entitlements,
+  compact = false,
+}: {
+  entitlements: { id: number; tier_id: string; expires_at: string; payment_id: number | null; source: string }[];
+  compact?: boolean;
+}) {
+  if (!entitlements || entitlements.length === 0) {
+    return <p className="text-xs text-zinc-600">No active paid entitlements</p>;
+  }
+
+  return (
+    <div className={`flex flex-wrap gap-2 ${compact ? '' : 'max-w-full'}`}>
+      {entitlements
+        .slice()
+        .sort((a, b) => new Date(a.expires_at).getTime() - new Date(b.expires_at).getTime())
+        .map((entitlement) => (
+          <div key={entitlement.id} className="rounded-lg border border-zinc-800 bg-zinc-900/70 px-2.5 py-1.5">
+            <div className="flex items-center gap-2">
+              <span className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-bold uppercase ${getTierColor(entitlement.tier_id)}`}>
+                {entitlement.tier_id}
+              </span>
+              <span className="text-[10px] text-zinc-500">
+                Until {new Date(entitlement.expires_at).toLocaleDateString()}
+              </span>
+            </div>
+          </div>
+        ))}
+    </div>
+  );
+}
+
+function TierBadge({
+  tier,
+  expiresAt,
+  entitlements = [],
+}: {
+  tier: string;
+  expiresAt: string | null;
+  entitlements?: { id: number; tier_id: string; expires_at: string; payment_id: number | null; source: string }[];
+}) {
   return (
     <div>
       <span className={`inline-block px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase ${getTierColor(tier)}`}>
@@ -1600,6 +1671,23 @@ function TierBadge({ tier, expiresAt }: { tier: string; expiresAt: string | null
       </span>
       {expiresAt && tier !== 'free' && (
         <p className="text-[9px] text-zinc-600 mt-0.5">Until {new Date(expiresAt).toLocaleDateString()}</p>
+      )}
+      {entitlements.length > 1 && (
+        <div className="mt-1 flex flex-wrap gap-1">
+          {entitlements.slice(0, 3).map((entitlement) => (
+            <span
+              key={entitlement.id}
+              className={`inline-block px-1.5 py-0.5 rounded-md text-[9px] font-bold uppercase ${getTierColor(entitlement.tier_id)}`}
+            >
+              {entitlement.tier_id}
+            </span>
+          ))}
+          {entitlements.length > 3 && (
+            <span className="inline-block px-1.5 py-0.5 rounded-md text-[9px] font-bold uppercase bg-zinc-800 text-zinc-400">
+              +{entitlements.length - 3}
+            </span>
+          )}
+        </div>
       )}
     </div>
   );
