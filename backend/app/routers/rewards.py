@@ -10,6 +10,7 @@ from app.dependencies import get_db, get_current_user
 from app.models.user import User
 from app.models.tip import Tip
 from app.routers.admin import get_referral_settings
+from app.services.subscription_access import grant_subscription_entitlement
 
 router = APIRouter(prefix="/api/rewards", tags=["Rewards"])
 
@@ -87,14 +88,12 @@ async def redeem_points(body: RedeemRequest, db: AsyncSession = Depends(get_db),
         
         current_user.referral_points -= cost
         
-        # Best effort to extend or set premium
-        if current_user.subscription_tier == "free":
-            current_user.subscription_tier = "basic"
-            
-        if not current_user.subscription_expires_at or current_user.subscription_expires_at < datetime.now(UTC).replace(tzinfo=None):
-            current_user.subscription_expires_at = datetime.now(UTC).replace(tzinfo=None) + timedelta(days=days)
-        else:
-            current_user.subscription_expires_at += timedelta(days=days)
+        grant_subscription_entitlement(
+            current_user,
+            tier_id="basic",
+            duration_days=days,
+            source="referral_reward",
+        )
             
         db.add(current_user)
         await db.commit()

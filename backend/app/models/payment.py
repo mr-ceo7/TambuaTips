@@ -34,3 +34,4 @@ class Payment(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     user = relationship("User", back_populates="payments")
+    subscription_entitlements = relationship("SubscriptionEntitlement", back_populates="payment", lazy="selectin")

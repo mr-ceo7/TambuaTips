@@ -59,6 +59,7 @@ export const authService = {
         tier: data.subscription_tier || 'free',
         expiresAt: data.subscription_expires_at || '',
       },
+      subscription_entitlements: data.subscription_entitlements || [],
       purchasedJackpotIds: [],
       favorite_teams: data.favorite_teams || [],
       profile_picture: data.profile_picture,

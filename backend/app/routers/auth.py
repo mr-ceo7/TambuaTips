@@ -24,6 +24,7 @@ from app.models.activity import UserActivity, AnonymousVisitor, AnonymousActivit
 from app.schemas.auth import GoogleLoginRequest, PhoneLoginRequest, PhoneVerifyRequest, MagicLoginRequest, RefreshRequest, UserResponse, UpdateFavoritesRequest, PushSubscribeRequest, ActivityRequest
 from app.security import hash_password, verify_password, create_access_token, create_refresh_token, decode_token
 from app.services.email_service import send_welcome_email
+from app.services.subscription_access import grant_subscription_entitlement
 
 def get_real_ip(request: Request) -> str:
     x_forwarded_for = request.headers.get("x-forwarded-for")
@@ -204,8 +205,12 @@ async def google_auth(body: GoogleLoginRequest, request: Request, response: Resp
                         if ref_settings.get("referral_new_user_reward", False):
                             new_user_days = ref_settings.get("referral_new_user_reward_days", 7)
                             new_user_tier = ref_settings.get("referral_new_user_reward_tier", "basic")
-                            user.subscription_tier = new_user_tier
-                            user.subscription_expires_at = datetime.now(UTC).replace(tzinfo=None) + timedelta(days=new_user_days)
+                            grant_subscription_entitlement(
+                                user,
+                                tier_id=new_user_tier,
+                                duration_days=new_user_days,
+                                source="referral_signup_reward",
+                            )
                         
                         db.add(referrer)
                         db.add(user)
@@ -442,8 +447,12 @@ async def verify_phone_otp(body: PhoneVerifyRequest, request: Request, response:
                 if ref_settings.get("referral_new_user_reward", False):
                     new_user_days = ref_settings.get("referral_new_user_reward_days", 7)
                     new_user_tier = ref_settings.get("referral_new_user_reward_tier", "basic")
-                    user.subscription_tier = new_user_tier
-                    user.subscription_expires_at = datetime.now(UTC).replace(tzinfo=None) + timedelta(days=new_user_days)
+                    grant_subscription_entitlement(
+                        user,
+                        tier_id=new_user_tier,
+                        duration_days=new_user_days,
+                        source="referral_signup_reward",
+                    )
                 
                 db.add(referrer)
 

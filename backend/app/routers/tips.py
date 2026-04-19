@@ -16,6 +16,7 @@ from app.schemas.tip import TipCreate, TipUpdate, TipResponse, TipLockedResponse
 from pydantic import BaseModel
 from fastapi import BackgroundTasks
 from app.services.sms_tip_delivery import queue_tip_sms_for_tip, flush_pending_sms_tip_bundles
+from app.services.subscription_access import get_active_tier_ids, user_has_category_access
 
 router = APIRouter(prefix="/api/tips", tags=["Tips"])
 
@@ -23,26 +24,11 @@ router = APIRouter(prefix="/api/tips", tags=["Tips"])
 class FlushTipSmsQueueRequest(BaseModel):
     tip_ids: Optional[List[int]] = None
 
-# Tier access mapping
-TIER_RANK = {"free": 0, "basic": 1, "standard": 2, "premium": 3}
 from app.models.subscription import SubscriptionTier
 
 
 def user_has_access(user: Optional[User], tip: Tip, tier_dict: dict) -> bool:
-    if getattr(tip, "is_premium", 1) == 0:
-        return True
-    if not user:
-        return False
-    if user.is_admin or user.subscription_tier == "premium":
-        return True
-    if not user.is_subscription_active:
-        return False
-
-    user_tier_conf = tier_dict.get(user.subscription_tier)
-    if user_tier_conf and isinstance(user_tier_conf.categories, list):
-        return getattr(tip, "category", "") in user_tier_conf.categories
-        
-    return False
+    return user_has_category_access(user, getattr(tip, "category", ""), tier_dict.values())
 
 
 @router.get("", response_model=List)
@@ -87,7 +73,8 @@ async def list_tips(
     response = []
 
     # Pre-calculate if the user is Premium/Admin to bypass the marketing filters
-    is_premium_or_admin = bool(user and (user.is_admin or TIER_RANK.get(user.subscription_tier, 0) == 3))
+    active_tiers = get_active_tier_ids(user) if user else set()
+    is_premium_or_admin = bool(user and (user.is_admin or "premium" in active_tiers))
     lost_counter = 0
 
     for tip in tips:

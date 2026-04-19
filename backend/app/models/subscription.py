@@ -1,9 +1,10 @@
 """
-Subscription tier configuration model — replaces frontend pricingService.ts localStorage.
+Subscription tier configuration and per-user entitlement models.
 """
 
 from datetime import datetime
-from sqlalchemy import Column, BigInteger, String, Integer, Float, Boolean, DateTime, JSON
+from sqlalchemy import Column, BigInteger, String, Float, Boolean, DateTime, JSON, ForeignKey
+from sqlalchemy.orm import relationship
 
 from app.database import Base
 
@@ -23,3 +24,21 @@ class SubscriptionTier(Base):
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class SubscriptionEntitlement(Base):
+    __tablename__ = "subscription_entitlements"
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    user_id = Column(BigInteger, ForeignKey("users.id"), nullable=False, index=True)
+    tier_id = Column(String(20), ForeignKey("subscription_tiers.tier_id"), nullable=False, index=True)
+    payment_id = Column(BigInteger, ForeignKey("payments.id"), nullable=True, index=True)
+    source = Column(String(50), nullable=False, default="payment")
+    expires_at = Column(DateTime, nullable=False, index=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = relationship("User", back_populates="subscription_entitlement_rows")
+    tier = relationship("SubscriptionTier")
+    payment = relationship("Payment", back_populates="subscription_entitlements")

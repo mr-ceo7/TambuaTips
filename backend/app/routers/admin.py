@@ -29,7 +29,7 @@ from app.models.payment import Payment
 from app.models.tip import Tip
 from app.models.jackpot import Jackpot, JackpotPurchase
 from app.models.legacy_mpesa import LegacyMpesaTransaction
-from app.models.subscription import SubscriptionTier
+from app.models.subscription import SubscriptionTier, SubscriptionEntitlement
 from app.models.activity import UserActivity, AnonymousVisitor
 from app.models.ad import AdPost
 from app.models.setting import AdminSetting
@@ -45,6 +45,11 @@ from app.services.legacy_mpesa_sync import (
     ensure_phone_user,
     normalize_phone,
     sync_legacy_mpesa_transactions,
+)
+from app.services.subscription_access import (
+    grant_subscription_entitlement,
+    revoke_all_subscription_entitlements,
+    sync_user_subscription_summary,
 )
 from app.config import settings
 
@@ -120,14 +125,9 @@ def _ensure_magic_login_token(user: User):
 
 def _grant_subscription_access(user: User, tier: str, duration_days: int) -> None:
     if tier == "free":
-        user.subscription_tier = "free"
-        user.subscription_expires_at = None
+        revoke_all_subscription_entitlements(user)
         return
-
-    now = datetime.now(UTC).replace(tzinfo=None)
-    current_expiry = user.subscription_expires_at if user.subscription_expires_at and user.subscription_expires_at > now else now
-    user.subscription_tier = tier
-    user.subscription_expires_at = current_expiry + timedelta(days=duration_days)
+    grant_subscription_entitlement(user, tier_id=tier, duration_days=duration_days, source="admin")
 
 
 async def _resolve_pending_jackpot(
@@ -761,13 +761,10 @@ async def clear_dashboard_stats(db: AsyncSession = Depends(get_db), admin: User 
         # Wipe payment history and purchases
         await db.execute(delete(JackpotPurchase))
         await db.execute(delete(Payment))
+        await db.execute(delete(SubscriptionEntitlement))
         
         # Reset all registered users back to free tier
-        await db.execute(
-            update(User)
-            .where(User.subscription_tier != "free")
-            .values(subscription_tier="free", subscription_expires_at=None)
-        )
+        await db.execute(update(User).values(subscription_tier="free", subscription_expires_at=None))
         
         await db.commit()
         return {"status": "success", "message": "All stats cleared and users reset to free tier."}
@@ -1718,8 +1715,7 @@ async def revoke_subscription(user_id: int, db: AsyncSession = Depends(get_db), 
     result = await db.execute(select(User).where(User.id == user_id))
     u = result.scalar_one_or_none()
     if not u: raise HTTPException(status_code=404, detail="User not found")
-    u.subscription_tier = "free"
-    u.subscription_expires_at = None
+    revoke_all_subscription_entitlements(u)
     await db.commit()
     return {"status": "success"}
 
@@ -2002,8 +1998,7 @@ async def bulk_update_users(
                 skipped_user_ids.append(user.id)
                 continue
         elif action == "revoke_subscription":
-            user.subscription_tier = "free"
-            user.subscription_expires_at = None
+            revoke_all_subscription_entitlements(user)
         elif action == "ban":
             if user.id == admin.id:
                 skipped_user_ids.append(user.id)

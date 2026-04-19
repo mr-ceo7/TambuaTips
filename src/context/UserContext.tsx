@@ -12,6 +12,14 @@ export interface UserSubscription {
   expiresAt: string; // ISO date
 }
 
+export interface UserEntitlement {
+  id: number;
+  tier_id: SubscriptionTier | string;
+  expires_at: string;
+  payment_id?: number | null;
+  source: string;
+}
+
 export interface UserData {
   id: string;
   username: string;
@@ -19,6 +27,7 @@ export interface UserData {
   createdAt: string;
   is_admin?: boolean;
   subscription: UserSubscription;
+  subscription_entitlements?: UserEntitlement[];
   purchasedJackpotIds?: string[];
   favorite_teams?: string[];
   profile_picture?: string;

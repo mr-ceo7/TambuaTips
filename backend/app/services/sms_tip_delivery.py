@@ -10,6 +10,7 @@ from datetime import datetime, timedelta, UTC
 
 import httpx
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from app.config import settings
 from app.database import AsyncSessionLocal
@@ -18,6 +19,7 @@ from app.models.sms_tip import SmsTipQueue
 from app.models.subscription import SubscriptionTier
 from app.models.tip import Tip
 from app.models.user import User
+from app.services.subscription_access import sync_user_subscription_summary, user_has_category_access
 
 logger = logging.getLogger(__name__)
 
@@ -33,24 +35,11 @@ def _normalize_phone_digits(phone: str) -> str:
     return digits
 
 
-def _tier_categories_map(tiers: list[SubscriptionTier]) -> dict[str, list[str]]:
-    out: dict[str, list[str]] = {}
-    for tier in tiers:
-        if isinstance(tier.categories, list):
-            out[tier.tier_id] = tier.categories
-        else:
-            out[tier.tier_id] = []
-    return out
-
-
-def _user_has_tip_access(user: User, tip: Tip, tier_categories: dict[str, list[str]]) -> bool:
+def _user_has_tip_access(user: User, tip: Tip, tiers: list[SubscriptionTier]) -> bool:
     if not user.sms_tips_enabled or not user.is_active or not user.phone:
         return False
-    if not user.is_subscription_active:
-        return False
-    if user.is_admin or user.subscription_tier == "premium":
-        return True
-    return tip.category in tier_categories.get(user.subscription_tier or "", [])
+    sync_user_subscription_summary(user)
+    return user_has_category_access(user, tip.category, tiers)
 
 
 async def _get_sms_settings(db) -> dict:
@@ -106,7 +95,11 @@ async def _deliver_pending_sms_tip_bundle(
     user_id: int,
     only_tip_ids: list[int] | None = None,
 ) -> bool:
-    user_result = await db.execute(select(User).where(User.id == user_id))
+    user_result = await db.execute(
+        select(User)
+        .options(selectinload(User.subscription_entitlement_rows))
+        .where(User.id == user_id)
+    )
     user = user_result.scalar_one_or_none()
 
     queue_stmt = (
@@ -139,7 +132,7 @@ async def _deliver_pending_sms_tip_bundle(
         return False
 
     tier_result = await db.execute(select(SubscriptionTier))
-    tier_categories = _tier_categories_map(tier_result.scalars().all())
+    tiers = tier_result.scalars().all()
 
     tip_ids = [item.tip_id for item in queue_items]
     tip_result = await db.execute(select(Tip).where(Tip.id.in_(tip_ids)))
@@ -147,7 +140,7 @@ async def _deliver_pending_sms_tip_bundle(
     eligible_tips = [
         tips_by_id[item.tip_id]
         for item in queue_items
-        if item.tip_id in tips_by_id and _user_has_tip_access(user, tips_by_id[item.tip_id], tier_categories)
+        if item.tip_id in tips_by_id and _user_has_tip_access(user, tips_by_id[item.tip_id], tiers)
     ]
 
     if not eligible_tips:
@@ -215,14 +208,14 @@ async def queue_tip_sms_for_tip(tip_id: int) -> None:
 
         tier_result = await db.execute(select(SubscriptionTier))
         tiers = tier_result.scalars().all()
-        tier_categories = _tier_categories_map(tiers)
 
         user_result = await db.execute(
-            select(User).where(
+            select(User)
+            .options(selectinload(User.subscription_entitlement_rows))
+            .where(
                 User.sms_tips_enabled == True,
                 User.phone.is_not(None),
                 User.is_active == True,
-                User.subscription_tier != "free",
             )
         )
         users = user_result.scalars().all()
@@ -230,7 +223,7 @@ async def queue_tip_sms_for_tip(tip_id: int) -> None:
         now = datetime.now(UTC).replace(tzinfo=None)
 
         for user in users:
-            if not _user_has_tip_access(user, tip, tier_categories):
+            if not _user_has_tip_access(user, tip, tiers):
                 continue
 
             pending_result = await db.execute(

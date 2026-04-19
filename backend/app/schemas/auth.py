@@ -53,6 +53,16 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
 
 
+class SubscriptionEntitlementResponse(BaseModel):
+    id: int
+    tier_id: str
+    expires_at: datetime
+    payment_id: Optional[int] = None
+    source: str
+
+    model_config = {"from_attributes": True}
+
+
 class UserResponse(BaseModel):
     id: int
     name: str
@@ -61,6 +71,7 @@ class UserResponse(BaseModel):
     is_active: bool
     subscription_tier: str
     subscription_expires_at: Optional[datetime] = None
+    subscription_entitlements: list[SubscriptionEntitlementResponse] = Field(default_factory=list)
     is_subscription_active: bool
     sms_tips_enabled: bool = False
     favorite_teams: list[str] = Field(default_factory=list)

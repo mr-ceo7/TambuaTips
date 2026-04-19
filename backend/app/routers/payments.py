@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
+from sqlalchemy.orm import selectinload
 
 from app.config import settings
 from app.dependencies import get_db, get_current_user
@@ -22,6 +23,7 @@ from app.models.subscription import SubscriptionTier
 from app.models.affiliate import Affiliate, AffiliateConversion, AffiliateCommissionConfig
 from app.schemas.payment import MpesaPaymentRequest, PaymentRequest, PaymentResponse, MpesaCallbackData
 from app.services.email_service import send_payment_receipt_email
+from app.services.subscription_access import grant_subscription_entitlement, sync_user_subscription_summary
 
 router = APIRouter(prefix="/api/pay", tags=["Payments"])
 
@@ -148,7 +150,12 @@ async def _resolve_amount(body: PaymentRequest, user: User, db: AsyncSession) ->
 async def _fulfill_payment(payment: Payment, user: User, db: AsyncSession):
     """After successful payment, grant access to the purchased item."""
     # Ensure user is fully locked for this transaction to prevent overlapping updates
-    user_res = await db.execute(select(User).where(User.id == user.id).with_for_update())
+    user_res = await db.execute(
+        select(User)
+        .options(selectinload(User.subscription_entitlement_rows))
+        .where(User.id == user.id)
+        .with_for_update()
+    )
     locked_user = user_res.scalar_one()
 
     # Consume active referral discount upon successful purchase
@@ -167,8 +174,6 @@ async def _fulfill_payment(payment: Payment, user: User, db: AsyncSession):
             else:
                 weeks = 2
 
-        locked_user.subscription_tier = payment.item_id
-        
         # Check active campaign for extra days
         now_dt = datetime.now(UTC).replace(tzinfo=None)
         active_campaign = await db.execute(
@@ -186,11 +191,14 @@ async def _fulfill_payment(payment: Payment, user: User, db: AsyncSession):
         if campaign and campaign.incentive_type == "extra_days":
             bonus_days = int(campaign.incentive_value)
         
-        # Safely extend or overwrite expiry
-        if not locked_user.subscription_expires_at or locked_user.subscription_expires_at < now_dt:
-            locked_user.subscription_expires_at = now_dt + timedelta(weeks=weeks, days=bonus_days)
-        else:
-            locked_user.subscription_expires_at += timedelta(weeks=weeks, days=bonus_days)
+        grant_subscription_entitlement(
+            locked_user,
+            tier_id=payment.item_id,
+            duration_days=(weeks * 7) + bonus_days,
+            payment_id=payment.id,
+            source="payment",
+            now=now_dt,
+        )
 
     elif payment.item_type == "jackpot":
         purchase = JackpotPurchase(
@@ -210,6 +218,8 @@ async def _fulfill_payment(payment: Payment, user: User, db: AsyncSession):
                     payment_id=payment.id,
                 )
                 db.add(purchase)
+
+    sync_user_subscription_summary(locked_user)
 
     # === Affiliate Commission Logic ===
     if locked_user.affiliate_id:

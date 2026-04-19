@@ -8,22 +8,21 @@ from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from datetime import datetime, UTC
 
 from app.database import AsyncSessionLocal
 from app.security import decode_token
+from app.services.subscription_access import sync_user_subscription_summary
 
 security_scheme = HTTPBearer(auto_error=False)
 
 
 async def _auto_downgrade_expired_subscription(db: AsyncSession, user) -> bool:
-    if (
-        user.subscription_tier != "free"
-        and user.subscription_expires_at is not None
-        and user.subscription_expires_at <= datetime.now(UTC).replace(tzinfo=None)
-    ):
-        user.subscription_tier = "free"
-        user.subscription_expires_at = None
+    previous_tier = user.subscription_tier
+    previous_expiry = user.subscription_expires_at
+    sync_user_subscription_summary(user, now=datetime.now(UTC).replace(tzinfo=None))
+    if user.subscription_tier != previous_tier or user.subscription_expires_at != previous_expiry:
         db.add(user)
         return True
     return False
@@ -77,7 +76,11 @@ async def get_current_user(
     # Import here to avoid circular imports
     from app.models.user import User, UserSession
 
-    result = await db.execute(select(User).where(User.id == int(user_id)))
+    result = await db.execute(
+        select(User)
+        .options(selectinload(User.subscription_entitlement_rows))
+        .where(User.id == int(user_id))
+    )
     user = result.scalar_one_or_none()
 
     if user is None:
@@ -157,7 +160,11 @@ async def get_unverified_user(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid payload")
 
     from app.models.user import User, UserSession
-    result = await db.execute(select(User).where(User.id == int(user_id)))
+    result = await db.execute(
+        select(User)
+        .options(selectinload(User.subscription_entitlement_rows))
+        .where(User.id == int(user_id))
+    )
     user = result.scalar_one_or_none()
 
     if user is None:
