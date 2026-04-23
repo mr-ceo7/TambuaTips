@@ -446,7 +446,7 @@ function JackpotCard({ jackpot, onGetFree }: { jackpot: JackpotPrediction; key?:
 // ─── Main Page ───────────────────────────────────────────────
 export function TipsPage() {
   const { user, hasAccess, hasJackpotAccess, setShowAuthModal, setShowPricingModal, setShowJackpotModal, setSelectedJackpot } = useUser();
-  const [activeTab, setActiveTab] = useState<'free' | 'tips' | 'jackpot'>('free');
+  const [activeTab, setActiveTab] = useState<'tips' | 'free' | 'jackpot'>('tips');
   const [jackpotSubTab, setJackpotSubTab] = useState<'all' | 'midweek' | 'mega'>('all');
   const [stats, setStats] = useState({ total: 0, won: 0, lost: 0, pending: 0, voided: 0, postponed: 0, winRate: 0 });
   const [jackpots, setJackpots] = useState<JackpotPrediction[]>([]);
@@ -636,6 +636,14 @@ export function TipsPage() {
       {/* Tab Bar */}
       <div className="flex bg-zinc-900/60 border border-zinc-800 rounded-xl p-1 mb-6">
         <button
+          onClick={() => setActiveTab('tips')}
+          className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2 ${
+            activeTab === 'tips' ? 'bg-emerald-500 text-zinc-950' : 'text-zinc-400 hover:text-white'
+          }`}
+        >
+          <Zap className="w-4 h-4" /> VIP Tips
+        </button>
+        <button
           onClick={() => setActiveTab('free')}
           className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2 ${
             activeTab === 'free' ? 'bg-emerald-500 text-zinc-950' : 'text-zinc-400 hover:text-white'
@@ -644,20 +652,12 @@ export function TipsPage() {
           <Gift className="w-4 h-4" /> Free Tips
         </button>
         <button
-          onClick={() => setActiveTab('tips')}
-          className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2 ${
-            activeTab === 'tips' ? 'bg-emerald-500 text-zinc-950' : 'text-zinc-400 hover:text-white'
-          }`}
-        >
-          <Zap className="w-4 h-4" /> Daily Tips
-        </button>
-        <button
           onClick={() => setActiveTab('jackpot')}
           className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2 ${
             activeTab === 'jackpot' ? 'bg-gold-500 text-zinc-950' : 'text-zinc-400 hover:text-white'
           }`}
         >
-          <Trophy className="w-4 h-4" /> Jackpot
+          <Trophy className="w-4 h-4" /> Jackpots
         </button>
       </div>
 

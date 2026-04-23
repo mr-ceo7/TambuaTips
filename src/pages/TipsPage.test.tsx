@@ -95,7 +95,7 @@ describe('TipsPage', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(screen.getByText(/Daily Tips/i));
+    expect(screen.getByText(/VIP Tips/i)).toBeInTheDocument();
 
     // Assert that the lock icon or unlock button is rendered for the vip tip
     const components = await screen.findAllByText(/Arsenal/i, {}, { timeout: 4000 });
