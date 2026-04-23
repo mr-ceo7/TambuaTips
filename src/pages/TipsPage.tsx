@@ -447,7 +447,7 @@ function JackpotCard({ jackpot, onGetFree }: { jackpot: JackpotPrediction; key?:
 export function TipsPage() {
   const { user, hasAccess, hasJackpotAccess, setShowAuthModal, setShowPricingModal, setShowJackpotModal, setSelectedJackpot } = useUser();
   const [activeTab, setActiveTab] = useState<'tips' | 'free' | 'jackpot'>('tips');
-  const [jackpotSubTab, setJackpotSubTab] = useState<'all' | 'midweek' | 'mega'>('all');
+  const [jackpotSubTab, setJackpotSubTab] = useState<'midweek' | 'mega'>('midweek');
   const [stats, setStats] = useState({ total: 0, won: 0, lost: 0, pending: 0, voided: 0, postponed: 0, winRate: 0 });
   const [jackpots, setJackpots] = useState<JackpotPrediction[]>([]);
   const [bundleInfo, setBundleInfo] = useState<JackpotBundleInfo | null>(null);
@@ -460,7 +460,7 @@ export function TipsPage() {
   const [loadingJackpot, setLoadingJackpot] = useState(true);
   const [pricingTiers, setPricingTiers] = useState<TierConfig[]>([]);
 
-  const filteredJackpots = jackpots.filter((jackpot) => jackpotSubTab === 'all' || jackpot.type === jackpotSubTab);
+  const filteredJackpots = jackpots.filter((jackpot) => jackpot.type === jackpotSubTab);
 
   // ─── 3D Carousel Mobile State ────────────────────────────────
   const [activeMobileIndex, setActiveMobileIndex] = useState(1);
@@ -1223,13 +1223,12 @@ export function TipsPage() {
             <h2 className="text-lg font-display font-bold uppercase mb-1">Sportpesa Jackpot Predictions</h2>
             <div className="mt-4 inline-flex rounded-xl border border-zinc-800 bg-zinc-900/60 p-1">
               {[
-                { id: 'all', label: 'All' },
                 { id: 'midweek', label: 'Midweek' },
                 { id: 'mega', label: 'Mega' },
               ].map((tab) => (
                 <button
                   key={tab.id}
-                  onClick={() => setJackpotSubTab(tab.id as 'all' | 'midweek' | 'mega')}
+                  onClick={() => setJackpotSubTab(tab.id as 'midweek' | 'mega')}
                   className={`rounded-lg px-4 py-2 text-sm font-bold transition-all ${
                     jackpotSubTab === tab.id ? 'bg-gold-500 text-zinc-950' : 'text-zinc-400 hover:text-white'
                   }`}
@@ -1317,7 +1316,7 @@ export function TipsPage() {
           ) : (
             <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-8 text-center">
               <Trophy className="w-10 h-10 text-zinc-700 mx-auto mb-3" />
-              <p className="text-zinc-400 mb-2">No {jackpotSubTab === 'all' ? '' : `${jackpotSubTab} `}jackpot predictions available yet</p>
+              <p className="text-zinc-400 mb-2">No {jackpotSubTab} jackpot predictions available yet</p>
               <p className="text-xs text-zinc-600">Check back when the next Midweek or Mega Jackpot is announced</p>
             </div>
           )}

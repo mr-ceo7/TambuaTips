@@ -143,6 +143,7 @@ describe('TipsPage', () => {
     );
 
     fireEvent.click(screen.getByText(/Jackpot/i));
+    fireEvent.click(screen.getByRole('button', { name: 'Mega' }));
 
     expect(await screen.findByText("This Week's Mega Jackpot")).toBeInTheDocument();
     expect(await screen.findByAltText("This Week's Mega Jackpot")).toBeInTheDocument();
@@ -196,15 +197,12 @@ describe('TipsPage', () => {
 
     fireEvent.click(screen.getByText(/Jackpot/i));
 
-    const megaHeading = await screen.findByText(/Mega Jackpot/i);
-    expect(megaHeading.closest('.space-y-3')).toHaveTextContent(/3 unique versions with 5 Double Chances/i);
-
-    fireEvent.click(screen.getByRole('button', { name: 'Midweek' }));
     expect(await screen.findByText(/Midweek Jackpot/i)).toBeInTheDocument();
     expect(screen.queryByText(/Mega Jackpot/i)).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Mega' }));
-    expect(await screen.findByText(/Mega Jackpot/i)).toBeInTheDocument();
+    const megaHeading = await screen.findByText(/Mega Jackpot/i);
+    expect(megaHeading.closest('.space-y-3')).toHaveTextContent(/3 unique versions with 5 Double Chances/i);
     expect(screen.queryByText(/Midweek Jackpot/i)).not.toBeInTheDocument();
   });
 });
