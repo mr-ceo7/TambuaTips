@@ -1039,7 +1039,7 @@ export function TipsPage() {
                             <p className="text-xs text-zinc-400 font-medium">
                               {tips.length} Prediction{tips.length !== 1 ? 's' : ''}
                             </p>
-                            {!userHasAccess && (
+                            {!userHasAccess && pendingTips.some((tip) => !tip.isFree) && (
                               <span className="px-2 py-0.5 bg-zinc-800 text-zinc-500 text-[10px] font-bold uppercase rounded-full flex items-center gap-1">
                                 <Lock className="w-2.5 h-2.5" /> {catInfo.minTier} plan
                               </span>
@@ -1051,7 +1051,7 @@ export function TipsPage() {
 
 
                     {/* NEW: Master Unlock Buttons for the Category */}
-                      {!userHasAccess && pendingTips.length > 0 && (
+                      {!userHasAccess && pendingTips.some((tip) => !tip.isFree) && (
                         <div className="flex flex-col sm:flex-row gap-2 mb-4">
                           <button
                             onClick={(e) => { 
@@ -1119,8 +1119,8 @@ export function TipsPage() {
                                     {groupTips.map((tip) => {
                                       const idx = globalIdx++;
                                       const isTipUnlocked = user?.unlocked_tip_ids?.includes(Number(tip.id));
-                                      const locked = !userHasAccess && tip.result === 'pending' && !isTipUnlocked;
-                                      const onGetFree = (!userHasAccess && tip.result === 'pending' && !isTipUnlocked && user) ? () => setShowReferralModal(tip.id) : undefined;
+                                      const locked = !tip.isFree && !userHasAccess && tip.result === 'pending' && !isTipUnlocked;
+                                      const onGetFree = (!tip.isFree && !userHasAccess && tip.result === 'pending' && !isTipUnlocked && user) ? () => setShowReferralModal(tip.id) : undefined;
                                       
                                       return (
                                 <tr key={tip.id} className={`border-b border-zinc-800/50 last:border-0 ${

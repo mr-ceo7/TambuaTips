@@ -28,6 +28,8 @@ from app.models.subscription import SubscriptionTier
 
 
 def user_has_access(user: Optional[User], tip: Tip, tier_dict: dict) -> bool:
+    if int(getattr(tip, "is_premium", 1) or 0) == 0:
+        return True
     return user_has_category_access(user, getattr(tip, "category", ""), tier_dict.values())
 
 

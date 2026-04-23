@@ -102,6 +102,53 @@ describe('TipsPage', () => {
     expect(components.length).toBeGreaterThan(0);
   });
 
+  it('does not lock a free tip inside a paid category', async () => {
+    vi.mocked(tipsService.getTipsByCategory).mockImplementation(async (category: any) => {
+      if (category !== 'gg') return [];
+      return [
+        {
+          id: 'free-gg-1',
+          fixtureId: 202,
+          homeTeam: 'Free GG FC',
+          awayTeam: 'Open United',
+          league: 'Free Category League',
+          matchDate: '2026-04-23T15:00:00Z',
+          prediction: 'Both Teams To Score',
+          odds: '1.75',
+          bookmaker: 'Betway',
+          bookmakerOdds: [],
+          category: 'gg',
+          confidence: 4,
+          reasoning: 'Free promo tip inside a paid category.',
+          isPremium: false,
+          isFree: true,
+          result: 'pending',
+          createdAt: '2026-04-23T12:00:00Z',
+          updatedAt: '2026-04-23T12:00:00Z',
+        }
+      ] as any;
+    });
+    vi.mocked(tipsService.getFreeTips).mockResolvedValue([]);
+    vi.mocked(tipsService.getTipStats).mockResolvedValue({ total: 1, won: 0, lost: 0, pending: 1, voided: 0, postponed: 0, winRate: 0 });
+    vi.mocked(tipsService.getAllJackpots).mockResolvedValue([]);
+    vi.mocked(tipsService.getJackpotBundleInfo).mockResolvedValue(null);
+
+    vi.mocked(useUser).mockReturnValue({
+      ...mockContextDefaults,
+      hasAccess: vi.fn().mockReturnValue(false),
+    } as any);
+
+    render(
+      <MemoryRouter>
+        <TipsPage />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText(/Both Teams To Score/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Premium Match/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/•••/i)).not.toBeInTheDocument();
+  });
+
   it('shows jackpot win loss stats on the jackpot card', async () => {
     vi.mocked(tipsService.getTipsByCategory).mockResolvedValue([]);
     vi.mocked(tipsService.getFreeTips).mockResolvedValue([]);

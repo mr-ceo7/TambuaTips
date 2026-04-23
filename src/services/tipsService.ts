@@ -152,11 +152,10 @@ export async function getPremiumTips(): Promise<Tip[]> {
 
 export async function getTipsByCategory(category: TipCategory): Promise<Tip[]> {
   const params: any = { category };
-  // Free category should only return free tips; paid categories should exclude free tips
+  // The category filter should include free promo tips inside paid categories
+  // e.g. "free GG" or "free 4+" should still appear in their category.
   if (category === 'free') {
     params.is_free = true;
-  } else {
-    params.is_free = false;
   }
   const res = await apiClient.get('/tips', { params });
   return res.data.map(mapTip);

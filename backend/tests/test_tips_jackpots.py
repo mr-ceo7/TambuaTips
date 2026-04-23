@@ -154,6 +154,38 @@ async def test_admin_without_subscription_sees_lost_premium_tip_in_list(client: 
 
 
 @pytest.mark.asyncio
+async def test_free_tip_inside_paid_category_is_not_locked_for_guest(client: AsyncClient, db_session: AsyncSession):
+    free_gg_tip = Tip(
+        fixture_id=88003,
+        home_team="Free GG FC",
+        away_team="Open United",
+        league="Free Category League",
+        match_date=datetime(2026, 4, 23, 15, 0, 0),
+        prediction="Both Teams To Score",
+        odds="1.75",
+        bookmaker="Betway",
+        confidence=4,
+        reasoning="Free promo tip inside a paid category.",
+        category="gg",
+        is_premium=0,
+        result="pending",
+    )
+    db_session.add(free_gg_tip)
+    await db_session.commit()
+    await db_session.refresh(free_gg_tip)
+
+    response = await client.get("/api/tips?category=gg&date=all")
+
+    assert response.status_code == 200
+    payload = response.json()
+    returned_tip = next((item for item in payload if item["id"] == free_gg_tip.id), None)
+    assert returned_tip is not None
+    assert returned_tip["prediction"] == "Both Teams To Score"
+    assert returned_tip["is_premium"] == 0
+    assert returned_tip.get("locked") is None
+
+
+@pytest.mark.asyncio
 async def test_tip_stats_include_postponed_results(db_session: AsyncSession):
     db_session.add_all([
         Tip(
