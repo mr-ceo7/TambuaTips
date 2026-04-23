@@ -277,6 +277,42 @@ async def test_expired_subscription_is_auto_downgraded_on_authenticated_request(
 
 
 @pytest.mark.asyncio
+async def test_active_legacy_subscription_summary_is_not_downgraded_without_entitlements(client: AsyncClient, db_session):
+    active_expiry = datetime.now(UTC).replace(tzinfo=None) + timedelta(days=14)
+    legacy_user = User(
+        email="active-legacy-summary@example.com",
+        name="Active Legacy Summary",
+        password="hashedpassword",
+        is_active=True,
+        subscription_tier="tier_vip",
+        subscription_expires_at=active_expiry,
+    )
+    db_session.add(legacy_user)
+    await db_session.commit()
+    await db_session.refresh(legacy_user)
+
+    session = UserSession(
+        user_id=legacy_user.id,
+        session_id="active-legacy-summary-session",
+    )
+    db_session.add(session)
+    await db_session.commit()
+
+    token = create_access_token(str(legacy_user.id), extra={"session_id": session.session_id})
+    response = await client.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["subscription_tier"] == "tier_vip"
+    assert payload["is_subscription_active"] is True
+    assert payload["subscription_expires_at"] is not None
+
+    refreshed = await db_session.get(User, legacy_user.id)
+    assert refreshed.subscription_tier == "tier_vip"
+    assert refreshed.subscription_expires_at == active_expiry
+
+
+@pytest.mark.asyncio
 async def test_expired_subscription_is_auto_downgraded_on_optional_auth_request(client: AsyncClient, db_session):
     expired_user = User(
         email="expired-optional@example.com",

@@ -21,7 +21,18 @@ security_scheme = HTTPBearer(auto_error=False)
 async def _auto_downgrade_expired_subscription(db: AsyncSession, user) -> bool:
     previous_tier = user.subscription_tier
     previous_expiry = user.subscription_expires_at
-    sync_user_subscription_summary(user, now=datetime.now(UTC).replace(tzinfo=None))
+    now = datetime.now(UTC).replace(tzinfo=None)
+
+    if user.subscription_entitlement_rows:
+        sync_user_subscription_summary(user, now=now)
+    elif (
+        user.subscription_tier != "free"
+        and user.subscription_expires_at is not None
+        and user.subscription_expires_at <= now
+    ):
+        user.subscription_tier = "free"
+        user.subscription_expires_at = None
+
     if user.subscription_tier != previous_tier or user.subscription_expires_at != previous_expiry:
         db.add(user)
         return True

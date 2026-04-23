@@ -504,7 +504,6 @@ async def capture_paypal(token: str, PayerID: str, db: AsyncSession = Depends(ge
                 payment.status = "completed"
                 user_result = await db.execute(select(User).where(User.id == payment.user_id))
                 user = user_result.scalar_one()
-                await db.commit()
                 await _fulfill_payment(payment, user, db)
                 return RedirectResponse(url=f"{settings.FRONTEND_URL}/?payment=success")
             else:
