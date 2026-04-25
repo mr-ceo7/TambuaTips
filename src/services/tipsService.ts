@@ -152,10 +152,12 @@ export async function getPremiumTips(): Promise<Tip[]> {
 
 export async function getTipsByCategory(category: TipCategory): Promise<Tip[]> {
   const params: any = { category };
-  // The category filter should include free promo tips inside paid categories
-  // e.g. "free GG" or "free 4+" should still appear in their category.
   if (category === 'free') {
     params.is_free = true;
+  } else {
+    // For premium categories, exclude free promo tips so they only
+    // appear in the "Free Tips" tab and not duplicated in VIP Tips.
+    params.is_free = false;
   }
   const res = await apiClient.get('/tips', { params });
   return res.data.map(mapTip);
