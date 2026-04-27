@@ -6,6 +6,11 @@ import { paymentService } from '../services/paymentService';
 import { UserProvider } from '../context/UserContext';
 import * as pricingService from '../services/pricingService';
 
+const tiersMock: any[] = vi.hoisted(() => [
+  { id: 'basic', name: 'Basic', price_2wk: 500, price_4wk: 800, currency: 'KES', categories: ['free', '4+'], description: 'Basic tier', price2wk: 500, price4wk: 800, popular: false, features: [] },
+  { id: 'premium', name: 'Premium', price_2wk: 1000, price_4wk: 1500, currency: 'KES', categories: ['free', '2+', '4+', 'gg', '10+', 'vip'], description: 'Premium', price2wk: 1000, price4wk: 1500, popular: true, features: [] }
+]);
+
 vi.mock('../services/paymentService', () => ({
   paymentService: {
     checkStatus: vi.fn(),
@@ -17,7 +22,7 @@ vi.mock('../services/pricingService', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../services/pricingService')>();
   return {
     ...actual,
-    getPricingTiers: vi.fn(),
+    getPricingTiers: vi.fn(() => Promise.resolve(tiersMock)),
   };
 });
 
@@ -30,13 +35,6 @@ describe('PricingModal', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
-
-
-
-  const tiersMock: any[] = [
-    { id: 'basic', name: 'Basic', price_2wk: 500, price_4wk: 800, currency: 'KES', categories: ['free', '4+'], description: 'Basic tier', price2wk: 500, price4wk: 800, popular: false, features: [] },
-    { id: 'premium', name: 'Premium', price_2wk: 1000, price_4wk: 1500, currency: 'KES', categories: ['free', '2+', '4+', 'gg', '10+', 'vip'], description: 'Premium', price2wk: 1000, price4wk: 1500, popular: true, features: [] }
-  ];
 
   it('renders correctly and auto-selects required tier for content', async () => {
     vi.mocked(pricingService.getPricingTiers).mockResolvedValue(tiersMock);

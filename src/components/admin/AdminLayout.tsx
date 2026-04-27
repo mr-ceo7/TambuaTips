@@ -3,7 +3,7 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import {
   LayoutDashboard, Users, TrendingUp, Trophy, DollarSign, Settings,
-  Bell, ChevronLeft, ChevronRight, LogOut, Shield, Menu, X, Megaphone, Presentation, Handshake
+  Bell, ChevronLeft, ChevronRight, LogOut, Shield, Menu, X, Megaphone, Presentation, Handshake, Smartphone
 } from 'lucide-react';
 import { useUser } from '../../context/UserContext';
 import { usePageTitle } from '../../hooks/usePageTitle';
@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { path: '/admin/tips', icon: TrendingUp, label: 'Tips', end: false },
   { path: '/admin/jackpots', icon: Trophy, label: 'Jackpots', end: false },
   { path: '/admin/revenue', icon: DollarSign, label: 'Revenue', end: false },
+  { path: '/admin/legacy-mpesa', icon: Smartphone, label: 'Legacy M-Pesa', end: false },
   { path: '/admin/pricing', icon: Settings, label: 'Pricing', end: false },
   { path: '/admin/ads', icon: Megaphone, label: 'Ads', end: false },
   { path: '/admin/campaigns', icon: Presentation, label: 'Campaigns', end: false },

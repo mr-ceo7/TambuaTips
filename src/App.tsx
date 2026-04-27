@@ -36,6 +36,7 @@ import { UsersPage } from './pages/admin/UsersPage';
 import { TipsManagePage } from './pages/admin/TipsManagePage';
 import { JackpotsManagePage } from './pages/admin/JackpotsManagePage';
 import { RevenuePage } from './pages/admin/RevenuePage';
+import { LegacyMpesaQueuePage } from './pages/admin/LegacyMpesaQueuePage';
 import { PricingManagePage } from './pages/admin/PricingManagePage';
 import { BroadcastPage } from './pages/admin/BroadcastPage';
 import { AdsManagePage } from './pages/admin/AdsManagePage';
@@ -172,6 +173,7 @@ export default function App() {
               <Route path="tips" element={<TipsManagePage />} />
               <Route path="jackpots" element={<JackpotsManagePage />} />
               <Route path="revenue" element={<RevenuePage />} />
+              <Route path="legacy-mpesa" element={<LegacyMpesaQueuePage />} />
               <Route path="pricing" element={<PricingManagePage />} />
               <Route path="broadcast" element={<BroadcastPage />} />
               <Route path="ads" element={<AdsManagePage />} />
