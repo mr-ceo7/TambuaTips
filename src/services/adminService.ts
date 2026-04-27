@@ -82,6 +82,10 @@ export interface DashboardStats {
     online_guests: number;
     today_registered: number;
     today_guests: number;
+    today_online_registered: number;
+    today_online_new_registered: number;
+    today_online_existing: number;
+    today_online_guests: number;
     yesterday_registered: number;
     yesterday_guests: number;
     day_before_yesterday_registered: number;

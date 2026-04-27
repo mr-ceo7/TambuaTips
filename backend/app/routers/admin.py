@@ -813,6 +813,14 @@ async def dashboard_stats(
     day_before_yesterday_guests = sum(
         1 for v in all_visitors if v.first_seen and day_before_yesterday_start <= v.first_seen < yesterday_start
     )
+    today_online_registered = sum(1 for u in all_users if u.last_seen and u.last_seen >= today_start)
+    today_online_new_registered = sum(
+        1
+        for u in all_users
+        if u.last_seen and u.last_seen >= today_start and u.created_at and u.created_at >= today_start
+    )
+    today_online_existing = today_online_registered - today_online_new_registered
+    today_online_guests = sum(1 for v in all_visitors if v.last_seen and v.last_seen >= today_start)
 
     # Subscribers by tier
     tier_counts = {}
@@ -993,6 +1001,10 @@ async def dashboard_stats(
             "total_guests": total_guests,
             "today_registered": today_registered,
             "today_guests": today_guests,
+            "today_online_registered": today_online_registered,
+            "today_online_new_registered": today_online_new_registered,
+            "today_online_existing": today_online_existing,
+            "today_online_guests": today_online_guests,
             "yesterday_registered": yesterday_registered,
             "yesterday_guests": yesterday_guests,
             "day_before_yesterday_registered": day_before_yesterday_registered,

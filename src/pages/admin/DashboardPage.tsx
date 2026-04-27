@@ -251,6 +251,36 @@ export function DashboardPage() {
           badge="LIVE"
           color="emerald"
           pulse
+          extraContent={
+            <div className="mt-2 space-y-1.5">
+              <div className="flex items-center justify-between border-t border-zinc-800/50 pt-2">
+                <p className="text-[8px] font-bold uppercase tracking-widest text-zinc-500">Online Today</p>
+                <p className="text-xs font-black text-white">
+                  {formatCompact((stats.users.today_online_registered || 0) + (stats.users.today_online_guests || 0))}
+                </p>
+              </div>
+              <div className="grid grid-cols-3 gap-1.5">
+                <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-2 py-1.5">
+                  <p className="text-[8px] font-bold uppercase tracking-widest text-emerald-400/80">Existing</p>
+                  <p className="mt-0.5 text-xs font-black text-white">
+                    {formatCompact(stats.users.today_online_existing || 0)}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-purple-500/20 bg-purple-500/10 px-2 py-1.5">
+                  <p className="text-[8px] font-bold uppercase tracking-widest text-purple-400/80">New Reg</p>
+                  <p className="mt-0.5 text-xs font-black text-white">
+                    {formatCompact(stats.users.today_online_new_registered || 0)}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-blue-500/20 bg-blue-500/10 px-2 py-1.5">
+                  <p className="text-[8px] font-bold uppercase tracking-widest text-blue-400/80">Guests</p>
+                  <p className="mt-0.5 text-xs font-black text-white">
+                    {formatCompact(stats.users.today_online_guests || 0)}
+                  </p>
+                </div>
+              </div>
+            </div>
+          }
         />
         {/* Subscribers */}
         <KPICard
