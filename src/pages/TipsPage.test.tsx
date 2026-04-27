@@ -20,6 +20,14 @@ vi.mock('../services/tipsService', () => ({
   getJackpotBundleInfo: vi.fn(),
 }));
 
+vi.mock('../services/pricingService', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../services/pricingService')>();
+  return {
+    ...actual,
+    getPricingTiers: vi.fn().mockResolvedValue([]),
+  };
+});
+
 describe('TipsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -147,6 +155,151 @@ describe('TipsPage', () => {
     expect(await screen.findByText(/Both Teams To Score/i)).toBeInTheDocument();
     expect(screen.queryByText(/Premium Match/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/•••/i)).not.toBeInTheDocument();
+  });
+
+  it('sorts individually unlocked tips above locked tips', async () => {
+    vi.mocked(tipsService.getTipsByCategory).mockImplementation(async (category: any) => {
+      if (category !== 'vip') return [];
+      return [
+        {
+          id: '11',
+          fixtureId: 301,
+          homeTeam: 'Locked FC',
+          awayTeam: 'Hidden United',
+          league: 'Priority League',
+          matchDate: '2026-04-27T15:00:00Z',
+          prediction: 'Locked Pick',
+          odds: '2.00',
+          bookmaker: 'Betway',
+          bookmakerOdds: [],
+          category: 'vip',
+          confidence: 4,
+          reasoning: '',
+          isPremium: true,
+          isFree: false,
+          result: 'pending',
+          createdAt: '2026-04-27T10:00:00Z',
+          updatedAt: '2026-04-27T10:00:00Z',
+        },
+        {
+          id: '22',
+          fixtureId: 302,
+          homeTeam: 'Unlocked FC',
+          awayTeam: 'Visible United',
+          league: 'Priority League',
+          matchDate: '2026-04-27T16:00:00Z',
+          prediction: 'Unlocked Pick',
+          odds: '1.80',
+          bookmaker: 'Betway',
+          bookmakerOdds: [],
+          category: 'vip',
+          confidence: 5,
+          reasoning: '',
+          isPremium: true,
+          isFree: false,
+          result: 'pending',
+          createdAt: '2026-04-27T11:00:00Z',
+          updatedAt: '2026-04-27T11:00:00Z',
+        },
+      ] as any;
+    });
+    vi.mocked(tipsService.getFreeTips).mockResolvedValue([]);
+    vi.mocked(tipsService.getTipStats).mockResolvedValue({ total: 2, won: 0, lost: 0, pending: 2, voided: 0, postponed: 0, winRate: 0 });
+    vi.mocked(tipsService.getAllJackpots).mockResolvedValue([]);
+    vi.mocked(tipsService.getJackpotBundleInfo).mockResolvedValue(null);
+
+    vi.mocked(useUser).mockReturnValue({
+      ...mockContextDefaults,
+      user: { unlocked_tip_ids: [22], subscription: { tier: 'free' }, purchasedJackpotIds: [] },
+      hasAccess: vi.fn().mockReturnValue(false),
+    } as any);
+
+    render(
+      <MemoryRouter>
+        <TipsPage />
+      </MemoryRouter>
+    );
+
+    const unlockedTeam = await screen.findByText(/^Unlocked FC$/i);
+    const lockedTeam = await screen.findByText(/^Locked FC$/i);
+
+    expect(unlockedTeam.compareDocumentPosition(lockedTeam) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByText(/Unlocked Pick/i)).toBeInTheDocument();
+  });
+
+  it('sorts categories with unlocked tips above fully locked categories', async () => {
+    vi.mocked(tipsService.getTipsByCategory).mockImplementation(async (category: any) => {
+      if (category === '2+') {
+        return [
+          {
+            id: '31',
+            fixtureId: 401,
+            homeTeam: 'Locked Two FC',
+            awayTeam: 'Hidden Two United',
+            league: 'Priority League',
+            matchDate: '2026-04-27T15:00:00Z',
+            prediction: 'Locked Two Pick',
+            odds: '2.00',
+            bookmaker: 'Betway',
+            bookmakerOdds: [],
+            category: '2+',
+            confidence: 4,
+            reasoning: '',
+            isPremium: true,
+            isFree: false,
+            result: 'pending',
+            createdAt: '2026-04-27T10:00:00Z',
+            updatedAt: '2026-04-27T10:00:00Z',
+          },
+        ] as any;
+      }
+      if (category === 'gg') {
+        return [
+          {
+            id: '42',
+            fixtureId: 402,
+            homeTeam: 'Unlocked GG FC',
+            awayTeam: 'Visible GG United',
+            league: 'Priority League',
+            matchDate: '2026-04-27T16:00:00Z',
+            prediction: 'BTTS',
+            odds: '1.80',
+            bookmaker: 'Betway',
+            bookmakerOdds: [],
+            category: 'gg',
+            confidence: 5,
+            reasoning: '',
+            isPremium: true,
+            isFree: false,
+            result: 'pending',
+            createdAt: '2026-04-27T11:00:00Z',
+            updatedAt: '2026-04-27T11:00:00Z',
+          },
+        ] as any;
+      }
+      return [];
+    });
+    vi.mocked(tipsService.getFreeTips).mockResolvedValue([]);
+    vi.mocked(tipsService.getTipStats).mockResolvedValue({ total: 2, won: 0, lost: 0, pending: 2, voided: 0, postponed: 0, winRate: 0 });
+    vi.mocked(tipsService.getAllJackpots).mockResolvedValue([]);
+    vi.mocked(tipsService.getJackpotBundleInfo).mockResolvedValue(null);
+
+    vi.mocked(useUser).mockReturnValue({
+      ...mockContextDefaults,
+      user: { unlocked_tip_ids: [42], subscription: { tier: 'free' }, purchasedJackpotIds: [] },
+      hasAccess: vi.fn().mockReturnValue(false),
+    } as any);
+
+    render(
+      <MemoryRouter>
+        <TipsPage />
+      </MemoryRouter>
+    );
+
+    const unlockedCategory = await screen.findByText(/GG \(BTTS\) TIPS/i);
+    const lockedCategory = await screen.findByText(/2\+ ODDS TIPS/i);
+
+    expect(unlockedCategory.compareDocumentPosition(lockedCategory) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('shows jackpot win loss stats on the jackpot card', async () => {

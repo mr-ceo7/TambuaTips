@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 export type SubscriptionTier = 'free' | 'basic' | 'standard' | 'premium';
 
 export interface TierConfig {
-  id: SubscriptionTier;
+  id: string;
   name: string;
   description: string;
   price2wk: number;
@@ -73,6 +73,21 @@ export const CATEGORY_LABELS: Record<TipCategory, { label: string; minTier: Subs
 
 let cachedTiers: TierConfig[] = [...DEFAULT_TIERS];
 
+const TIER_CATEGORY_ALIASES: Record<string, TipCategory[]> = {
+  basic: ['free', '2+'],
+  standard: ['free', '2+', '4+', 'gg'],
+  premium: ['free', '2+', '4+', 'gg', '10+', 'vip'],
+  tier_2plus: ['2+'],
+  tier_4plus: ['4+'],
+  tier_gg: ['gg'],
+  tier_10plus: ['10+'],
+  tier_vip: ['vip'],
+};
+
+function normalizeTierId(tierId?: string | null) {
+  return String(tierId || 'free').trim().toLowerCase();
+}
+
 function ensureFreeTier(tiers: TierConfig[]): TierConfig[] {
   if (tiers.some((tier) => tier.id === 'free')) {
     return tiers;
@@ -80,12 +95,18 @@ function ensureFreeTier(tiers: TierConfig[]): TierConfig[] {
   return [FREE_TIER, ...tiers];
 }
 
-export function hasAccessToCategory(userTier: SubscriptionTier, category: TipCategory): boolean {
+export function hasAccessToCategory(userTier: string | null | undefined, category: TipCategory): boolean {
     if (category === 'free') return true;
-    if (userTier === 'premium') return true;
+    const normalizedTier = normalizeTierId(userTier);
+    if (normalizedTier === 'premium') return true;
+
+    const aliasedCategories = TIER_CATEGORY_ALIASES[normalizedTier];
+    if (aliasedCategories?.includes(category)) {
+        return true;
+    }
     
     // Check if the current tier explicitly contains the category
-    const tierConfig = cachedTiers.find(t => t.id === userTier);
+    const tierConfig = cachedTiers.find(t => normalizeTierId(t.id) === normalizedTier);
     if (tierConfig && tierConfig.categories.includes(category)) {
         return true;
     }
@@ -93,7 +114,7 @@ export function hasAccessToCategory(userTier: SubscriptionTier, category: TipCat
     // Fallback logic for legacy users
     const TIER_RANK: Record<string, number> = { free: 0, basic: 1, standard: 2, premium: 3 };
     const requiredTier = CATEGORY_LABELS[category]?.minTier || 'premium';
-    return (TIER_RANK[userTier] || 0) >= (TIER_RANK[requiredTier] || 3);
+    return (TIER_RANK[normalizedTier] || 0) >= (TIER_RANK[requiredTier] || 3);
 }
 
 import { detectUserCountry } from './geoService';

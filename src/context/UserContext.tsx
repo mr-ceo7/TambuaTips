@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 
 // ---- Types ----
 export interface UserSubscription {
-  tier: SubscriptionTier;
+  tier: SubscriptionTier | string;
   expiresAt: string; // ISO date
 }
 
@@ -322,12 +322,20 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   }, [subscribeTo]);
 
   const hasAccess = useCallback((category: TipCategory): boolean => {
-    if (!user) return category === 'free';
-    // Check if subscription is expired
-    if (user.subscription.expiresAt && new Date(user.subscription.expiresAt) < new Date()) {
-      return category === 'free';
+    if (category === 'free') return true;
+    if (!user) return false;
+
+    const now = new Date();
+    const subscriptionExpiresAt = user.subscription.expiresAt ? new Date(user.subscription.expiresAt) : null;
+    if ((!subscriptionExpiresAt || subscriptionExpiresAt > now) && hasAccessToCategory(user.subscription.tier, category)) {
+      return true;
     }
-    return hasAccessToCategory(user.subscription.tier, category);
+
+    return (user.subscription_entitlements || []).some((entitlement) => {
+      const expiresAt = entitlement.expires_at ? new Date(entitlement.expires_at) : null;
+      if (expiresAt && expiresAt < now) return false;
+      return hasAccessToCategory(entitlement.tier_id, category);
+    });
   }, [user]);
 
   const toggleFavoriteTeam = useCallback((team: string) => {

@@ -24,7 +24,7 @@ type PhoneStep = 'input' | 'otp';
 export function AuthModal() {
   const { showAuthModal, setShowAuthModal, googleLogin, requestPhoneOtp, phoneLogin } = useUser();
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState<AuthTab>('google');
+  const [activeTab, setActiveTab] = useState<AuthTab>('phone');
   
   // Phone state
   const [countryCode, setCountryCode] = useState(COUNTRY_CODES[0]);
@@ -53,6 +53,7 @@ export function AuthModal() {
     setOtpCode('');
     setPhoneStep('input');
     setShowCountryPicker(false);
+    setActiveTab('phone');
   };
 
   const handleRequestOtp = async () => {

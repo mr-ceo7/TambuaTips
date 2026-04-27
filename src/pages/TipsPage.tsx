@@ -22,6 +22,22 @@ const CATEGORY_ICONS: Record<TipCategory, React.ElementType> = {
   'vip': Crown,
 };
 
+function isTipUnlockedForDisplay(tip: Tip, userHasAccess: boolean, unlockedTipIds?: number[]) {
+  return tip.isFree || userHasAccess || tip.result !== 'pending' || unlockedTipIds?.includes(Number(tip.id));
+}
+
+function sortUnlockedTipsFirst(tips: Tip[], userHasAccess: boolean, unlockedTipIds?: number[]) {
+  return [...tips].sort((a, b) => {
+    const aLocked = !isTipUnlockedForDisplay(a, userHasAccess, unlockedTipIds);
+    const bLocked = !isTipUnlockedForDisplay(b, userHasAccess, unlockedTipIds);
+    return Number(aLocked) - Number(bLocked);
+  });
+}
+
+function categoryHasUnlockedTips(tips: Tip[], userHasAccess: boolean, unlockedTipIds?: number[]) {
+  return tips.some((tip) => isTipUnlockedForDisplay(tip, userHasAccess, unlockedTipIds));
+}
+
 // ─── Tip Card ────────────────────────────────────────────────
 function TipCard({ tip, locked = false, onGetFree }: { tip: Tip; locked?: boolean; key?: React.Key; onGetFree?: () => void }) {
   const { user, setShowAuthModal, setShowPricingModal, hasAccess } = useUser();
@@ -1001,7 +1017,14 @@ export function TipsPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              {CATEGORY_ORDER.map(cat => {
+              {[...CATEGORY_ORDER].sort((a, b) => {
+                const aHasUnlockedTips = categoryHasUnlockedTips(tipsByCategory[a] || [], hasAccess(a), user?.unlocked_tip_ids);
+                const bHasUnlockedTips = categoryHasUnlockedTips(tipsByCategory[b] || [], hasAccess(b), user?.unlocked_tip_ids);
+                if (aHasUnlockedTips !== bHasUnlockedTips) {
+                  return Number(bHasUnlockedTips) - Number(aHasUnlockedTips);
+                }
+                return CATEGORY_ORDER.indexOf(a) - CATEGORY_ORDER.indexOf(b);
+              }).map(cat => {
                 const tips = tipsByCategory[cat] || [];
                 const catInfo = CATEGORY_LABELS[cat];
                 const Icon = CATEGORY_ICONS[cat];
@@ -1016,7 +1039,11 @@ export function TipsPage() {
                 
                 // Show maximum 2 historical matches by default to prevent huge scrolling blocks
                 const displayedHistory = isExpanded ? historyTips : historyTips.slice(0, 2);
-                const displayedTips = [...pendingTips, ...displayedHistory];
+                const displayedTips = sortUnlockedTipsFirst(
+                  [...pendingTips, ...displayedHistory],
+                  userHasAccess,
+                  user?.unlocked_tip_ids
+                );
 
                 return (
                   <div key={cat} className="bg-zinc-900/60 border border-zinc-800 rounded-2xl overflow-hidden transition-all">

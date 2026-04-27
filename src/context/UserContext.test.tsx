@@ -30,6 +30,16 @@ const TestComponent = () => {
   );
 };
 
+const AccessComponent = () => {
+  const { hasAccess } = useUser();
+  return (
+    <div>
+      <span data-testid="gg-access">{hasAccess('gg') ? 'yes' : 'no'}</span>
+      <span data-testid="ten-plus-access">{hasAccess('10+') ? 'yes' : 'no'}</span>
+    </div>
+  );
+};
+
 describe('UserContext', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -127,6 +137,37 @@ describe('UserContext', () => {
     // Expect user to be cleared
     await waitFor(() => {
       expect(screen.getByTestId('status').textContent).toBe('Logged Out');
+    });
+  });
+
+  it('grants access from active subscription entitlements', async () => {
+    const mockUserData = {
+      id: '1',
+      username: 'TestUser',
+      email: 'test@example.com',
+      createdAt: new Date().toISOString(),
+      subscription: { tier: 'free' as const, expiresAt: '' },
+      subscription_entitlements: [
+        {
+          id: 10,
+          tier_id: 'tier_gg',
+          expires_at: '2099-01-01T00:00:00Z',
+          payment_id: null,
+          source: 'admin',
+        },
+      ],
+    };
+    vi.mocked(authService.me).mockResolvedValueOnce(mockUserData);
+
+    render(
+      <UserProvider>
+        <AccessComponent />
+      </UserProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('gg-access').textContent).toBe('yes');
+      expect(screen.getByTestId('ten-plus-access').textContent).toBe('no');
     });
   });
 });
