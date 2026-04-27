@@ -18,7 +18,20 @@ import { AutocompleteInput } from '../../components/AutocompleteInput';
 const DEFAULT_PREDICTIONS = ['1', 'X', '2', '1X', 'X2', '12', 'Ov1.5', 'Ov2.5', 'Ov3.5', 'Un2.5', 'GG', 'NG', 'GG & O2.5'];
 
 const TIP_CATEGORIES: TipCategory[] = ['free', '2+', '4+', 'gg', '10+', 'vip'];
-const FREE_IN_PAID_CATEGORY_FILTERS = TIP_CATEGORIES.filter((cat) => cat !== 'free');
+type PaidTipCategory = Exclude<TipCategory, 'free'>;
+type TipCategoryFilter = 'all' | TipCategory | `free:${PaidTipCategory}`;
+type TipResultFilter = 'all' | Tip['result'];
+const FREE_IN_PAID_CATEGORY_FILTERS = TIP_CATEGORIES.filter((cat): cat is PaidTipCategory => cat !== 'free');
+
+export function matchesCategoryFilter(tip: Tip, filterCategory: TipCategoryFilter) {
+  if (filterCategory === 'all') return true;
+  if (filterCategory === 'free') return tip.isFree;
+  if (filterCategory.startsWith('free:')) {
+    const freeCategory = filterCategory.slice(5) as PaidTipCategory;
+    return tip.isFree && tip.category === freeCategory;
+  }
+  return !tip.isFree && tip.category === filterCategory;
+}
 
 
 export function TipsManagePage() {
@@ -27,8 +40,8 @@ export function TipsManagePage() {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [filterCategory, setFilterCategory] = useState<string>('all');
-  const [filterResult, setFilterResult] = useState<string>('all');
+  const [filterCategory, setFilterCategory] = useState<TipCategoryFilter>('all');
+  const [filterResult, setFilterResult] = useState<TipResultFilter>('all');
   const [selectedTips, setSelectedTips] = useState<Set<string>>(new Set());
 
   // Quick-add fixture search
@@ -253,12 +266,7 @@ export function TipsManagePage() {
 
   // Filtered tips
   const filteredTips = tips.filter(t => {
-    if (filterCategory.startsWith('free:')) {
-      const freeCategory = filterCategory.slice(5);
-      if (!(t.isFree && t.category === freeCategory)) return false;
-    } else if (filterCategory !== 'all' && t.category !== filterCategory) {
-      return false;
-    }
+    if (!matchesCategoryFilter(t, filterCategory)) return false;
     if (filterResult !== 'all' && t.result !== filterResult) return false;
     return true;
   });
@@ -523,8 +531,8 @@ export function TipsManagePage() {
 
         {/* ─── Right Content (Filter + Table) ────────────────── */}
         <div className="flex-1 flex flex-col gap-4 min-w-0 w-full relative">
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="flex gap-1 bg-zinc-900/60 border border-zinc-800/60 rounded-xl p-1 overflow-x-auto shrink-0">
+      <div className="flex w-full min-w-0 flex-wrap gap-3 overflow-hidden">
+        <div className="flex min-w-0 max-w-full gap-1 overflow-x-auto bg-zinc-900/60 border border-zinc-800/60 rounded-xl p-1">
           <button
             onClick={() => setFilterCategory('all')}
             className={`px-3 py-1.5 rounded-lg text-[11px] font-bold whitespace-nowrap transition-all ${
@@ -541,7 +549,7 @@ export function TipsManagePage() {
             >{CATEGORY_LABELS[cat]?.label || cat}</button>
           ))}
         </div>
-        <div className="flex gap-1 bg-zinc-900/60 border border-zinc-800/60 rounded-xl p-1 overflow-x-auto shrink-0">
+        <div className="flex min-w-0 max-w-full gap-1 overflow-x-auto bg-zinc-900/60 border border-zinc-800/60 rounded-xl p-1">
           {FREE_IN_PAID_CATEGORY_FILTERS.map(cat => (
             <button
               key={`free:${cat}`}
@@ -552,8 +560,8 @@ export function TipsManagePage() {
             >{`Free ${CATEGORY_LABELS[cat]?.label || cat}`}</button>
           ))}
         </div>
-        <div className="flex gap-1 bg-zinc-900/60 border border-zinc-800/60 rounded-xl p-1">
-          {['all', 'pending', 'won', 'lost', 'void', 'postponed'].map(r => (
+        <div className="flex min-w-0 max-w-full gap-1 overflow-x-auto bg-zinc-900/60 border border-zinc-800/60 rounded-xl p-1">
+          {(['all', 'pending', 'won', 'lost', 'void', 'postponed'] as TipResultFilter[]).map(r => (
             <button
               key={r}
               onClick={() => setFilterResult(r)}
