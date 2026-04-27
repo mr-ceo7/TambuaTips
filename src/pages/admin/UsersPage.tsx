@@ -14,6 +14,7 @@ type AssignmentMode = 'subscription' | 'jackpot';
 type JackpotGrantType = 'midweek' | 'mega';
 
 const JACKPOT_DC_OPTIONS = [3, 4, 5, 6, 7, 10];
+const SEARCH_DEBOUNCE_MS = 400;
 
 const getFlagEmoji = (countryCode: string) => {
   if (!countryCode || countryCode.length !== 2) return '';
@@ -29,7 +30,8 @@ export function UsersPage() {
   const todayDate = today.toISOString().slice(0, 10);
   const monthStartDate = `${todayDate.slice(0, 8)}01`;
   const [users, setUsers] = useState<AdminUser[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [loadingUsers, setLoadingUsers] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedUserIds, setSelectedUserIds] = useState<number[]>([]);
@@ -78,6 +80,7 @@ export function UsersPage() {
   const [legacyBulkJackpotType, setLegacyBulkJackpotType] = useState<JackpotGrantType>('midweek');
   const [legacyBulkJackpotDcLevel, setLegacyBulkJackpotDcLevel] = useState<number>(3);
   const legacyAutoSyncInFlight = useRef(false);
+  const userListRequestId = useRef(0);
 
   const [grantModalOpen, setGrantModalOpen] = useState<number | null>(null);
   const [grantTier, setGrantTier] = useState<string>('premium');
@@ -121,14 +124,19 @@ export function UsersPage() {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      setDebouncedSearch(searchQuery.trim());
-    }, 300);
+      const nextSearch = searchQuery.trim();
+      setCurrentPage(1);
+      setDebouncedSearch((currentSearch) => (
+        currentSearch === nextSearch ? currentSearch : nextSearch
+      ));
+    }, SEARCH_DEBOUNCE_MS);
 
     return () => window.clearTimeout(timer);
   }, [searchQuery]);
 
   const loadUsers = (page = currentPage) => {
-    setLoading(true);
+    const requestId = ++userListRequestId.current;
+    setLoadingUsers(true);
     adminService.getUsers({
       search: debouncedSearch || undefined,
       tier: filterTier,
@@ -138,6 +146,7 @@ export function UsersPage() {
       per_page: perPage,
     })
       .then((data) => {
+        if (requestId !== userListRequestId.current) return;
         setUsers(data.users);
         setTotalUsers(data.total);
         setTotalPages(Math.max(data.total_pages, 1));
@@ -147,8 +156,15 @@ export function UsersPage() {
           setUserDetail(null);
         }
       })
-      .catch(() => toast.error('Failed to load users'))
-      .finally(() => setLoading(false));
+      .catch(() => {
+        if (requestId !== userListRequestId.current) return;
+        toast.error('Failed to load users');
+      })
+      .finally(() => {
+        if (requestId !== userListRequestId.current) return;
+        setLoadingUsers(false);
+        setInitialLoading(false);
+      });
   };
 
   useEffect(() => {
@@ -673,7 +689,7 @@ export function UsersPage() {
     }
   };
 
-  if (loading) {
+  if (initialLoading) {
     return (
       <div className="space-y-4 animate-pulse">
         <div className="h-12 bg-zinc-900/60 rounded-xl" />
@@ -689,7 +705,15 @@ export function UsersPage() {
   return (
     <div className="space-y-5 overflow-hidden">
       <div>
-        <h1 className="text-xl sm:text-2xl font-bold text-white font-display">User Management</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-xl sm:text-2xl font-bold text-white font-display">User Management</h1>
+          {loadingUsers && (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-zinc-800 bg-zinc-900/70 px-2.5 py-1 text-[11px] font-bold text-zinc-400">
+              <RefreshCw className="h-3 w-3 animate-spin text-emerald-400" />
+              Updating
+            </span>
+          )}
+        </div>
         <p className="text-sm text-zinc-500 mt-1">
           {totalUsers.toLocaleString()} users in current result
         </p>
@@ -1153,16 +1177,13 @@ export function UsersPage() {
       </div>
 
       {/* ─── Filters Bar ─────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <form onSubmit={handleSearchSubmit} className="relative flex-1">
+      <div className="flex w-full min-w-0 flex-col gap-3 xl:flex-row xl:items-center">
+        <form onSubmit={handleSearchSubmit} className="relative w-full xl:w-80 xl:shrink-0">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
           <input
             type="search"
             value={searchQuery}
-            onChange={e => {
-              setSearchQuery(e.target.value);
-              setCurrentPage(1);
-            }}
+            onChange={e => setSearchQuery(e.target.value)}
             placeholder="Search by name, email, phone, or country..."
             aria-label="Search users"
             autoComplete="off"
@@ -1179,7 +1200,7 @@ export function UsersPage() {
             </button>
           )}
         </form>
-        <div className="flex gap-1.5 bg-zinc-900/60 border border-zinc-800/60 rounded-xl p-1 overflow-x-auto">
+        <div className="flex min-w-0 max-w-full flex-1 gap-1.5 overflow-x-auto bg-zinc-900/60 border border-zinc-800/60 rounded-xl p-1">
           {[
             { key: 'all', label: 'All' },
             { key: 'online', label: '🟢 Online' },
@@ -1515,7 +1536,7 @@ export function UsersPage() {
         <div className="flex items-center gap-2">
           <button
             type="button"
-            disabled={currentPage <= 1 || loading}
+            disabled={currentPage <= 1 || loadingUsers}
             onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
             className="px-3 py-2 rounded-xl bg-zinc-900/60 border border-zinc-800/60 text-sm text-zinc-300 disabled:opacity-40"
           >
@@ -1523,7 +1544,7 @@ export function UsersPage() {
           </button>
           <button
             type="button"
-            disabled={currentPage >= totalPages || loading}
+            disabled={currentPage >= totalPages || loadingUsers}
             onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
             className="px-3 py-2 rounded-xl bg-zinc-900/60 border border-zinc-800/60 text-sm text-zinc-300 disabled:opacity-40"
           >
