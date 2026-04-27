@@ -254,7 +254,7 @@ export function DashboardPage() {
           extraContent={
             <div className="mt-2 space-y-1.5">
               <div className="flex items-center justify-between border-t border-zinc-800/50 pt-2">
-                <p className="text-[8px] font-bold uppercase tracking-widest text-zinc-500">Online Today</p>
+                <p className="text-[8px] font-bold uppercase tracking-widest text-zinc-500">Been Online Today</p>
                 <p className="text-xs font-black text-white">
                   {formatCompact((stats.users.today_online_registered || 0) + (stats.users.today_online_guests || 0))}
                 </p>
